@@ -3,7 +3,8 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QM
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal
 import Dialogs, tifffile as tiff, numpy as np
 from PIL import Image, ImageSequence
-
+import cv2
+import time
 
 
 class ReferenceGraphicsView(QGraphicsView):
@@ -119,43 +120,46 @@ class ImageGraphicsView(QGraphicsView):
         self.newImageAdded.emit(self.pixmapItem)
 
 
-    def __filename_to_pixmap(self, file_name:str):
+    def __filename_to_pixmap(self, file_name:str):  
+        t_f = time.time()
         if file_name.endswith((".tiff", ".tif")):
 
             # image_data = tiff.imread(file_name) 
             Image.MAX_IMAGE_PIXELS = 9999999999999
-            image_data = Image.open(file_name)
-            num_channels = sum(1 for _ in ImageSequence.Iterator(image_data))
+            image_data = tiff.imread(file_name) 
+            num_channels, height, width = image_data.shape
 
             bytesPerPixel = 1 # only supports uint8 and uint16
             format = QImage.Format.Format_Grayscale8
 
             if (num_channels > 1):
                 # num_channels, height, width = image_data.shape
-                resultSize = QSize(image_data.width, image_data.height)
+                resultSize = QSize(width, height)
                 self.resultImage = QImage(resultSize, QImage.Format.Format_ARGB32_Premultiplied)
 
                 self.channels = {}
                 self.np_channels = {}
                 for channel_num in range(num_channels):
-                    image_data.seek(channel_num)
-                    image_data_np = np.array(image_data)
+                    t = time.time()
+                    # image_data.seek(channel_num)
+                    # image_data_np = np.array(image_data)
                     channel_name = f'Channel {channel_num + 1}'
-                    
+
                     # self.channel_selector_combobox.addItem(channel_name)
-                    __scaled = self.scale_adjust(image_data_np) # uint8
+                    __scaled = self.scale_adjust(image_data[channel_num,:,:]) 
                     image_adjusted = self.adjustContrast(__scaled) # uint8
                     self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
-                    qimage_channel = QImage(image_adjusted, image_data.width, image_data.height, image_data.width*bytesPerPixel, format)
+                    qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                     # qpixmap_channel = QtGui.QPixmap(qimage_channel)
                     self.channels[channel_name] = qimage_channel # for displaying on canvas
+                    
+                    print(time.time() - t)
 
                 channel_one_qimage = next(iter(self.channels.values()))
                 self.channelLoaded.emit(self.channels, self.np_channels)
                 
             else:
-                image_data_np = np.array(image_data)
-                __scaled = self.scale_adjust(image_data_np) # uint8
+                __scaled = self.scale_adjust(image_data[channel_num,:,:]) 
                 image_adjusted = self.adjustContrast(__scaled) # uint8
                 channel_one_qimage = QImage(image_adjusted, image_data.width, image_data.height, image_data.width*bytesPerPixel, format)
                 self.channelNotLoaded.emit(image_adjusted)
@@ -165,10 +169,16 @@ class ImageGraphicsView(QGraphicsView):
         else:
             pixmap = QPixmap(file_name)
 
+        print(time.time() - t_f)
+
         return pixmap
     
 
     def adjustContrast(self,img, min=2, max = 98):  
+        alpha = 1.5 # Contrast control
+        beta = 10 # Brightness control
+        return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+        
         minval = np.percentile(img, min) 
         maxval = np.percentile(img, max) 
         img = np.clip(img, minval, maxval)
@@ -176,7 +186,9 @@ class ImageGraphicsView(QGraphicsView):
         return (img.astype(np.uint8))
 
     def scale_adjust(self, arr:np.ndarray):
+        return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
         return ((arr - arr.min()) * (1/(arr.max() - arr.min()) * 255)).astype('uint8')
+    
         
     def deleteImage(self):
         self.scene().clear()
