@@ -10,6 +10,9 @@ class StarDistUI(QWidget):
 
         self.stardist_groupbox = QGroupBox(parent)
         self.stardist_groupbox.setMinimumSize(QSize(300, 300))
+        self.stardist_groupbox.setMaximumSize(QSize(500, 300))
+
+
         self.stardist_groupbox.setObjectName("stardist_groupbox")
         self.horizontalLayout_4 = QHBoxLayout(self.stardist_groupbox)
         self.horizontalLayout_4.setObjectName("horizontalLayout_4")

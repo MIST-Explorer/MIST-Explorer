@@ -1,5 +1,3 @@
 ui files/
-rotationdialog.py
-brightness_and_contrast.py
 __pycache__/
-test.ipynb
+testing/

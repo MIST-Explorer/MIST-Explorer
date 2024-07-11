@@ -114,8 +114,8 @@ class Ui_MainWindow(QMainWindow):
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
 
-        # thresholding UI
-        self.threshold_groupbox = ThresholdUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        # # thresholding UI
+        # self.threshold_groupbox = ThresholdUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
