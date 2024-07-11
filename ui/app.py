@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QImageReader
-from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication
+from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
                              QStatusBar, QProgressBar, QGroupBox)
 import protein_selection
@@ -28,12 +28,17 @@ class Ui_MainWindow(QMainWindow):
         
         # initialize tabs
         self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabWidget = QTabWidget(self.tabScrollArea)
-        self.tabWidget.setMinimumSize(QSize(400, 500))
-        self.tabWidget.setMaximumSize(QSize(100, 2000))
-        self.tabWidget.setAutoFillBackground(False)
-        self.tabWidget.setObjectName("tabWidget")
+        self.tabScrollArea.setGeometry(0, 0, 420, 520) 
+        
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setMinimumSize(QSize(400, 1100))
+        self.tabWidget.setMaximumSize(QSize(1000, 2000))  
 
+        self.tabScrollArea.setWidget(self.tabWidget)
+        
+        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
+        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget)
