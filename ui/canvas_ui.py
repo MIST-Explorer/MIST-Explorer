@@ -78,6 +78,10 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.scene().clear()
         # center image
         self.pixmapItem = pixmapItem
+        if not self.pixmapItem.pixmap().isNull():
+            print("addNewImage: there is a pixmapItem")
+        else:
+            print("addNewImage; there is no pixmapItem")
         self.__centerImage(self.pixmapItem)
         #make item movable
         self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
