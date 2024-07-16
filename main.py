@@ -9,6 +9,7 @@ if __name__ == "__main__":
     ui = app.Ui_MainWindow()
     model = image_processing.canvas.ImageGraphicsView()
     model_stardist = image_processing.stardist.StarDist()
+    
     _controller = controller.Controller(model, model_stardist, ui)
     ui.show()
     sys.exit(__app.exec())

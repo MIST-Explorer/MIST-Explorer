@@ -2,6 +2,8 @@ import ui.app, Dialogs, image_processing.canvas, image_processing.stardist
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
 
+from cf_global import SingletonData
+
 class Controller:
     def __init__(self, 
                  model_canvas: image_processing.canvas.ImageGraphicsView, 
@@ -26,6 +28,7 @@ class Controller:
 
         self.view.canvas.imageDropped.connect(self.model.addImage)
         self.model.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
+        self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
 
         self.model.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.model.channelLoaded.connect(self.view.toolBar.updateChannelSelector)
@@ -60,6 +63,9 @@ class Controller:
         self.view.stardist_groupbox.stardist_run_button.pressed.connect(self.model_stardist.runStarDist)
 
         # display stardist result
+        self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        
+        # Display Butterfly
         self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
 
     def on_action_openFiles_triggered(self):
