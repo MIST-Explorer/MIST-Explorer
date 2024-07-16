@@ -14,7 +14,7 @@ class Controller:
         self.openFilesDialog = None
 
         #menubar signals
-        self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
+        # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
         self.view.menubar.actionOpenReference.triggered.connect(self.on_action_reference_triggered)
         self.view.menubar.actionOpen.triggered.connect(self.on_actionOpen_triggered)
 
@@ -52,15 +52,15 @@ class Controller:
         self.view.stardist_groupbox.prob_threshold.valueChanged.connect(self.model_stardist.setProbThresh)
         self.view.stardist_groupbox.nms_threshold.valueChanged.connect(self.model_stardist.setNMSThresh)
         self.view.stardist_groupbox.n_tiles.valueChanged.connect(self.model_stardist.setNumberTiles)
-        self.view.stardist_groupbox.kernel_size.valueChanged.connect(self.model_stardist.setDilationKernelSize)
-        self.view.stardist_groupbox.iterations.valueChanged.connect(self.model_stardist.setDilationIterations)
-
+        self.view.stardist_groupbox.radius.valueChanged.connect(self.model_stardist.setDilationRadius)
 
         #run stardist
         self.view.stardist_groupbox.stardist_run_button.pressed.connect(self.model_stardist.runStarDist)
 
         # display stardist result
         self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+
+
 
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
@@ -85,6 +85,3 @@ class Controller:
         if self.model.channels:
             channel_pixmap = QPixmap.fromImage(self.model.channels[self.view.toolBar.channelSelector.itemText(index)])
             self.model.toPixmapItem(channel_pixmap)
-
-    # def update_param(self, key, value):
-    #     self.model_stardist.set_param(key, value)

@@ -3,6 +3,8 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtWidgets import QMessageBox
 import numpy as np, cv2 as cv
+import pyclesperanto_prototype as cle
+from skimage.color import label2rgb
 from image_processing.canvas import ImageGraphicsView
 import ui.app
 # STARDIST
@@ -25,8 +27,7 @@ class StarDist(QObject):
         'prob_threshold': 0.48,
         'nms_threshold': 0.3,
         'n_tiles': 0,
-        'kernel_size': 3,
-        'iterations': 1
+        'radius': 5,
         }
 
     def runStarDist(self):
@@ -55,22 +56,29 @@ class StarDist(QObject):
             else:
                 stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), prob_thresh=.48, nms_thresh=.3, n_tiles =self.params['n_tiles'])
 
-            kernel = np.ones((self.params['kernel_size'], self.params['kernel_size']), np.uint8)
 
             # size it back to original
             if scaleDown:
-                stardist_labels = cv.resize(np.array(stardist_labels).astype('uint16'), (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
+                # cv resize takes uint16, can't do uint32
+                stardist_labels = cv.resize(np.array(stardist_labels, dtype = np.uint16), (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
 
             # dilate
-            stardist_labels = cv.dilate(self.normalize_to_uint8(stardist_labels), kernel = kernel, iterations=self.params['iterations'])
+            radius = self.params['radius']
+            print("dilating")
+            stardist_labels_grayscale = np.array(cle.dilate_labels(stardist_labels, radius=radius), dtype=np.uint16) # can represent 65535 cells, grayscale
+
+            print("to rgb")
+            stardist_labels_rgb = label2rgb(stardist_labels_grayscale) #takes too long
+
+            print("to uint8")
+            stardist_labels_rgb = (stardist_labels_rgb * 255).astype(np.uint8)
 
             # convert to pixmap
-            height, width = stardist_labels.shape
-            stardist_qimage = QImage(stardist_labels.data, width, height, width, QImage.Format.Format_Grayscale8)
+            stardist_qimage = self.numpy_to_qimage(stardist_labels_rgb)
             stardist_pixmap = QPixmap(stardist_qimage)
             self.stardistDone.emit(stardist_pixmap)
 
-        except TypeError: # should probably start defining custom exceptions
+        except AttributeError: # should probably start defining custom exceptions
             QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
         
     
@@ -83,22 +91,22 @@ class StarDist(QObject):
         self.np_image = None
         self.np_channels = channels
 
-    # def numpy_to_qimage(self, array:np.ndarray) -> QImage:
-    #     if len(array.shape) == 2:
-    #         # Grayscale image
-    #         height, width = array.shape
-    #         qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
-    #     elif len(array.shape) == 3:
-    #         height, width, channels = array.shape
-    #         if channels == 3:
-    #             # RGB image
-    #             qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
-    #         elif channels == 4:
-    #             # RGBA image
-    #             qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
-    #     else:
-    #         raise ValueError("Unsupported array shape: {}".format(array.shape))
-    #     return qimage
+    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
+        if len(array.shape) == 2:
+            # Grayscale image
+            height, width = array.shape
+            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
+        elif len(array.shape) == 3:
+            height, width, channels = array.shape
+            if channels == 3:
+                # RGB image
+                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
+            elif channels == 4:
+                # RGBA image
+                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
+        else:
+            raise ValueError("Unsupported array shape: {}".format(array.shape))
+        return qimage
 
     # def qimage_to_numpy(self, qimage:QImage):
     #     # Ensure the QImage format is suitable for conversion
@@ -139,9 +147,5 @@ class StarDist(QObject):
     def setNumberTiles(self, value):
         self.params['n_tiles'] = value
 
-    def setDilationKernelSize(self, value):
-        self.params['kernel_size'] = value
-
-    def setDilationIterations(self, value):
-        self.params['iterations'] = value
-
+    def setDilationRadius(self, value):
+        self.params['radius'] = value

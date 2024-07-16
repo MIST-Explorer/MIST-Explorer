@@ -73,8 +73,8 @@ class ImageGraphicsViewUI(QGraphicsView):
         '''add a new image, deletes the older one'''
         # clear
         self.scene().clear()
-        # center image
         self.pixmapItem = pixmapItem
+        # center image
         self.__centerImage(self.pixmapItem)
         #make item movable
         self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)

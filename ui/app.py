@@ -3,7 +3,7 @@ from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
                              QStatusBar, QProgressBar, QGroupBox)
 import protein_selection
-from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.threshold_ui import ThresholdUI
+from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
 
 
@@ -43,7 +43,6 @@ class Ui_MainWindow(QMainWindow):
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget)
         self.canvas.setMinimumSize(QSize(800, 500))
-        self.canvas.setObjectName("canvas")
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
@@ -54,13 +53,10 @@ class Ui_MainWindow(QMainWindow):
         ####### view tab #######################################
         self.tabWidget.addTab(self.preprocessing_tab, "")
         self.view_tab = QWidget()
-        self.view_tab.setObjectName("view_tab")
         self.protein_hlayout = QHBoxLayout(self.view_tab)
-        self.protein_hlayout.setObjectName("horizontalLayout_3")
         
         # add the protein selection boxes
         self.proteinWidget_main_vlayout = QVBoxLayout()
-        self.proteinWidget_main_vlayout.setObjectName("proteinWidget_main_vlayout")
         self.protein1_groupbox = protein_selection.Protein_Selector(self.view_tab)
         self.protein2_groupbox = protein_selection.Protein_Selector(self.view_tab)
         self.protein3_groupbox = protein_selection.Protein_Selector(self.view_tab)
@@ -100,6 +96,9 @@ class Ui_MainWindow(QMainWindow):
         self.preprocessing_tab = QWidget()
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
+        self.preprocessing_dockwidget_main_vlayout.setSpacing(0)
+        self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
+
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) # from preprocessing tab
 
         # crop
@@ -120,7 +119,8 @@ class Ui_MainWindow(QMainWindow):
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
-        # registration UI
-        self.registration_groupbox = QGroupBox()
-        self.registration_groupbox.setTitle("Register")
-        self.preprocessing_dockwidget_main_vlayout.addWidget(self.registration_groupbox)
+        self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        # # registration UI
+        # self.registration_groupbox = QGroupBox()
+        # self.registration_groupbox.setTitle("Register")
+        # self.preprocessing_dockwidget_main_vlayout.addWidget(self.registration_groupbox)
