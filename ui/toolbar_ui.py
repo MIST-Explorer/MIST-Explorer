@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox
 from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal
 from PyQt6.QtGui import QPainter
 from ui.tool import Action
+import matplotlib as mpl
 
 class ToolBarUI(QWidget):
 
@@ -10,8 +11,9 @@ class ToolBarUI(QWidget):
         self.toolbar = QToolBar(parent)
         parent.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
         self.__createActions(parent)
-        self.__addActions()
+        # self.__addCmaps()
         self.__addAllOps() #not used right now
+        self.__addActions()
         self.__retranslateUI()
 
 
@@ -28,16 +30,23 @@ class ToolBarUI(QWidget):
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "icons/brightness.png")
         self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
+        self.cmapSelector = QComboBox(parent)
 
         self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
 
+    # def __addCmaps(self):
+        # cmap1 = mpl.colormaps['viridis']
+        # cmap2 = mpl.colormaps['BuPu']
+        # self.cmapSelector.addItem(cmap1)
 
+        
     def __addActions(self):
         self.toolbar.addAction(self.actionReset)
         self.toolbar.addAction(self.actionOpenBrightnessContrast)
         self.toolbar.addWidget(self.operatorComboBox)
         self.toolbar.addWidget(self.channelSelector)
+        self.toolbar.addWidget(self.cmapSelector)
 
     def __addOp(self, mode, name:str):
         self.operatorComboBox.addItem(name, mode)

@@ -2,9 +2,8 @@
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtWidgets import QMessageBox
-import numpy as np, cv2 as cv
+import numpy as np, cv2 as cv, matplotlib as mpl
 import pyclesperanto_prototype as cle
-from skimage.color import label2rgb
 from image_processing.canvas import ImageGraphicsView
 import ui.app
 # STARDIST
@@ -45,6 +44,7 @@ class StarDist(QObject):
 
             # scale down image if it's a large image
             scaleDown = arr.shape[0] > 10000
+
             if scaleDown:
                 scale_factor = 20
                 cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
@@ -52,26 +52,29 @@ class StarDist(QObject):
                 cell_image = arr
                             
             if self.params['n_tiles'] == 0:
-                stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), prob_thresh=self.params['prob_threshold'], nms_thresh=self.params['nms_threshold'])
+                stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
+                                                             prob_thresh=self.params['prob_threshold'], 
+                                                             nms_thresh=self.params['nms_threshold'])
             else:
-                stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), prob_thresh=.48, nms_thresh=.3, n_tiles =self.params['n_tiles'])
-
+                stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
+                                                             prob_thresh=self.params['prob_threshold'], 
+                                                             nms_thresh=self.params['nms_threshold'], 
+                                                             n_tiles =self.params['n_tiles'])
 
             # size it back to original
             if scaleDown:
                 # cv resize takes uint16, can't do uint32
-                stardist_labels = cv.resize(np.array(stardist_labels, dtype = np.uint16), (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
+
+                normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
+                stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
 
             # dilate
             radius = self.params['radius']
             print("dilating")
-            stardist_labels_grayscale = np.array(cle.dilate_labels(stardist_labels, radius=radius), dtype=np.uint16) # can represent 65535 cells, grayscale
+            stardist_labels_grayscale = np.array(cle.dilate_labels(stardist_labels, radius=radius), dtype=np.uint8)
 
-            print("to rgb")
-            stardist_labels_rgb = label2rgb(stardist_labels_grayscale) #takes too long
-
-            print("to uint8")
-            stardist_labels_rgb = (stardist_labels_rgb * 255).astype(np.uint8)
+            lut = self.generate_lut("viridis")
+            stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
 
             # convert to pixmap
             stardist_qimage = self.numpy_to_qimage(stardist_labels_rgb)
@@ -80,8 +83,15 @@ class StarDist(QObject):
 
         except AttributeError: # should probably start defining custom exceptions
             QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
-        
     
+    # only uint8
+    def generate_lut(self, cmap:str):
+        label_range = np.linspace(0, 1, 256)
+        return np.uint8(mpl.colormaps[cmap](label_range)[:,2::-1]*256).reshape(256, 1, 3)
+
+    def label2rgb(self, labels, lut):
+        return cv.LUT(cv.merge((labels, labels, labels)), lut)
+
     def normalize_to_uint8(self, data: np.ndarray) -> QImage:
         normalized_data = 255 * (data - np.min(data)) / (np.max(data) - np.min(data))
         normalized_data = normalized_data.astype(np.uint8)
