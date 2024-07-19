@@ -42,7 +42,7 @@ color_dict = {
 
 def main():
     reduced_cell_img = load_stardist_image()  
-    df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+    df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
     ims = [write_protein(prot).astype("uint8") for prot in df.columns[3:]]
     ims = [adjust_contrast(im) for im in ims]   
     ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
@@ -65,7 +65,7 @@ def main():
     sys.exit(app.exec_())
 
 def load_stardist_image():
-    stardist_labels = Image.open("C:\\Users\\jianx\\Downloads\\dilated_stardist_labels.tif")
+    stardist_labels = Image.open("/Users/clark/Downloads/protein_visualization_app/ttest/al/stardist_labels.png")
     stardist_labels = np.array(stardist_labels)
     
     reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (500, 500))
@@ -88,7 +88,7 @@ def winsorize_array(arr, lower_percentile, upper_percentile):
     
     return winsorized_arr
 
-df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
 df = df[df.columns.drop(list(df.filter(regex='N/A')))]
 print(df.columns)
 
@@ -248,6 +248,11 @@ class ImageOverlay(QWidget):
         
         self.pixmap_label = pixmap_label
         
+        self.layers = [
+            {'name': layer_names[i], 'image': ims[i]} 
+            for i in range(len(ims))
+        ] 
+        
         self.initUI()
         
     def initUI(self):
@@ -293,10 +298,10 @@ class ImageOverlay(QWidget):
         # print("Yo")
         # self.image_label.addImage("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png")
         combined_image = (np.ones(shape=(1000,1000)) * 255).astype("uint8")
-        example_image = np.array(Image.open("C:\\Users\\jianx\\protein_visualization_app\\testing\\butterfly.png"))
+        combined_image = np.array(Image.open("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png"))
         # import PIL
         # PIL.Image.fromarray(combined_image).saveas("hello.png")
-        height, width, _ = example_image.shape
+        height, width, _ = combined_image.shape
         # bytes_per_line = 2
 
         q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGBA8888) # interesting image.tobytes() works well, maybe you don't need to do bytes_per_line for conversion into qimage anymore,
@@ -329,8 +334,8 @@ class ImageOverlay(QWidget):
         group_layout.addRow("Opacity:", opacity_slider)
         
         contrast_slider = QSlider(Qt.Orientation.Horizontal)
-        contrast_slider.setMinimum(0)
-        contrast_slider.setMaximum(100)
+        contrast_slider.setMinimum(50)
+        contrast_slider.setMaximum(150)
         contrast_slider.setValue(100)
         contrast_slider.valueChanged.connect(lambda value: self.update_contrast(value, idx))
         self.contrast_sliders.append(contrast_slider)
@@ -376,6 +381,7 @@ class ImageOverlay(QWidget):
                 self.update_image()
     
     def add_layer(self, index):
+        
         new_img = self.layers[index]['image']
         new_name = self.layers[index]['name']
         self.ims.append(new_img)
@@ -392,7 +398,7 @@ class ImageOverlay(QWidget):
         self.update_image()
     
     def update_contrast(self, value, idx):
-        self.current_contrasts[idx] = value / 20
+        self.current_contrasts[idx] = value / 100.0
         self.update_image()
     
     def update_visibility(self, checked, idx):
@@ -421,17 +427,20 @@ class ImageOverlay(QWidget):
         for img, opacity, contrast, visible, tint in zip(self.ims, self.current_opacities, self.current_contrasts, self.current_visibilities, self.current_tints):
             if visible:
                 print(contrast)
-                adjusted_img = self.adjust_contrast(img, 94, 95 + contrast)
+                adjusted_img = img * contrast
+                adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to
                 adjusted_img = self.apply_tint(adjusted_img, tint)
                 adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to stay in the valid range
                 combined_image += adjusted_img * opacity
         
         combined_image = np.clip(combined_image, 0, 255).astype(np.uint8)
         
-        height, width, channel = combined_image.shape
-        bytes_per_line = 3 * width
-        q_image = QImage(combined_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
-        self.image_label.updateCanvas(QPixmap.fromImage(q_image))
+        height, width, _ = combined_image.shape
+        bytes_per_line = 3
+
+        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888) # interesting image.tobytes() works well, maybe you don't need to do bytes_per_line for conversion into qimage anymore,
+        # RGB888 also works 
+        self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
 
 
 colors_dict = {

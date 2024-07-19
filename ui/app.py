@@ -50,7 +50,8 @@ class Ui_MainWindow(QMainWindow):
         
         ####### view tab #######################################
         reduced_cell_img = load_stardist_image()  
-        df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+        # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+        df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
         print(df)
         ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
