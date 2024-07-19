@@ -96,10 +96,8 @@ class Ui_MainWindow(QMainWindow):
         self.preprocessing_tab = QWidget()
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
-        self.preprocessing_dockwidget_main_vlayout.setSpacing(0)
-        self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
 
-        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) # from preprocessing tab
+        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
 
         # crop
         self.crop_groupbox = CropUI(self.preprocessing_tab)
@@ -113,14 +111,10 @@ class Ui_MainWindow(QMainWindow):
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
 
-        # # thresholding UI
-        # self.threshold_groupbox = ThresholdUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-        # # registration UI
-        # self.registration_groupbox = QGroupBox()
-        # self.registration_groupbox.setTitle("Register")
-        # self.preprocessing_dockwidget_main_vlayout.addWidget(self.registration_groupbox)
+
+        self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
+        self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)

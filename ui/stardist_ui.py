@@ -9,14 +9,15 @@ class StarDistUI(QWidget):
     def setupUI(self, parent, containing_layout:QVBoxLayout):
 
         self.stardist_groupbox = QGroupBox(parent)
-        self.stardist_groupbox.setMinimumSize(QSize(300, 300))
-        self.stardist_groupbox.setMaximumSize(QSize(500, 300))
+        # self.stardist_groupbox.setMinimumSize(QSize(300, 300))
+        # self.stardist_groupbox.setMaximumSize(QSize(500, 300))
 
 
         self.stardist_groupbox.setObjectName("stardist_groupbox")
         self.horizontalLayout_4 = QHBoxLayout(self.stardist_groupbox)
         self.stardist_components_vlayout = QVBoxLayout()
-        self.stardist_components_vlayout.setObjectName("stardist_components_vlayout")
+        self.stardist_components_vlayout.setSpacing(0)
+        self.stardist_components_vlayout.setContentsMargins(0, 0, 0, 0)
 
         # channel selector
         self.stardist_channel_selector_layout = QHBoxLayout()

@@ -70,10 +70,13 @@ class StarDist(QObject):
 
             # dilate
             radius = self.params['radius']
-            print("dilating")
+            print("dilating...")
             stardist_labels_grayscale = np.array(cle.dilate_labels(stardist_labels, radius=radius), dtype=np.uint8)
 
+            print("generating lut...")
             lut = self.generate_lut("viridis")
+
+            print("converting label to rgb...")
             stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
 
             # convert to pixmap
