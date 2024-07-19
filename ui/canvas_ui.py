@@ -39,7 +39,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
-    # mouseMoved = pyqtSignal()
+    # mouseMoved = pyqtSigna l()
     # mousePressed = pyqtSignal()
     # mouseReleased = pyqtSignal()
 
@@ -64,23 +64,31 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def updateCanvas(self, pixmapItem: QGraphicsPixmapItem):
         '''updates canvas when current image is operated on'''
+        print("if statement canvas")
+        print("self.pixmapItem:", self.pixmapItem)
         if self.pixmapItem:
+            print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
             self.__centerImage(self.pixmapItem)
-
-
+            
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
         '''add a new image, deletes the older one'''
         # clear
+        print("addNewImage: entered")
         self.scene().clear()
         # center image
         self.pixmapItem = pixmapItem
+        if not self.pixmapItem.pixmap().isNull():
+            print("addNewImage: there is a pixmapItem")
+        else:
+            print("addNewImage; there is no pixmapItem")
         self.__centerImage(self.pixmapItem)
         #make item movable
         self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
         # add the item to the scene
         self.scene().addItem(self.pixmapItem)
+        print("addNewImage: adding to scene")
 
     def __centerImage(self, pixmapItem):
         item_rect = self.pixmapItem.boundingRect()

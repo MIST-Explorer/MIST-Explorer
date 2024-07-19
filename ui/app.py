@@ -1,11 +1,12 @@
 from PyQt6.QtGui import QImageReader
 from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
-                             QStatusBar, QProgressBar, QGroupBox)
-import protein_selection
+                             QStatusBar, QProgressBar, QGroupBox, QLabel)
+# import protein_selection
+import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.threshold_ui import ThresholdUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
-
+from ui.view_tab import ImageOverlay, color_dict, write_protein, adjust_contrast, tint_grayscale_image, load_stardist_image
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self):
@@ -50,24 +51,45 @@ class Ui_MainWindow(QMainWindow):
 
         ####### preprocess tab ###################################
         self.preprocessUISetup() # uses self.canvas #stardist
-
-        ####### view tab #######################################
         self.tabWidget.addTab(self.preprocessing_tab, "")
-        self.view_tab = QWidget()
+        
+        ####### view tab #######################################
+        reduced_cell_img = load_stardist_image()  
+        # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+        df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
+        df = df[df.columns.drop(list(df.filter(regex='N/A')))]
+        print(df)
+        ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
+        ims = [adjust_contrast(im) for im in ims]   
+        ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
+        layer_names = list(df.columns[3:])
+        
+        layers = [
+            {'name': layer_names[i], 'image': ims[i]} 
+            for i in range(len(ims))
+        ]  # Example additional layers
+        
+        ims = ims[0:3]
+        layer_names = layer_names[0:3]
+        self.canvas.pixmapItem
+        self.view_tab = ImageOverlay(self.canvas, ims, layer_names, color_dict)
+        # self.canvas.updateCanvas()
+        # self.view_tab = QLabel("hello")
         self.view_tab.setObjectName("view_tab")
-        self.protein_hlayout = QHBoxLayout(self.view_tab)
-        self.protein_hlayout.setObjectName("horizontalLayout_3")
+        # self.protein_hlayout = QHBoxLayout(self.view_tab)
+        # self.protein_hlayout.setObjectName("horizontalLayout_3")
         
         # add the protein selection boxes
-        self.proteinWidget_main_vlayout = QVBoxLayout()
-        self.proteinWidget_main_vlayout.setObjectName("proteinWidget_main_vlayout")
-        self.protein1_groupbox = protein_selection.Protein_Selector(self.view_tab)
-        self.protein2_groupbox = protein_selection.Protein_Selector(self.view_tab)
-        self.protein3_groupbox = protein_selection.Protein_Selector(self.view_tab)
-        self.proteinWidget_main_vlayout.addWidget(self.protein1_groupbox)
-        self.proteinWidget_main_vlayout.addWidget(self.protein2_groupbox)
-        self.proteinWidget_main_vlayout.addWidget(self.protein3_groupbox)
-        self.protein_hlayout.addLayout(self.proteinWidget_main_vlayout) # allow expansion of the groupbox when you resize
+        # self.proteinWidget_main_vlayout = QVBoxLayout()
+        # self.proteinWidget_main_vlayout.setObjectName("proteinWidget_main_vlayout")
+        # self.protein1_groupbox = protein_selection.Protein_Selector(self.view_tab)
+        # self.protein2_groupbox = protein_selection.Protein_Selector(self.view_tab)
+        # self.protein3_groupbox = protein_selection.Protein_Selector(self.view_tab)
+        # self.proteinWidget_main_vlayout.addWidget(self.protein1_groupbox)
+        # self.proteinWidget_main_vlayout.addWidget(self.protein2_groupbox)
+        # self.proteinWidget_main_vlayout.addWidget(self.protein3_groupbox)
+        # self.protein_hlayout.addLayout(self.proteinWidget_main_vlayout) # allow expansion of the groupbox when you resize
+        
         self.tabWidget.addTab(self.view_tab, "")
         self.main_layout.addWidget(self.tabWidget)
         ########################################################
