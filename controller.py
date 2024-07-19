@@ -1,7 +1,8 @@
-import image_processing.cell_intensity
-import ui.app, Dialogs, image_processing.canvas, image_processing.stardist
+import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
+
+from cf_global import SingletonData
 
 class Controller:
     def __init__(self, 
