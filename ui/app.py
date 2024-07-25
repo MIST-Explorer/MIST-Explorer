@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QImageReader
-from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt
+from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
                              QStatusBar, QProgressBar, QGroupBox, QLabel)
 # import protein_selection
@@ -29,17 +29,12 @@ class Ui_MainWindow(QMainWindow):
         
         # initialize tabs
         self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabScrollArea.setGeometry(0, 0, 420, 520) 
-        
-        self.tabWidget = QTabWidget()
-        self.tabWidget.setMinimumSize(QSize(400, 1100))
-        self.tabWidget.setMaximumSize(QSize(1000, 2000))  
+        self.tabWidget = QTabWidget(self.tabScrollArea)
+        self.tabWidget.setMinimumSize(QSize(400, 500))
+        self.tabWidget.setMaximumSize(QSize(100, 2000))
+        self.tabWidget.setAutoFillBackground(False)
+        self.tabWidget.setObjectName("tabWidget")
 
-        self.tabScrollArea.setWidget(self.tabWidget)
-        
-        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
-        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget)
@@ -56,7 +51,8 @@ class Ui_MainWindow(QMainWindow):
         ####### view tab #######################################
         reduced_cell_img = load_stardist_image()  
         # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
-        df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
+        df = "/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv"
+        df = pd.read_csv(df)
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
         print(df)
         ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
@@ -92,6 +88,7 @@ class Ui_MainWindow(QMainWindow):
         
         self.tabWidget.addTab(self.view_tab, "")
         self.main_layout.addWidget(self.tabWidget)
+
         ########################################################
 
         self.main_layout.addWidget(self.canvas) 
@@ -136,8 +133,8 @@ class Ui_MainWindow(QMainWindow):
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
 
-        # # thresholding UI
-        # self.threshold_groupbox = ThresholdUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        # thresholding UI
+        self.threshold_groupbox = ThresholdUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)

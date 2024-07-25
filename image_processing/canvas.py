@@ -105,7 +105,6 @@ class ImageGraphicsView(QGraphicsView):
         if isinstance(file, str):
             pixmap = self.__filename_to_pixmap(file)
         
-        # else:
         #     raise ValueError
         
         self.reset_pixmap=pixmap
@@ -167,7 +166,24 @@ class ImageGraphicsView(QGraphicsView):
 
         return pixmap
     
+    def pixmap_to_numpy_array(self):
+        # Convert the QPixmap to a QImage
+        image = self.pixmap.toImage()
 
+        # Get image dimensions
+        width = image.width()
+        height = image.height()
+
+        # Convert QImage to byte array
+        ptr = image.bits()
+        ptr.setsize(height * width * 4)
+
+        # Convert byte array to numpy array
+        array = np.array(ptr).reshape((height, width, 4))
+
+        return array
+        
+    
     def adjustContrast(self,img):  
         alpha = 5 # Contrast control
         beta = 15 # Brightness control

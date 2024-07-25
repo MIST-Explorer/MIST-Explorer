@@ -62,7 +62,7 @@ def main():
     window.layers = layers  # Pass additional layers to the window
     window.resize(800, 600)
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 def load_stardist_image():
     stardist_labels = Image.open("/Users/clark/Downloads/protein_visualization_app/ttest/al/stardist_labels.png")
@@ -158,6 +158,10 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QSlider
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QColor
 
+def scale_image_to_255(image_array):
+    scaled_image = 255 * (image_array - image_array.min()) / (image_array.max() - image_array.min())
+    return scaled_image.astype(np.uint8)
+
 class LayerDialog(QDialog):
     
     def __init__(self, layers, parent=None):
@@ -175,7 +179,7 @@ class LayerDialog(QDialog):
             self.layer_list.addItem(item)
         self.layout.addWidget(self.layer_list)
         
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         self.layout.addWidget(self.buttons)
@@ -205,7 +209,7 @@ class ColorDialog(QDialog):
             self.color_list.addItem(item)
         self.layout.addWidget(self.color_list)
         
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         self.layout.addWidget(self.buttons)
@@ -248,6 +252,8 @@ class ImageOverlay(QWidget):
         
         self.pixmap_label = pixmap_label
         
+        self.active_images = []
+        
         self.layers = [
             {'name': layer_names[i], 'image': ims[i]} 
             for i in range(len(ims))
@@ -265,13 +271,13 @@ class ImageOverlay(QWidget):
         
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        # self.scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
         
-        for i, _ in enumerate(self.ims):
-            self.add_layer_controls(i)
+        # for i, _ in enumerate(self.ims):
+        #     self.add_layer_controls(i)
         
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll_area.setWidget(self.scroll_content)
@@ -363,7 +369,7 @@ class ImageOverlay(QWidget):
     
     def show_layer_dialog(self):
         dialog = LayerDialog(self.layers, self)
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             selected_index = dialog.get_selected_layer_index()
             if selected_index is not None:
                 self.add_layer(selected_index)
@@ -371,7 +377,7 @@ class ImageOverlay(QWidget):
     def show_color_dialog(self, idx):
         print(idx)
         dialog = ColorDialog(self.color_dict, self)
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             selected_color_name = dialog.get_selected_color_name()
             if selected_color_name:
                 selected_color = self.color_dict[selected_color_name]
@@ -381,16 +387,15 @@ class ImageOverlay(QWidget):
                 self.update_image()
     
     def add_layer(self, index):
-        
         new_img = self.layers[index]['image']
         new_name = self.layers[index]['name']
-        self.ims.append(new_img)
+        self.active_images.append(new_img)
         self.layer_names.append(new_name)
         self.current_opacities.append(1.0)
         self.current_contrasts.append(1.0)
         self.current_visibilities.append(True)
         self.current_tints.append(QColor(255, 255, 255))
-        self.add_layer_controls(len(self.ims) - 1)
+        self.add_layer_controls(len(self.active_images) - 1)
         self.update_image()
     
     def update_opacity(self, value, idx):
@@ -422,12 +427,16 @@ class ImageOverlay(QWidget):
             return (img.astype(np.uint8))
         
     def update_image(self):
-        combined_image = np.zeros_like(self.ims[0], dtype=np.float32)
+        if len(self.active_images) == 0:
+            return 
+
+        combined_image = np.zeros_like(self.active_images[0], dtype=np.float32)
         
-        for img, opacity, contrast, visible, tint in zip(self.ims, self.current_opacities, self.current_contrasts, self.current_visibilities, self.current_tints):
+        for img, opacity, contrast, visible, tint in zip(self.active_images, self.current_opacities, self.current_contrasts, self.current_visibilities, self.current_tints):
             if visible:
                 print(contrast)
                 adjusted_img = img * contrast
+                adjusted_img = scale_image_to_255(adjusted_img)
                 adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to
                 adjusted_img = self.apply_tint(adjusted_img, tint)
                 adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to stay in the valid range
