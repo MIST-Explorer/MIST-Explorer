@@ -1,7 +1,9 @@
 from PyQt6.QtGui import QImageReader
-from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication
+
+from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
+
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
-                             QStatusBar, QProgressBar, QGroupBox, QLabel)
+                             QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton)
 # import protein_selection
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.threshold_ui import ThresholdUI
@@ -49,8 +51,8 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.addTab(self.preprocessing_tab, "")
         
         ####### view tab #######################################
+
         reduced_cell_img = load_stardist_image()  
-        # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
         df = "/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv"
         df = pd.read_csv(df)
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
@@ -69,27 +71,19 @@ class Ui_MainWindow(QMainWindow):
         layer_names = layer_names[0:3]
         self.canvas.pixmapItem
         self.view_tab = ImageOverlay(self.canvas, ims, layer_names, color_dict)
-        # self.canvas.updateCanvas()
-        # self.view_tab = QLabel("hello")
+       
+      
+        
+        self.view_tab = ImageOverlay(self.canvas)
+
         self.view_tab.setObjectName("view_tab")
-        # self.protein_hlayout = QHBoxLayout(self.view_tab)
-        # self.protein_hlayout.setObjectName("horizontalLayout_3")
-        
-        # add the protein selection boxes
-        # self.proteinWidget_main_vlayout = QVBoxLayout()
-        # self.proteinWidget_main_vlayout.setObjectName("proteinWidget_main_vlayout")
-        # self.protein1_groupbox = protein_selection.Protein_Selector(self.view_tab)
-        # self.protein2_groupbox = protein_selection.Protein_Selector(self.view_tab)
-        # self.protein3_groupbox = protein_selection.Protein_Selector(self.view_tab)
-        # self.proteinWidget_main_vlayout.addWidget(self.protein1_groupbox)
-        # self.proteinWidget_main_vlayout.addWidget(self.protein2_groupbox)
-        # self.proteinWidget_main_vlayout.addWidget(self.protein3_groupbox)
-        # self.protein_hlayout.addLayout(self.proteinWidget_main_vlayout) # allow expansion of the groupbox when you resize
-        
         self.tabWidget.addTab(self.view_tab, "")
         self.main_layout.addWidget(self.tabWidget)
 
         ########################################################
+        
+        self.tabWidget.currentChanged.connect(self.onChange)
+
 
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
@@ -108,6 +102,13 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
 
         QMetaObject.connectSlotsByName(self)
+        
+    def onChange(self,i): #changed!
+        if i == 1:
+            # im = self.canvas.
+            print("view selected")
+            
+        
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
@@ -115,20 +116,37 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.preprocessing_tab), _translate("MainWindow", "Preprocessing"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.view_tab), _translate("MainWindow", "View"))
 
+    saveSignal = pyqtSignal()
+    def save_canvas(self):
+        print("saving")
+        self.saveSignal.emit()
+        
     def preprocessUISetup(self):
         self.preprocessing_tab = QWidget()
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) # from preprocessing tab
 
+
+        self.button = QPushButton('Test')
+        self.button.clicked.connect(self.save_canvas)
+        
+        
         # crop
         self.crop_groupbox = CropUI(self.preprocessing_tab)
         
         # rotate
         self.rotate_groupbox = RotateUI(self.preprocessing_tab)
         
+        
+        
         # layout crop and rotate next to each other
         self.rotate_crop_hlayout = QHBoxLayout()
+        
+        
+        self.rotate_crop_hlayout.addWidget(self.button)
+        
+        
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
@@ -138,7 +156,7 @@ class Ui_MainWindow(QMainWindow):
 
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-
+        
         # registration UI
         self.registration_groupbox = QGroupBox()
         self.registration_groupbox.setTitle("Register")

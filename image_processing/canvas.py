@@ -76,6 +76,7 @@ class ImageGraphicsView(QGraphicsView):
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
     channelLoaded = pyqtSignal(dict, dict)
     channelNotLoaded = pyqtSignal(np.ndarray)
+    saveImage = pyqtSignal(QGraphicsPixmapItem)  
 
     def __init__(self):
 

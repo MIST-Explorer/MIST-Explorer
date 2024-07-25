@@ -1,9 +1,9 @@
 import ui.app, Dialogs, image_processing.canvas, image_processing.stardist
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
-
-from cf_global import SingletonData
-
+import numpy as np
+import cv2
+        
 class Controller:
     def __init__(self, 
                  model_canvas: image_processing.canvas.ImageGraphicsView, 
@@ -19,6 +19,8 @@ class Controller:
         self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
         self.view.menubar.actionOpenReference.triggered.connect(self.on_action_reference_triggered)
         self.view.menubar.actionOpen.triggered.connect(self.on_actionOpen_triggered)
+        
+        # self.view.connect()
 
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model.resetImage)
@@ -29,6 +31,7 @@ class Controller:
         self.view.canvas.imageDropped.connect(self.model.addImage)
         self.model.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
+        # self.view.view_tab.getPix.connect(self.view.canvas.addNewImage) # loading a new image
 
         self.model.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.model.channelLoaded.connect(self.view.toolBar.updateChannelSelector)
@@ -45,6 +48,9 @@ class Controller:
         
         # confirm rotate signal
         self.view.rotate_groupbox.rotate_confirm.pressed.connect(lambda: self.model.rotateImage(self.view.rotate_groupbox.rotate_line_edit.text()))
+        
+        #
+        self.view.saveSignal.connect(self.controlSave)
 
         #stardist signals
         #change params
@@ -67,14 +73,69 @@ class Controller:
         
         # Display Butterfly
         self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        
+        # Save photo
+        self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
 
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
         self.openFilesDialog.show()
 
+    def save_pixmap_as_image(self, pixmap: QPixmap, filename: str):
+        
+        
+        # Convert QPixmap to QImage
+        qimage = pixmap.toImage()
+
+        # Convert QImage to numpy array
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(height * width * 4)
+        arr = np.array(ptr).reshape(height, width, 4)  # 4 for RGBA
+
+        # Save numpy array as an image file using OpenCV
+        cv2.imwrite(filename, cv2.cvtColor(arr, cv2.COLOR_BGRA2BGRA))
+        
+    def pixmap_to_image(self, pixmap: QPixmap):
+        
+        
+        # Convert QPixmap to QImage
+        qimage = pixmap.toImage()
+
+        # Convert QImage to numpy array
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(height * width * 4)
+        arr = np.array(ptr).reshape(height, width, 4)  # 4 for RGBA
+
+        # Save numpy array as an image file using OpenCV
+        return arr
+    
+    def is_grayscale(image: np.ndarray) -> bool:
+
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            return False
+        elif len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):
+            return True
+        else:
+            raise ValueError("Image format not recognized")
+        
+    def controlSave(self):
+        
+        pm = self.model.pixmap
+        print(pm)
+        if pm != None:
+            im = self.pixmap_to_image(pm)
+            
+        else:
+            print("nothin loaded!")
+            
+        print("controling saving")
+
     def createBCDialog(self):
         self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
-
 
     def openFileDialog(self, viewer):
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
