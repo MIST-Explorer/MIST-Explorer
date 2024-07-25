@@ -230,8 +230,22 @@ from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphic
 
 class ImageOverlay(QWidget):
     changePix = pyqtSignal(QGraphicsPixmapItem)
-    def __init__(self, pixmap_label, ims, layer_names, color_dict):
+    
+    
+    def __init__(self, pixmap_label):
         super().__init__()
+        
+        reduced_cell_img = load_stardist_image()  
+        # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+        df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
+        df = df[df.columns.drop(list(df.filter(regex='N/A')))]
+
+        ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
+        ims = [adjust_contrast(im) for im in ims]   
+        ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
+        
+        layer_names = list(df.columns[3:])
+        
         
         self.ims = ims  # List of images as np.arrays
         self.layer_names = layer_names  # List of layer names
@@ -438,8 +452,8 @@ class ImageOverlay(QWidget):
         height, width, _ = combined_image.shape
         bytes_per_line = 3
 
-        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888) # interesting image.tobytes() works well, maybe you don't need to do bytes_per_line for conversion into qimage anymore,
-        # RGB888 also works 
+        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888) # interesting image.tobytes() works well, maybe you don't need to do 
+        
         self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
 
 
