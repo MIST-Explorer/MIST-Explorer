@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from stardist.models import StarDist2D
 from PIL import Image
 
@@ -65,7 +67,9 @@ def main():
     sys.exit(app.exec_())
 
 def load_stardist_image():
-    stardist_labels = Image.open("/Users/clark/Downloads/protein_visualization_app/ttest/al/stardist_labels.png")
+    # stardist_labels = Image.open("/Users/clark/Downloads/protein_visualization_app/ttest/al/stardist_labels.png")
+
+    stardist_labels =  Image.open("C:\\Users\\jianx\\Downloads\\dilated_stardist_labels.tif")
     stardist_labels = np.array(stardist_labels)
     
     reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (500, 500))
@@ -88,7 +92,8 @@ def winsorize_array(arr, lower_percentile, upper_percentile):
     
     return winsorized_arr
 
-df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
+df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+# df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
 df = df[df.columns.drop(list(df.filter(regex='N/A')))]
 print(df.columns)
 
@@ -298,10 +303,10 @@ class ImageOverlay(QWidget):
         # print("Yo")
         # self.image_label.addImage("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png")
         combined_image = (np.ones(shape=(1000,1000)) * 255).astype("uint8")
-        combined_image = np.array(Image.open("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png"))
+        # combined_image = np.array(Image.open("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png"))
         # import PIL
         # PIL.Image.fromarray(combined_image).saveas("hello.png")
-        height, width, _ = combined_image.shape
+        height, width = combined_image.shape
         # bytes_per_line = 2
 
         q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGBA8888) # interesting image.tobytes() works well, maybe you don't need to do bytes_per_line for conversion into qimage anymore,

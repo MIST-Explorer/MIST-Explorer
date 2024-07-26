@@ -1,8 +1,7 @@
 from PyQt6.QtGui import QImageReader
 from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
-                             QStatusBar, QProgressBar, QGroupBox, QLabel)
-# import protein_selection
+                             QStatusBar, QProgressBar)
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
@@ -54,8 +53,8 @@ class Ui_MainWindow(QMainWindow):
         
         ####### view tab #######################################
         reduced_cell_img = load_stardist_image()  
-        # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
-        df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
+        df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
+        # df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
         print(df)
         ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]

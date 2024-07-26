@@ -2,8 +2,7 @@
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtWidgets import QMessageBox
-import numpy as np, cv2 as cv, matplotlib as mpl
-import pyclesperanto_prototype as cle
+import numpy as np, cv2 as cv, matplotlib as mpl, time, pyclesperanto_prototype as cle
 from image_processing.canvas import ImageGraphicsView
 import ui.app
 # STARDIST
@@ -14,6 +13,7 @@ from csbdeep.utils import normalize
 
 class StarDist(QObject):
     stardistDone = pyqtSignal(QPixmap)
+    sendGrayScale = pyqtSignal(np.ndarray)
     def __init__(self):
         super().__init__()
         self.np_channels = None
@@ -31,7 +31,6 @@ class StarDist(QObject):
 
     def runStarDist(self):
         
-
         model = StarDist2D.from_pretrained(str(self.params['model']))
 
         try:
@@ -63,13 +62,16 @@ class StarDist(QObject):
 
             # size it back to original
             if scaleDown:
-                # cv resize takes uint16, can't do uint32
+                # cv resize takes uint8 or uint16, can't do uint32
 
                 normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
                 stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
 
             # dilate
             radius = self.params['radius']
+
+            start_time = time.time()  
+
             print("dilating...")
             stardist_labels_grayscale = np.array(cle.dilate_labels(stardist_labels, radius=radius), dtype=np.uint8)
 
@@ -78,16 +80,22 @@ class StarDist(QObject):
 
             print("converting label to rgb...")
             stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
-
+            end_time = time.time()  
+            print(start_time - end_time)
             # convert to pixmap
             stardist_qimage = self.numpy_to_qimage(stardist_labels_rgb)
             stardist_pixmap = QPixmap(stardist_qimage)
             self.stardistDone.emit(stardist_pixmap)
+            self.sendGrayScale.emit(stardist_labels_grayscale)
 
         except AttributeError: # should probably start defining custom exceptions
             QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
     
     # only uint8
+
+    def change_cmap(self):
+        pass
+    
     def generate_lut(self, cmap:str):
         label_range = np.linspace(0, 1, 256)
         return np.uint8(mpl.colormaps[cmap](label_range)[:,2::-1]*256).reshape(256, 1, 3)

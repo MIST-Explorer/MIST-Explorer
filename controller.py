@@ -1,4 +1,4 @@
-import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity
+import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity, image_processing.register
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
 
@@ -9,12 +9,14 @@ class Controller:
                  model_canvas: image_processing.canvas.ImageGraphicsView, 
                  model_stardist: image_processing.stardist.StarDist,
                  model_cellIntensity: image_processing.cell_intensity.CellIntensity,
+                 model_register: image_processing.register.Register,
                  view: ui.app.Ui_MainWindow):
         
         self.view = view
         self.model_canvas = model_canvas 
         self.model_stardist = model_stardist
         self.model_cellIntensity = model_cellIntensity
+        self.model_register = model_register
         self.openFilesDialog = None
 
         #menubar signals
@@ -63,20 +65,26 @@ class Controller:
 
         # display stardist result
         self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
+        self.model_stardist.sendGrayScale.connect(self.model_cellIntensity.loadStardistLabels)
+        # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
 
         # generate cell data signals
         # change params
-        self.view.cellIntensity_groupbox.alignment_layer.currentTextChanged.connect(self.model_cellIntensity.setAlignmentLayer)
-        self.view.cellIntensity_groupbox.protein_cell_layer.currentTextChanged.connect(self.model_cellIntensity.setCellLayer)
-        self.view.cellIntensity_groupbox.intensity_layer.currentTextChanged.connect(self.model_cellIntensity.setProteinDetectionLayer)
-        self.view.cellIntensity_groupbox.overlap.valueChanged.connect(self.model_cellIntensity.setOverlap)
-        self.view.cellIntensity_groupbox.max_size.valueChanged.connect(self.model_cellIntensity.setMaxSize)
+        self.view.cellIntensity_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
+        self.view.cellIntensity_groupbox.protein_cell_layer.currentTextChanged.connect(self.model_register.setCellLayer)
+        self.view.cellIntensity_groupbox.intensity_layer.currentTextChanged.connect(self.model_register.setProteinDetectionLayer)
+        self.view.cellIntensity_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
+        self.view.cellIntensity_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
         self.view.cellIntensity_groupbox.num_cycles.valueChanged.connect(self.model_cellIntensity.setNumDecodingCycles)
         self.view.cellIntensity_groupbox.num_layers_each.valueChanged.connect(self.model_cellIntensity.setNumDecodingColors)
         self.view.cellIntensity_groupbox.num_tiles.valueChanged.connect(self.model_cellIntensity.setNumTiles)
         self.view.cellIntensity_groupbox.radius_fg.valueChanged.connect(self.model_cellIntensity.setRadiusFG)
         self.view.cellIntensity_groupbox.radius_bg.valueChanged.connect(self.model_cellIntensity.setRadiusBG)
 
+        self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadBeadData)
+        self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadColorCode)
+        self.view.cellIntensity_groupbox.run_button.pressed.connect(self.model_cellIntensity.run)
+        
 
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
