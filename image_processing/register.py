@@ -13,21 +13,22 @@ import pystackreg.util
 from PyQt6.QtCore import pyqtSignal
 import re
 import tqdm
+import image_processing.canvas as canvas
 
 class Register:
     # registrationDone = pyqtSignal(np.ndarray)
     def __init__(self):
-        print("hello im initialized")
         Image.MAX_IMAGE_PIXELS = 99999999999    
         self.protein_signal_array = None
         self.params = { 
-            'alignment_layer': 'Channel 1',
+            'alignment_layer': 0,
             'cell_layer': 2, # 0 index
             'protein_detection_layer': 3, # 0 index
             'max_size': 23000,
             'num_tiles': 5,
             'overlap': 500,
         }
+        self.channels = canvas.ImageGraphicsView().channels
 
         self.tifs = (
             { 
@@ -39,15 +40,14 @@ class Register:
             },
             {   
                 "path": r"C:\\Users\\jianx\Downloads\\test\\protein signal.ome.tif", 
-                "flor_layers": [2, 3],   # this actually doesnot do anything in this program
-                "brightfield": 0, 
+                "flor_layers": [2, 3],   # this actually does not do anything in this program
+                "brightfield": 0, #alignment layer
                 "pystack_transforms" : [],
                 "sitk_transforms": [] 
             },
         )
 
     def runRegistration(self):
-        print("hello im running")
         m = self.params["max_size"]
         self.OVERLAP = self.params["overlap"]
         self.NUM_TILES = self.params['num_tiles']

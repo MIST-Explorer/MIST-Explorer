@@ -77,8 +77,7 @@ class Ui_MainWindow(QMainWindow):
 
         self.tabWidget.addTab(self.view_tab, "")
         self.main_layout.addWidget(self.tabWidget)
-        ########################################################
-
+        #######################################################
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
         self.setCentralWidget(self.centralwidget)
@@ -88,11 +87,11 @@ class Ui_MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
 
         self.progressBar = QProgressBar()
-        self.progressBar.setMaximum(100)
         self.statusbar.addPermanentWidget(self.progressBar)
-        self.progressBar.setValue(20)
+        self.progressBar.setMaximum(100)
 
         self.__retranslateUI()
+
         self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
 
         QMetaObject.connectSlotsByName(self)
@@ -129,3 +128,8 @@ class Ui_MainWindow(QMainWindow):
 
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
+
+    def updateProgressBar(self, value):
+        if self.progressBar.value() == 100:
+            self.progressBar.reset()
+        self.progressBar.setValue(value)
