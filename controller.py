@@ -1,8 +1,9 @@
 import ui.app, Dialogs, image_processing.canvas, image_processing.stardist
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
 import numpy as np
 import cv2
+from PIL import Image
         
 class Controller:
     def __init__(self, 
@@ -64,7 +65,6 @@ class Controller:
         self.view.stardist_groupbox.kernel_size.valueChanged.connect(self.model_stardist.setDilationKernelSize)
         self.view.stardist_groupbox.iterations.valueChanged.connect(self.model_stardist.setDilationIterations)
 
-
         #run stardist
         self.view.stardist_groupbox.stardist_run_button.pressed.connect(self.model_stardist.runStarDist)
 
@@ -76,6 +76,10 @@ class Controller:
         
         # Save photo
         self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        
+        # tab switched
+        # self.view.tabWidget.currentChanged.connect(lambda : self.view.view_tab.update_segmented_image(self.pixmap_to_image(self.model.pixmap)))
+
 
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
@@ -99,7 +103,8 @@ class Controller:
         
     def pixmap_to_image(self, pixmap: QPixmap):
         
-        
+        if pixmap == None:
+            return None
         # Convert QPixmap to QImage
         qimage = pixmap.toImage()
 
@@ -123,17 +128,22 @@ class Controller:
             raise ValueError("Image format not recognized")
         
     def controlSave(self):
-        
+
         pm = self.model.pixmap
         print(pm)
         if pm != None:
             im = self.pixmap_to_image(pm)
             
-        else:
-            print("nothin loaded!")
+        
             
-        print("controling saving")
-
+            
+            file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png","All Files(*);;Text Files(*.txt)")
+            if file_name:
+                print(file_name)
+                Image.fromarray(im).save(file_name)
+                
+            else:
+                return False
     def createBCDialog(self):
         self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
 

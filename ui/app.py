@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSc
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.threshold_ui import ThresholdUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
-from ui.view_tab import ImageOverlay, color_dict, write_protein, adjust_contrast, tint_grayscale_image, load_stardist_image
+from ui.view_tab import ImageOverlay
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self):
@@ -52,28 +52,8 @@ class Ui_MainWindow(QMainWindow):
         
         ####### view tab #######################################
 
-        reduced_cell_img = load_stardist_image()  
-        df = "/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv"
-        df = pd.read_csv(df)
-        df = df[df.columns.drop(list(df.filter(regex='N/A')))]
-        print(df)
-        ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
-        ims = [adjust_contrast(im) for im in ims]   
-        ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
-        layer_names = list(df.columns[3:])
-        
-        layers = [
-            {'name': layer_names[i], 'image': ims[i]} 
-            for i in range(len(ims))
-        ]  # Example additional layers
-        
-        ims = ims[0:3]
-        layer_names = layer_names[0:3]
-        self.canvas.pixmapItem
-        self.view_tab = ImageOverlay(self.canvas, ims, layer_names, color_dict)
+        self.view_tab = ImageOverlay(self.canvas)
        
-      
-        
         self.view_tab = ImageOverlay(self.canvas)
 
         self.view_tab.setObjectName("view_tab")
@@ -82,7 +62,6 @@ class Ui_MainWindow(QMainWindow):
 
         ########################################################
         
-        self.tabWidget.currentChanged.connect(self.onChange)
 
 
         self.main_layout.addWidget(self.canvas) 
@@ -104,8 +83,8 @@ class Ui_MainWindow(QMainWindow):
         QMetaObject.connectSlotsByName(self)
         
     def onChange(self,i): #changed!
+        
         if i == 1:
-            # im = self.canvas.
             print("view selected")
             
         
@@ -118,6 +97,7 @@ class Ui_MainWindow(QMainWindow):
 
     saveSignal = pyqtSignal()
     def save_canvas(self):
+        
         print("saving")
         self.saveSignal.emit()
         
@@ -128,8 +108,8 @@ class Ui_MainWindow(QMainWindow):
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) # from preprocessing tab
 
 
-        self.button = QPushButton('Test')
-        self.button.clicked.connect(self.save_canvas)
+        self.save_button = QPushButton('Save Canvas')
+        self.save_button.clicked.connect(self.save_canvas)
         
         
         # crop
@@ -142,10 +122,6 @@ class Ui_MainWindow(QMainWindow):
         
         # layout crop and rotate next to each other
         self.rotate_crop_hlayout = QHBoxLayout()
-        
-        
-        self.rotate_crop_hlayout.addWidget(self.button)
-        
         
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
@@ -161,3 +137,5 @@ class Ui_MainWindow(QMainWindow):
         self.registration_groupbox = QGroupBox()
         self.registration_groupbox.setTitle("Register")
         self.preprocessing_dockwidget_main_vlayout.addWidget(self.registration_groupbox)
+        
+        self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)

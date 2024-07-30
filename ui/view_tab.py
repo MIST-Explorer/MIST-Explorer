@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from stardist.models import StarDist2D
 from PIL import Image
-
+from PyQt6.QtWidgets import QFileDialog
 import cv2
 
 Image.MAX_IMAGE_PIXELS = None
@@ -40,37 +40,6 @@ color_dict = {
     "dark slate blue": [72, 61, 139]
 }
 
-def main():
-    reduced_cell_img = load_stardist_image()  
-    df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
-    ims = [write_protein(prot).astype("uint8") for prot in df.columns[3:]]
-    ims = [adjust_contrast(im) for im in ims]   
-    ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
-    layer_names = list(df.columns[3:])
-    
-    layers = [
-        {'name': layer_names[i], 'image': ims[i]} 
-        for i in range(len(ims))
-    ]  # Example additional layers
-    
-    ims = ims[0:3]
-    layer_names = layer_names[0:3]
-
-
-    app = QApplication(sys.argv)
-    window = ImageOverlay(ims, layer_names, colors_dict)
-    window.layers = layers  # Pass additional layers to the window
-    window.resize(800, 600)
-    window.show()
-    sys.exit(app.exec())
-
-def load_stardist_image():
-    stardist_labels = Image.open("/Users/clark/Downloads/protein_visualization_app/ttest/al/stardist_labels.png")
-    stardist_labels = np.array(stardist_labels)
-    
-    reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (500, 500))
-    
-    return reduced_cell_img
 
 def rescale_array(arr, old_min, old_max, new_min, new_max):
     arr = np.array(arr)
@@ -88,11 +57,8 @@ def winsorize_array(arr, lower_percentile, upper_percentile):
     
     return winsorized_arr
 
-df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
-df = df[df.columns.drop(list(df.filter(regex='N/A')))]
-print(df.columns)
 
-def write_protein(protein_name, reduced_cell_img):
+def write_protein(protein_name, df, reduced_cell_img):
     cnv = reduced_cell_img.copy()
     
     protein_1 = np.array(df[protein_name])
@@ -104,6 +70,7 @@ def write_protein(protein_name, reduced_cell_img):
         cnv[reduced_cell_img == id] = color
         
     return cnv 
+
 
 
 def superimpose_image(base_shape, image, color):
@@ -235,22 +202,54 @@ from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphic
 class ImageOverlay(QWidget):
     changePix = pyqtSignal(QGraphicsPixmapItem)
     
-    
     def __init__(self, pixmap_label):
         super().__init__()
         
-        reduced_cell_img = load_stardist_image()  
-        # df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
-        df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
-        df = df[df.columns.drop(list(df.filter(regex='N/A')))]
+        self.pixmap_label = pixmap_label
+        self.active_images = []
+        
+        self.df_path = "/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv"
+        self.im_path = '/Users/clark/Desktop/protein_visualization_app/sample_data/cropped.png'
+        
+        
+        self.initUI()
+        
+    def load_stardist_image(self):
+        if self.im_path == None:
+            return None
+        
+        stardist_labels = Image.open(self.im_path)
+        stardist_labels = np.array(stardist_labels)
+        
+        reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (500, 500))
+        
+        return  reduced_cell_img
 
-        ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
-        ims = [adjust_contrast(im) for im in ims]   
+    def load_df(self):
+        if self.df_path == None:
+            return None
+        
+        df = pd.read_csv(self.df_path)
+        df = df[df.columns.drop(list(df.filter(regex='N/A')))]
+        return df
+    
+    
+    def build_all(self):
+        print('buidling all')
+        reduced_cell_img = self.load_stardist_image()  
+        df = self.load_df()
+        print("loaded")
+        
+        
+        ims = [write_protein(prot, df, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
+        print("ims weritee")
+        ims = [adjust_contrast(im) for im in ims]  
+        print("contrast adjusted") 
         ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
+        print("tinted")
+        layer_names = list(df.columns[3:]) 
         
-        layer_names = list(df.columns[3:])
-        
-        
+                
         self.ims = ims  # List of images as np.arrays
         self.layer_names = layer_names  # List of layer names
         self.color_dict = color_dict  # Dictionary of color names to RGB values
@@ -264,16 +263,18 @@ class ImageOverlay(QWidget):
         self.current_visibilities = [True] * len(ims)
         self.current_tints = [QColor(255, 255, 255)] * len(ims)  # Default to no tint
         
-        self.pixmap_label = pixmap_label
-        
-        self.active_images = []
-        
         self.layers = [
             {'name': layer_names[i], 'image': ims[i]} 
             for i in range(len(ims))
         ] 
         
-        self.initUI()
+        print("done")
+        return (ims, layer_names)
+         
+    
+    def update_segmented_image(self, path):
+        self.im_path = path
+        
         
     def initUI(self):
         main_layout = QVBoxLayout()
@@ -302,9 +303,17 @@ class ImageOverlay(QWidget):
         self.add_layer_button.clicked.connect(self.show_layer_dialog)
         main_layout.addWidget(self.add_layer_button)
         
-        self.add_example = QPushButton('Add example')
+        self.add_example = QPushButton('Open Image')
         self.add_example.clicked.connect(self.load_example)
         main_layout.addWidget(self.add_example)
+        
+        self.open_df = QPushButton('Open Cell Data')
+        self.open_df.clicked.connect(self.get_df_path)
+        main_layout.addWidget(self.open_df)
+        
+        self.open_df = QPushButton('Apply')
+        self.open_df.clicked.connect(self.build_all)
+        main_layout.addWidget(self.open_df)
         
         # self.main_btn = QPushButton('run main')
         # self.main_btn.clicked.connect(self.main)
@@ -316,18 +325,23 @@ class ImageOverlay(QWidget):
     
     def load_example(self):
         # print("Yo")
-        # self.image_label.addImage("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png")
-        combined_image = (np.ones(shape=(1000,1000)) * 255).astype("uint8")
-        combined_image = np.array(Image.open("/Users/clark/Desktop/protein_visualization_app/testing/butterfly.png"))
-        # import PIL
-        # PIL.Image.fromarray(combined_image).saveas("hello.png")
-        height, width, _ = combined_image.shape
-        # bytes_per_line = 2
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
+        if file_name:
+            # combined_image = np.array(Image.open(file_name))
+            self.im_path = file_name
 
-        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGBA8888) # interesting image.tobytes() works well, maybe you don't need to do bytes_per_line for conversion into qimage anymore,
-        # RGB888 also works 
-        self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
+            # height, width, _ = combined_image.shape
+
+            # q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGBA8888)
+            # self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
         
+    def get_df_path(self):
+        # print("Yo")
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "CSV Files (*.csv);;All Files (*)")
+        if file_name:
+            self.df_path = file_name
+
+            
     def addImage(self, pixmap):
         '''add a new image'''
 
