@@ -37,9 +37,11 @@ class Controller:
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector)
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector)
         self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels)
+        self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels)
         self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector)
         self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess)
+        self.model_canvas.updateProgress.connect(self.view.updateProgressBar)
 
         
         # crop signals

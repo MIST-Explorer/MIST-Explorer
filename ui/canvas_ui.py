@@ -39,6 +39,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
+    imageCropped = pyqtSignal(dict)
 
     def __init__(self, parent=None):
 
@@ -61,8 +62,6 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def updateCanvas(self, pixmapItem: QGraphicsPixmapItem):
         '''updates canvas when current image is operated on'''
-        print("if statement canvas")
-        print("self.pixmapItem:", self.pixmapItem)
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
@@ -144,16 +143,43 @@ class ImageGraphicsViewUI(QGraphicsView):
                 selectedRect = self.rubberBand.geometry()
                 print(f"Selected rectangle: {selectedRect}")
                 
-                # Extract the selected rectangle from the original image
                 if not selectedRect.isEmpty():
-                    cropped_image = self.pixmapItem.pixmap().copy(selectedRect).toImage()
+                    view_rect = self.viewport().rect()
+                    # scene_rect = self.mapToScene(view_rect).boundingRect()
+                    print("view_rect:", view_rect)
+                    # print("scene_rect:", scene_rect)
+                    
+                    x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
+                    y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
+                    print(x_ratio, y_ratio)
 
+                    # need to scale current rect up to the size of actual image 
+                    image_rect = QRect(
+                        int(selectedRect.left() * x_ratio),
+                        int(selectedRect.top() * y_ratio),
+                        int(selectedRect.width() * x_ratio),
+                        int(selectedRect.height() * y_ratio)
+                    )
+                    print(image_rect)
+                    
                     # Show the cropped image in a new window
-                    self.showCroppedImage(cropped_image)
+                    self.showCroppedImage(image_rect)
         else: super().mouseReleaseEvent(event)
 
-    def showCroppedImage(self, cropped_image):
-        self.dialog = Dialogs.ImageDialog(self, cropped_image)
+    def showCroppedImage(self, image_rect):
+
+        cropped_images = {}
+        
+        for channel_name, image in self.channels.items():
+
+            pixmapItem = QGraphicsPixmapItem(QPixmap(image))
+            cropped = pixmapItem.pixmap().copy(image_rect)
+            cropped_images[channel_name] = cropped
+
+        channel_one = next(iter(cropped_images.values()))
+        self.dialog = Dialogs.ImageDialog(self, channel_one)
+
+        
         self.endCrop()
         self.dialog.exec()
 
@@ -164,4 +190,7 @@ class ImageGraphicsViewUI(QGraphicsView):
     def endCrop(self):
         self.begin_crop = False
         self.unsetCursor()
+
+    def loadChannels(self, value):
+        self.channels = value
     
