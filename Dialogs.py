@@ -1,6 +1,6 @@
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (QDialog, QComboBox, QHBoxLayout, QGridLayout, QVBoxLayout, QCheckBox, QSlider, 
-                             QListWidgetItem, QGraphicsView, QListWidget, QPushButton, QLabel, QFileDialog,
+                             QListWidgetItem, QGraphicsView, QGraphicsScene, QListWidget, QPushButton, QLabel, QFileDialog,
                              QDialogButtonBox, QGraphicsPixmapItem)
 from PyQt6.QtCore import Qt, QMetaObject, QCoreApplication
 from PyQt6.QtGui import QPixmap, QPainter, QImage
@@ -307,20 +307,29 @@ class OpenFilesDialog(QDialog):
 
 
 class ImageDialog(QDialog):
-    def __init__(self, canvas, cropped_image:QImage):
+    def __init__(self, canvas, cropped_image:QPixmap):
         super().__init__()
         self.canvas = canvas
         self.cropped_image = cropped_image
-        self.initUI(self.cropped_image)
+        self.initUI()
 
-    def initUI(self, cropped_image:QImage):
+    def initUI(self):
         self.setWindowTitle('Cropped Image')
 
         self._layout = QVBoxLayout()
 
-        self.image_label = QLabel(self)
-        self.image_label.setPixmap(QPixmap.fromImage(cropped_image))
-        self._layout.addWidget(self.image_label)
+        self.image_view = QGraphicsView()
+
+        self.image_scene = QGraphicsScene(self)  # Create a QGraphicsScene
+        self.image_view.setScene(self.image_scene)  # Set the scene on the view
+        self.cropped_pixmapItem = QGraphicsPixmapItem(self.cropped_image)
+        self.image_view.scene().addItem(self.cropped_pixmapItem)
+        self.image_view.setSceneRect(0, 0, 800, 600)
+        item_rect = self.cropped_pixmapItem.boundingRect()
+        self.image_view.setSceneRect(item_rect)
+        self.image_view.fitInView(self.cropped_pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
+        self.image_view.centerOn(self.cropped_pixmapItem)
+        self._layout.addWidget(self.image_view)
 
         # Add buttons
         self.button_layout = QHBoxLayout()
@@ -336,11 +345,9 @@ class ImageDialog(QDialog):
         self._layout.addLayout(self.button_layout)
 
         self.setLayout(self._layout)
-        self.resize(cropped_image.width(), cropped_image.height())
 
     def confirm(self):
-        cropped_pixmapItem = QGraphicsPixmapItem(QPixmap.fromImage(self.cropped_image))
-        self.canvas.updateCanvas(cropped_pixmapItem)
+        self.canvas.updateCanvas(self.cropped_pixmapItem)
         self.accept()
 
     def cancel(self):
