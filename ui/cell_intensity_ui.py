@@ -10,7 +10,7 @@ class CellIntensityUI(QWidget):
 
     def setupUI(self, parent, containing_layout:QVBoxLayout):
         self.cell_intensity_groupbox = QGroupBox(parent)
-        # self.cell_intensity_groupbox.setMinimumSize(QSize(300, 300))
+        # self.cell_intensity_groupbox.setMinimumSize(QSize(300, 400))
         # self.cell_intensity_groupbox.setMaximumSize(QSize(500, 300))
 
 

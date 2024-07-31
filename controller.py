@@ -109,6 +109,7 @@ class Controller:
         
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
+        self.view.tabWidget.currentChanged.connect(self.view.onChange)
 
 
     def on_action_openFiles_triggered(self):

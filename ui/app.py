@@ -2,7 +2,7 @@ from PyQt6.QtGui import QImageReader
 
 from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
 
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton)
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton, QSizePolicy)
 
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
@@ -28,13 +28,21 @@ class Ui_MainWindow(QMainWindow):
         # add a toolbar
         self.toolBar = ToolBarUI(self)
         
-        # initialize tabs
+        # initialize tabs        
         self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabWidget = QTabWidget(self.tabScrollArea)
-        self.tabWidget.setMinimumSize(QSize(400, 500))
-        self.tabWidget.setMaximumSize(QSize(100, 2000))
-        self.tabWidget.setAutoFillBackground(False)
-        self.tabWidget.setObjectName("tabWidget")
+        self.tabScrollArea.setGeometry(0, 0, 420, 520) 
+        
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+
+        self.tabWidget.setMinimumSize(QSize(400, 800))
+        self.tabWidget.setMaximumSize(QSize(500, 1500))  
+
+        self.tabScrollArea.setWidget(self.tabWidget)
+        
+        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
+        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
 
         # canvas
@@ -80,12 +88,13 @@ class Ui_MainWindow(QMainWindow):
         QMetaObject.connectSlotsByName(self)
         
     def onChange(self,i): #changed!
-        
-        if i == 1:
+        if i == 0:
+            self.tabWidget.setMinimumSize(QSize(400, 800))
+        elif i == 1:
+            self.tabWidget.setMinimumSize(QSize(400, 600))
             print("view selected")
             
-        
-
+    
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))

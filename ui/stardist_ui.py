@@ -9,7 +9,7 @@ class StarDistUI(QWidget):
     def setupUI(self, parent, containing_layout:QVBoxLayout):
 
         self.stardist_groupbox = QGroupBox(parent)
-        # self.stardist_groupbox.setMinimumSize(QSize(300, 300))
+        # self.stardist_groupbox.setMinimumSize(QSize(300, 400))
         # self.stardist_groupbox.setMaximumSize(QSize(500, 300))
 
 
