@@ -1,9 +1,11 @@
+
 import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity, image_processing.register
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
-
-from cf_global import SingletonData
-
+import numpy as np
+import cv2
+from PIL import Image
+        
 class Controller:
     def __init__(self, 
                  model_canvas: image_processing.canvas.ImageGraphicsView, 
@@ -23,6 +25,8 @@ class Controller:
         # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
         self.view.menubar.actionOpenReference.triggered.connect(self.on_action_reference_triggered)
         self.view.menubar.actionOpen.triggered.connect(self.on_actionOpen_triggered)
+        
+        # self.view.connect()
 
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
@@ -30,8 +34,11 @@ class Controller:
         self.view.toolBar.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged)
 
 
-        self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
-        self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
+
+        self.view.canvas.imageDropped.connect(self.model.addImage)
+        self.model.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
+        self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
+
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector)
@@ -49,7 +56,11 @@ class Controller:
         self.view.crop_groupbox.cancel_crop_button.triggered.connect(self.view.canvas.endCrop)
         
         # confirm rotate signal
+
+        self.view.saveSignal.connect(self.controlSave)
+
         self.view.rotate_groupbox.rotate_confirm.pressed.connect(lambda: self.model_canvas.rotateImage(self.view.rotate_groupbox.rotate_line_edit.text()))
+
 
         #stardist signals
         #change params
@@ -60,7 +71,9 @@ class Controller:
         self.view.stardist_groupbox.prob_threshold.valueChanged.connect(self.model_stardist.setProbThresh)
         self.view.stardist_groupbox.nms_threshold.valueChanged.connect(self.model_stardist.setNMSThresh)
         self.view.stardist_groupbox.n_tiles.valueChanged.connect(self.model_stardist.setNumberTiles)
+
         self.view.stardist_groupbox.radius.valueChanged.connect(self.model_stardist.setDilationRadius)
+
 
         #run stardist
         self.view.stardist_groupbox.stardist_run_button.pressed.connect(self.model_stardist.runStarDist)
@@ -88,13 +101,81 @@ class Controller:
         self.view.cellIntensity_groupbox.run_button.pressed.connect(self.model_cellIntensity.run)
         
 
+        # Display Butterfly
+        self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        
+        # Save photo
+        self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        
+        # tab switched
+        self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
+
+
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
         self.openFilesDialog.show()
 
+    def save_pixmap_as_image(self, pixmap: QPixmap, filename: str):
+        
+        
+        # Convert QPixmap to QImage
+        qimage = pixmap.toImage()
+
+        # Convert QImage to numpy array
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(height * width * 4)
+        arr = np.array(ptr).reshape(height, width, 4)  # 4 for RGBA
+
+        # Save numpy array as an image file using OpenCV
+        cv2.imwrite(filename, cv2.cvtColor(arr, cv2.COLOR_BGRA2BGRA))
+        
+    def pixmap_to_image(self, pixmap: QPixmap):
+        
+        if pixmap == None:
+            return None
+        # Convert QPixmap to QImage
+        qimage = pixmap.toImage()
+
+        # Convert QImage to numpy array
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(height * width * 4)
+        arr = np.array(ptr).reshape(height, width, 4)  # 4 for RGBA
+
+        # Save numpy array as an image file using OpenCV
+        return arr
+    
+    def is_grayscale(image: np.ndarray) -> bool:
+
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            return False
+        elif len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):
+            return True
+        else:
+            raise ValueError("Image format not recognized")
+        
+    def controlSave(self):
+
+        pm = self.model.pixmap
+        print(pm)
+        if pm != None:
+            im = self.pixmap_to_image(pm)
+            
+        
+            
+            
+            file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png","All Files(*);;Text Files(*.txt)")
+            if file_name:
+                print(file_name)
+                Image.fromarray(im).save(file_name)
+                
+            else:
+                return False
     def createBCDialog(self):
         self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model_canvas.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
-
 
     def openFileDialog(self, viewer):
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")

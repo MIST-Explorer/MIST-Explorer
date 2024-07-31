@@ -1,11 +1,13 @@
 from PyQt6.QtGui import QImageReader
-from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
-                             QStatusBar, QProgressBar)
+
+from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
+
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton)
+
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
-from ui.view_tab import ImageOverlay, color_dict, write_protein, adjust_contrast, tint_grayscale_image, load_stardist_image
+from ui.view_tab import ImageOverlay
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self):
@@ -28,17 +30,12 @@ class Ui_MainWindow(QMainWindow):
         
         # initialize tabs
         self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabScrollArea.setGeometry(0, 0, 420, 520) 
-        
-        self.tabWidget = QTabWidget()
-        self.tabWidget.setMinimumSize(QSize(400, 1100))
-        self.tabWidget.setMaximumSize(QSize(1000, 2000))  
+        self.tabWidget = QTabWidget(self.tabScrollArea)
+        self.tabWidget.setMinimumSize(QSize(400, 500))
+        self.tabWidget.setMaximumSize(QSize(100, 2000))
+        self.tabWidget.setAutoFillBackground(False)
+        self.tabWidget.setObjectName("tabWidget")
 
-        self.tabScrollArea.setWidget(self.tabWidget)
-        
-        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
-        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget)
@@ -52,32 +49,18 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.addTab(self.preprocessing_tab, "")
         
         ####### view tab #######################################
-        reduced_cell_img = load_stardist_image()  
-        df = pd.read_csv("C:\\Users\\jianx\\protein_visualization_app\\sample_data\\celldta.csv")
-        # df = pd.read_csv("/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv")
-        df = df[df.columns.drop(list(df.filter(regex='N/A')))]
-        print(df)
-        ims = [write_protein(prot, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
-        ims = [adjust_contrast(im) for im in ims]   
-        ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
-        layer_names = list(df.columns[3:])
-        
-        layers = [
-            {'name': layer_names[i], 'image': ims[i]} 
-            for i in range(len(ims))
-        ]  # Example additional layers
-        
-        ims = ims[0:3]
-        layer_names = layer_names[0:3]
-        self.canvas.pixmapItem
-        self.view_tab = ImageOverlay(self.canvas, ims, layer_names, color_dict)
-        # self.canvas.updateCanvas()
-        # self.view_tab = QLabel("hello")
-        self.view_tab.setObjectName("view_tab")
 
+
+        self.view_tab = ImageOverlay(self.canvas)
+       
+        self.view_tab = ImageOverlay(self.canvas)
+
+        self.view_tab.setObjectName("view_tab")
         self.tabWidget.addTab(self.view_tab, "")
         self.main_layout.addWidget(self.tabWidget)
-        #######################################################
+
+        ########################################################
+
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
         self.setCentralWidget(self.centralwidget)
@@ -95,6 +78,13 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
 
         QMetaObject.connectSlotsByName(self)
+        
+    def onChange(self,i): #changed!
+        
+        if i == 1:
+            print("view selected")
+            
+        
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
@@ -102,6 +92,12 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.preprocessing_tab), _translate("MainWindow", "Preprocessing"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.view_tab), _translate("MainWindow", "View"))
 
+    saveSignal = pyqtSignal()
+    def save_canvas(self):
+        
+        print("saving")
+        self.saveSignal.emit()
+        
     def preprocessUISetup(self):
         self.preprocessing_tab = QWidget()
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
@@ -109,14 +105,22 @@ class Ui_MainWindow(QMainWindow):
 
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
 
+
+        self.save_button = QPushButton('Save Canvas')
+        self.save_button.clicked.connect(self.save_canvas)
+        
+        
         # crop
         self.crop_groupbox = CropUI(self.preprocessing_tab)
         
         # rotate
         self.rotate_groupbox = RotateUI(self.preprocessing_tab)
         
+        
+        
         # layout crop and rotate next to each other
         self.rotate_crop_hlayout = QHBoxLayout()
+        
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
@@ -133,3 +137,4 @@ class Ui_MainWindow(QMainWindow):
         if self.progressBar.value() == 100:
             self.progressBar.reset()
         self.progressBar.setValue(value)
+

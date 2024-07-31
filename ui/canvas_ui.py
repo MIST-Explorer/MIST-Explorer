@@ -39,7 +39,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
+
     imageCropped = pyqtSignal(dict)
+
 
     def __init__(self, parent=None):
 
@@ -58,7 +60,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.setAcceptDrops(True)
         self.setScene(QGraphicsScene(self))
         self.setSceneRect(0, 0, 800, 600)
-        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
 
     def updateCanvas(self, pixmapItem: QGraphicsPixmapItem):
         '''updates canvas when current image is operated on'''
@@ -66,6 +68,11 @@ class ImageGraphicsViewUI(QGraphicsView):
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
             self.__centerImage(self.pixmapItem)
+            
+    def saveImage(self):
+        print("hello")
+        
+        
             
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
         '''add a new image, deletes the older one'''
