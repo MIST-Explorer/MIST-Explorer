@@ -35,8 +35,8 @@ class Controller:
 
 
 
-        self.view.canvas.imageDropped.connect(self.model.addImage)
-        self.model.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
+        self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
+        self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
 
 
@@ -102,10 +102,10 @@ class Controller:
         
 
         # Display Butterfly
-        self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         
         # Save photo
-        self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
+        self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
@@ -159,7 +159,7 @@ class Controller:
         
     def controlSave(self):
 
-        pm = self.model.pixmap
+        pm = self.model_canvas.pixmap
         print(pm)
         if pm != None:
             im = self.pixmap_to_image(pm)
