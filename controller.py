@@ -78,7 +78,7 @@ class Controller:
         self.model_stardist.stardistDone.connect(self.model.toPixmapItem)
         
         # tab switched
-        # self.view.tabWidget.currentChanged.connect(lambda : self.view.view_tab.update_segmented_image(self.pixmap_to_image(self.model.pixmap)))
+        self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
 
 
     def on_action_openFiles_triggered(self):
