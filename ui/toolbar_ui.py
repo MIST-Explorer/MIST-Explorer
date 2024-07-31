@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox
-from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal
-from PyQt6.QtGui import QPainter
+from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize
+from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
 from ui.tool import Action
+import matplotlib.pyplot as plt, numpy as np
 
 class ToolBarUI(QWidget):
 
@@ -10,8 +11,9 @@ class ToolBarUI(QWidget):
         self.toolbar = QToolBar(parent)
         parent.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
         self.__createActions(parent)
-        self.__addActions()
+        self.__addCmaps()
         self.__addAllOps() #not used right now
+        self.__addActions()
         self.__retranslateUI()
 
 
@@ -28,16 +30,53 @@ class ToolBarUI(QWidget):
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "icons/brightness.png")
         self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
+        self.cmapSelector = QComboBox(parent)
 
         self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
 
+    def __generateCmapThumbnails(self) -> np.ndarray:
+        self.cmap_names = ['viridis', 'plasma', 'inferno', 'magma', 'cividis']
+        self.cmap_thumbnail_arr = []
+        for cmap_name in self.cmap_names:
+            gradient = np.linspace(0, 1, 256)
+            gradient = np.vstack((gradient, gradient))
 
+            # plot and save cmap as np array
+            fig, ax= plt.subplots(figsize=(4,1))
+            ax.imshow(gradient, aspect='auto', cmap=cmap_name)
+            ax.set_xticks([])  
+            ax.set_yticks([])  
+            ax.set_xticklabels([])  
+            ax.set_yticklabels([])  
+            fig.tight_layout(pad=0)
+
+            fig.canvas.draw()
+            thumbnail_arr = np.array(fig.canvas.renderer.buffer_rgba())
+            self.cmap_thumbnail_arr.append(thumbnail_arr)
+            plt.close()
+        return self.cmap_thumbnail_arr
+
+    def numpy_to_QIcon(self, array: np.ndarray):
+        height, width, channels = array.shape
+        image = QImage(array.tobytes(), width, height, QImage.Format.Format_RGBA8888)
+        pixmap = QIcon(QPixmap.fromImage(image))
+        return pixmap
+
+    def __addCmaps(self):
+        thumbnails = self.__generateCmapThumbnails()
+        self.cmapSelector.setMinimumSize(QSize(100,20))
+        for index, thumbnail in enumerate(thumbnails): 
+            icon = self.numpy_to_QIcon(thumbnail)
+            self.cmapSelector.setIconSize(QSize(100,20))
+            self.cmapSelector.addItem(icon, self.cmap_names[index])
+        
     def __addActions(self):
         self.toolbar.addAction(self.actionReset)
         self.toolbar.addAction(self.actionOpenBrightnessContrast)
         self.toolbar.addWidget(self.operatorComboBox)
         self.toolbar.addWidget(self.channelSelector)
+        self.toolbar.addWidget(self.cmapSelector)
 
     def __addOp(self, mode, name:str):
         self.operatorComboBox.addItem(name, mode)

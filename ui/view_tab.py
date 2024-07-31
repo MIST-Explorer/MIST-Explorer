@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from stardist.models import StarDist2D
 from PIL import Image
 from PyQt6.QtWidgets import QFileDialog
@@ -325,6 +327,7 @@ class ImageOverlay(QWidget):
     
     def load_example(self):
         # print("Yo")
+
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
         if file_name:
             # combined_image = np.array(Image.open(file_name))

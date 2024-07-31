@@ -6,7 +6,6 @@ from PIL import Image, ImageSequence
 import cv2
 import time
 
-
 class ReferenceGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -76,7 +75,12 @@ class ImageGraphicsView(QGraphicsView):
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
     channelLoaded = pyqtSignal(dict, dict)
     channelNotLoaded = pyqtSignal(np.ndarray)
+  
+    # need some dead code analysis
     saveImage = pyqtSignal(QGraphicsPixmapItem)  
+
+    updateProgress = pyqtSignal(int)
+
 
     def __init__(self):
 
@@ -118,43 +122,45 @@ class ImageGraphicsView(QGraphicsView):
     def __filename_to_pixmap(self, file_name:str):  
         t_f = time.time()
         if file_name.endswith((".tiff", ".tif")):
-
-            image_data = tiff.imread(file_name)
-
-            try:
-                num_channels, height, width = image_data.shape
-            except ValueError:
-                height, width = image_data.shape
-
-            bytesPerPixel = 1 # only uint8 
+            
+            t = time.time()
+            pages = self.read_tiff_pages(file_name)
+            num_channels = len(pages)
             format = QImage.Format.Format_Grayscale8
 
-            if (image_data.ndim == 3):
+            if (num_channels > 1):
 
                 # resultSize = QSize(width, height)
                 # self.resultImage = QImage(resultSize, QImage.Format.Format_ARGB32_Premultiplied)
 
                 self.channels = {}
                 self.np_channels = {}
-                for channel_num in range(num_channels):
-                    t = time.time()
+                for channel_num, image in enumerate(pages):
 
                     channel_name = f'Channel {channel_num + 1}'
-
-                    __scaled = self.scale_adjust(image_data[channel_num,:,:]) 
+                    height, width = image.shape
+                
+                    __scaled = self.scale_adjust(image) 
                     image_adjusted = self.adjustContrast(__scaled) # uint8
+               
+
+                    bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
                     self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
+
                     qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                     self.channels[channel_name] = qimage_channel # for displaying on canvas
                     
-                    print(time.time() - t)
+                    # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
 
                 channel_one_qimage = next(iter(self.channels.values()))
                 self.channelLoaded.emit(self.channels, self.np_channels)
-                
+                print(f"image loading time: {time.time() - t}")
             else:
-                __scaled = self.scale_adjust(image_data) 
+                height, width = pages[0].shape
+                __scaled = self.scale_adjust(pages[0]) 
                 image_adjusted = self.adjustContrast(__scaled) # uint8
+
+                bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
                 channel_one_qimage = QImage(image_adjusted, height, width, width*bytesPerPixel, format)
                 self.channelNotLoaded.emit(image_adjusted)
 
@@ -185,7 +191,30 @@ class ImageGraphicsView(QGraphicsView):
         return array
         
     
+
+    def read_tiff_pages(self, file_path):
+        pages = []
+        with tiff.TiffFile(file_path) as tif:
+            for i, page in enumerate(tif.pages):
+                try:
+                    image = page.asarray()
+                    # Check if the image is blank
+                    if np.all(image == image.flat[0]):
+                        print(f"Page {i} is blank, skipping.")
+                        continue
+                    pages.append(image)
+                    self.updateProgress.emit(int((i+1)/len(tif.pages)*100))
+                except Exception as e:
+                    print(f"Error reading page {i}: {e}")
+                    continue
+
+
+        return pages
+
+
+
     def adjustContrast(self,img):  
+        
         alpha = 5 # Contrast control
         beta = 15 # Brightness control
         return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
@@ -193,8 +222,13 @@ class ImageGraphicsView(QGraphicsView):
 
     # uint16 to uint8
     def scale_adjust(self, arr:np.ndarray):
-        return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
-    
+        if arr.dtype == np.uint16:
+            return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
+        elif arr.dtype == np.uint8:
+            return arr
+        else:
+            print("unsupported array type")
+
         
     def deleteImage(self):
         self.scene().clear()

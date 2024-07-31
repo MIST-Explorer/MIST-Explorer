@@ -2,11 +2,10 @@ from PyQt6.QtGui import QImageReader
 
 from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
 
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, 
-                             QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton)
-# import protein_selection
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton)
+
 import pandas as pd
-from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.threshold_ui import ThresholdUI
+from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
 from ui.view_tab import ImageOverlay
 
@@ -41,7 +40,6 @@ class Ui_MainWindow(QMainWindow):
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget)
         self.canvas.setMinimumSize(QSize(800, 500))
-        self.canvas.setObjectName("canvas")
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
@@ -52,6 +50,7 @@ class Ui_MainWindow(QMainWindow):
         
         ####### view tab #######################################
 
+
         self.view_tab = ImageOverlay(self.canvas)
        
         self.view_tab = ImageOverlay(self.canvas)
@@ -61,8 +60,6 @@ class Ui_MainWindow(QMainWindow):
         self.main_layout.addWidget(self.tabWidget)
 
         ########################################################
-        
-
 
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
@@ -73,11 +70,11 @@ class Ui_MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
 
         self.progressBar = QProgressBar()
-        self.progressBar.setMaximum(100)
         self.statusbar.addPermanentWidget(self.progressBar)
-        self.progressBar.setValue(20)
+        self.progressBar.setMaximum(100)
 
         self.__retranslateUI()
+
         self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
 
         QMetaObject.connectSlotsByName(self)
@@ -105,7 +102,8 @@ class Ui_MainWindow(QMainWindow):
         self.preprocessing_tab = QWidget()
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
-        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) # from preprocessing tab
+
+        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
 
 
         self.save_button = QPushButton('Save Canvas')
@@ -127,15 +125,16 @@ class Ui_MainWindow(QMainWindow):
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
 
-        # thresholding UI
-        self.threshold_groupbox = ThresholdUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-        
-        # registration UI
-        self.registration_groupbox = QGroupBox()
-        self.registration_groupbox.setTitle("Register")
-        self.preprocessing_dockwidget_main_vlayout.addWidget(self.registration_groupbox)
-        
-        self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)
+
+        self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+
+        self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
+        self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
+
+    def updateProgressBar(self, value):
+        if self.progressBar.value() == 100:
+            self.progressBar.reset()
+        self.progressBar.setValue(value)
+

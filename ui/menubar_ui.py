@@ -18,13 +18,13 @@ class MenuBarUI(QWidget):
         self.actionOpen = Action(parent, "actionOpen", "icons/folder.png")
         self.actionSaveAs = Action(parent, "actionSaveAs", "icons/save-as.png")
         self.actionOpenReference = Action(parent, "action_reference")
-        self.actionOpenFiles = Action(parent, "action_openFiles")
+        # self.actionOpenFiles = Action(parent, "action_openFiles")
 
     def __addActions(self):
         self.menubar.addAction(self.menuFile.menuAction())
         self.menuFile.addAction(self.menuOpen.menuAction())
         self.menuFile.addAction(self.actionSaveAs)
-        self.menuOpen.addActions([self.actionOpenReference, self.actionOpen, self.actionOpenFiles])
+        self.menuOpen.addActions([self.actionOpenReference, self.actionOpen])
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
@@ -32,7 +32,7 @@ class MenuBarUI(QWidget):
         self.actionOpenReference.setText(_translate("MainWindow", "Open Reference"))
         self.menuOpen.setTitle(_translate("MainWindow", "Open"))
         self.actionOpen.setText(_translate("MainWindow", "Open Image"))
-        self.actionOpenFiles.setText(_translate("MainWindow", "Open Files"))
+        # self.actionOpenFiles.setText(_translate("MainWindow", "Open Files"))
         self.actionSaveAs.setText(_translate("MainWindow", "Save As..."))
 
 
