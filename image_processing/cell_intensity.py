@@ -27,9 +27,9 @@ class CellIntensity:
 
         
         }
-        self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
-        self.color_code = pd.read_csv("sample_data/ColorCode.csv")
-        self.stardist_labels = None 
+        # self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
+        # self.color_code = pd.read_csv("sample_data/ColorCode.csv")
+        # self.stardist_labels = None 
 
       
     def run(self):

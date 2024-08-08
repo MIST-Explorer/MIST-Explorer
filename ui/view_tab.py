@@ -66,13 +66,14 @@ def write_protein(protein_name, df, reduced_cell_img):
     protein_1 = np.array(df[protein_name])
     protein_1 = winsorize_array(protein_1, 0, .98)
     protein_1 = rescale_array(protein_1, np.min(protein_1), np.max(protein_1), 60, 255)
+    
+    print("prot written")
 
     for id, color in enumerate(protein_1):
         id += 1
         cnv[reduced_cell_img == id] = color
         
     return cnv 
-
 
 
 def superimpose_image(base_shape, image, color):
@@ -131,7 +132,344 @@ def scale_image_to_255(image_array):
     scaled_image = 255 * (image_array - image_array.min()) / (image_array.max() - image_array.min())
     return scaled_image.astype(np.uint8)
 
+
+import sys, os
+from PyQt6 import QtCore, QtGui, QtWidgets
+
+__all__ = ['QRangeSlider']
+
+DEFAULT_CSS = """
+
+
+
+QRangeSlider * {
+    border: 0px;
+    padding: 0px;
+    
+}
+QRangeSlider #Head {
+    background: #222;
+    
+}
+QRangeSlider #Span {
+    background: #393;
+    
+}
+QRangeSlider #Span:active {
+    background: #282;
+}
+QRangeSlider #Tail {
+    background: #222;
+}
+QRangeSlider > QSplitter::handle {
+    background: #393;
+}
+QRangeSlider > QSplitter::handle:vertical {
+    height: 4px;
+}
+QRangeSlider > QSplitter::handle:pressed {
+    background: #ca5;
+}
+"""
+
+def scale(val, src, dst):
+    return int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
+
+
+class Ui_Form(object):
+    def setupUi(self, Form):
+        Form.setObjectName("QRangeSlider")
+        Form.resize(300, 30)
+        Form.setStyleSheet(DEFAULT_CSS)
+        self.gridLayout = QtWidgets.QGridLayout(Form)
+        self.gridLayout.setContentsMargins(0, 0, 0, 0)
+        self.gridLayout.setSpacing(0)
+        self.gridLayout.setObjectName("gridLayout")
+        self._splitter = QtWidgets.QSplitter(Form)
+        self._splitter.setMinimumSize(QtCore.QSize(0, 0))
+        self._splitter.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self._splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        self._splitter.setObjectName("splitter")
+        self._head = QtWidgets.QGroupBox(self._splitter)
+        self._head.setTitle("")
+        self._head.setObjectName("Head")
+        self._handle = QtWidgets.QGroupBox(self._splitter)
+        self._handle.setTitle("")
+        self._handle.setObjectName("Span")
+        self._tail = QtWidgets.QGroupBox(self._splitter)
+        self._tail.setTitle("")
+        self._tail.setObjectName("Tail")
+        self.gridLayout.addWidget(self._splitter, 0, 0, 1, 1)
+        self.retranslateUi(Form)
+        QtCore.QMetaObject.connectSlotsByName(Form)
+
+    def retranslateUi(self, Form):
+        _translate = QtCore.QCoreApplication.translate
+        Form.setWindowTitle(_translate("QRangeSlider", "QRangeSlider"))
+
+
+class Element(QtWidgets.QGroupBox):
+    def __init__(self, parent, main):
+        super(Element, self).__init__(parent)
+        self.main = main
+
+    def setStyleSheet(self, style):
+        self.parent().setStyleSheet(style)
+
+    def textColor(self):
+        return getattr(self, '__textColor', QtGui.QColor(125, 125, 125))
+
+    def setTextColor(self, color):
+        if type(color) == tuple and len(color) == 3:
+            color = QtGui.QColor(color[0], color[1], color[2])
+        elif type(color) == int:
+            color = QtGui.QColor(color, color, color)
+        setattr(self, '__textColor', color)
+
+    def paintEvent(self, event):
+        qp = QtGui.QPainter()
+        qp.begin(self)
+        if self.main.drawValues():
+            self.drawText(event, qp)
+        qp.end()
+
+
+class Head(Element):
+    def __init__(self, parent, main):
+        super(Head, self).__init__(parent, main)
+
+    def drawText(self, event, qp):
+        qp.setPen(self.textColor())
+        qp.setFont(QtGui.QFont('Arial', 10))
+        qp.drawText(event.rect(), QtCore.Qt.AlignmentFlag.AlignLeft, str(self.main.min()))
+
+
+class Tail(Element):
+    def __init__(self, parent, main):
+        super(Tail, self).__init__(parent, main)
+
+    def drawText(self, event, qp):
+        qp.setPen(self.textColor())
+        qp.setFont(QtGui.QFont('Arial', 10))
+        qp.drawText(event.rect(), QtCore.Qt.AlignmentFlag.AlignRight, str(self.main.max()))
+
+
+class Handle(Element):
+    def __init__(self, parent, main):
+        super(Handle, self).__init__(parent, main)
+
+    def drawText(self, event, qp):
+        qp.setPen(self.textColor())
+        qp.setFont(QtGui.QFont('Arial', 10))
+        qp.drawText(event.rect(), QtCore.Qt.AlignmentFlag.AlignLeft, str(self.main.start()))
+        qp.drawText(event.rect(), QtCore.Qt.AlignmentFlag.AlignRight, str(self.main.end()))
+
+    def mouseMoveEvent(self, event):
+        event.accept()
+        mx = event.globalPosition().x()
+        _mx = getattr(self, '__mx', None)
+        if not _mx:
+            setattr(self, '__mx', mx)
+            dx = 0
+        else:
+            dx = mx - _mx
+        setattr(self, '__mx', mx)
+        if dx == 0:
+            event.ignore()
+            return
+        elif dx > 0:
+            dx = 1
+        elif dx < 0:
+            dx = -1
+        s = self.main.start() + dx
+        e = self.main.end() + dx
+        if s >= self.main.min() and e <= self.main.max():
+            self.main.setRange(s, e)
+            
+import qtrangeslider
+
+class QRangeSlider(QtWidgets.QWidget, Ui_Form):
+    endValueChanged = QtCore.pyqtSignal(int)
+    maxValueChanged = QtCore.pyqtSignal(int)
+    minValueChanged = QtCore.pyqtSignal(int)
+    startValueChanged = QtCore.pyqtSignal(int)
+
+    _SPLIT_START = 1
+    _SPLIT_END = 2
+
+    def __init__(self, parent=None):
+        super(QRangeSlider, self).__init__(parent)
+        self.setupUi(self)
+        self.setMouseTracking(False)
+        self._splitter.splitterMoved.connect(self._handleMoveSplitter)
+        self._head_layout = QtWidgets.QHBoxLayout()
+        self._head_layout.setSpacing(0)
+        self._head_layout.setContentsMargins(0, 0, 0, 0)
+        self._head.setLayout(self._head_layout)
+        self.head = Head(self._head, main=self)
+        self._head_layout.addWidget(self.head)
+        self._handle_layout = QtWidgets.QHBoxLayout()
+        self._handle_layout.setSpacing(0)
+        self._handle_layout.setContentsMargins(40, 0, 40, 0)
+        self._handle.setLayout(self._handle_layout)
+        self.handle = Handle(self._handle, main=self)
+        self.handle.setTextColor((150, 255, 150))
+        self._handle_layout.addWidget(self.handle)
+        self._tail_layout = QtWidgets.QHBoxLayout()
+        self._tail_layout.setSpacing(0)
+        self._tail_layout.setContentsMargins(0, 0, 0, 0)
+        self._tail.setLayout(self._tail_layout)
+        self.tail = Tail(self._tail, main=self)
+        self._tail_layout.addWidget(self.tail)
+        self.setMinimum(0)
+        self.setMaximum(255)
+        self.setStart(0)
+        self.setEnd(255)
+        self.setDrawValues(True)
+
+    def min(self):
+        return getattr(self, '__min', None)
+
+    def max(self):
+        return getattr(self, '__max', None)
+
+    def setMinimum(self, value):
+        setattr(self, '__min', value)
+        print(self.min())
+        self.minValueChanged.emit(value)
+
+    def setMaximum(self, value):
+        setattr(self, '__max', value)
+        print(self.min())
+        self.maxValueChanged.emit(value)
+
+    def start(self):
+        return getattr(self, '__start', None)
+
+    def end(self):
+        return getattr(self, '__end', None)
+
+    def _setStart(self, value):
+        setattr(self, '__start', value)
+        self.startValueChanged.emit(value)
+        print(self.start())
+
+    def setStart(self, value):
+        v = self._valueToPos(value)
+        self._splitter.splitterMoved.disconnect()
+        self._splitter.moveSplitter(v, self._SPLIT_START)
+        self._splitter.splitterMoved.connect(self._handleMoveSplitter)
+        self._setStart(value)
+        print(self.start())
+
+    def _setEnd(self, value):
+        setattr(self, '__end', value)
+        print(self.end())
+        self.endValueChanged.emit(value)
+
+    def setEnd(self, value):
+        print(self.end())
+        v = self._valueToPos(value)
+        self._splitter.splitterMoved.disconnect()
+        self._splitter.moveSplitter(v, self._SPLIT_END)
+        self._splitter.splitterMoved.connect(self._handleMoveSplitter)
+        self._setEnd(value)
+
+    def drawValues(self):
+        return getattr(self, '__drawValues', None)
+
+    def setDrawValues(self, draw):
+        setattr(self, '__drawValues', draw)
+
+    def getRange(self):
+        return (self.start(), self.end())
+
+    def setRange(self, start, end):
+        self.setStart(start)
+        self.setEnd(end)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == QtCore.Qt.Key_Left:
+            s = self.start()-1
+            e = self.end()-1
+            
+            print(s, e)
+        elif key == QtCore.Qt.Key_Right:
+            s = self.start()+1
+            e = self.end()+1
+            
+            print(s, e)
+        else:
+            event.ignore()
+            return
+        event.accept()
+        if s >= self.min() and e <= self.max():
+            self.setRange(s, e)
+            
+            print(s, e)
+
+    def setBackgroundStyle(self, style):
+        self._tail.setStyleSheet(style)
+        self._head.setStyleSheet(style)
+
+    def setSpanStyle(self, style):
+        self._handle.setStyleSheet(style)
+
+    def _valueToPos(self, value):
+        return scale(value, (self.min(), self.max()), (0, self.width()))
+
+    def _posToValue(self, xpos):
+        return scale(xpos, (0, self.width()), (self.min(), self.max()))
+
+    def _handleMoveSplitter(self, xpos, index):
+        hw = self._splitter.handleWidth()
+        def _lockWidth(widget):
+            width = widget.size().width()
+            widget.setMinimumWidth(width)
+            widget.setMaximumWidth(width)
+        def _unlockWidth(widget):
+            widget.setMinimumWidth(0)
+            widget.setMaximumWidth(16777215)
+        if index == self._SPLIT_START:
+            v = self._posToValue(xpos)
+            _lockWidth(self._tail)
+            if v >= self.end():
+                return
+            offset = -20
+            w = xpos + offset
+            self._setStart(v)
+        elif index == self._SPLIT_END:
+            v = self._posToValue(xpos + 2 * hw)
+            _lockWidth(self._head)
+            if v <= self.start():
+                return
+            offset = -40
+            w = self.width() - xpos + offset
+            self._setEnd(v)
+        _unlockWidth(self._tail)
+        _unlockWidth(self._head)
+        _unlockWidth(self._handle)
+
+# if __name__ == '__main__':
+
+#     app = QtWidgets.QApplication(sys.argv)
+#     QtWidgets.QWidget()
+    
+#     
+#     app.exec()
+
+def build_range_slider():
+    rs = QRangeSlider()
+    rs.show()
+    rs.setRange(10, 250)
+    rs.setBackgroundStyle('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
+    rs.handle.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #393);')
+    return rs 
+
 class LayerDialog(QDialog):
+    
+    
     
     def __init__(self, layers, parent=None):
         super().__init__(parent)
@@ -155,10 +493,16 @@ class LayerDialog(QDialog):
         
         self.setLayout(self.layout)
     
-    def get_selected_layer_index(self):
+    def get_selected_layer_index(self): 
+        print([item.text() for item in self.layer_list.selectedItems()])
+        print([l["name"] for l in self.layers])
+        print([l["name"] for l in self.layers].index([item.text() for item in self.layer_list.selectedItems()][0]))
+        
         selected_items = self.layer_list.selectedItems()
         if selected_items:
-            selected_index = self.layer_list.row(selected_items[0])
+            selected_index = [l["name"] for l in self.layers].index([item.text() for item in self.layer_list.selectedItems()][0])
+            
+            print("selected index", selected_index)
             return selected_index
         return None
 
@@ -210,10 +554,11 @@ class ImageOverlay(QWidget):
         self.pixmap_label = pixmap_label
         self.active_images = []
         
-        self.df_path = "/Users/clark/Desktop/protein_visualization_app/sample_data/celldta.csv"
-        self.im_path = '/Users/clark/Desktop/protein_visualization_app/sample_data/cropped.png'
+        # self.df_path = "/Users/clark/Desktop/protein_visualization_app/cell_data_new.csv"
+        # self.im_path = '/Users/clark/Desktop/protein_visualization_app/image.png'
         
-        
+        self.df_path =  "/Users/clark/Downloads/cell_data_revised_Cropped Biopsy Dataset_Bubble Cropped.csv"
+        self.im_path = "/Users/clark/Downloads/stardist_labels.png"
         self.initUI()
         
     def load_stardist_image(self):
@@ -223,36 +568,46 @@ class ImageOverlay(QWidget):
         stardist_labels = Image.open(self.im_path)
         stardist_labels = np.array(stardist_labels)
         
-        reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (500, 500))
+        return stardist_labels
         
-        return  reduced_cell_img
+        # reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (1000, 1000))
+        # return  reduced_cell_img
+    
+    
 
     def load_df(self):
         if self.df_path == None:
             return None
         
+        print("df path", self.df_path)
         df = pd.read_csv(self.df_path)
+        print("df raw", df)
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
         return df
     
     
     def build_all(self):
+        
+        import time 
+        
         print('buidling all')
-        reduced_cell_img = self.load_stardist_image()  
+        reduced_cell_img = scale_image_to_255(self.load_stardist_image())
         df = self.load_df()
-        print("loaded")
+        print(" df loaded")
         
-        
+        start = time.time()
         ims = [write_protein(prot, df, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
-        print("ims weritee")
+        print("ims write")
         ims = [adjust_contrast(im) for im in ims]  
         print("contrast adjusted") 
         ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
         print("tinted")
         layer_names = list(df.columns[3:]) 
         
+        print("df", df)
+        
                 
-        self.ims = ims  # List of images as np.arrays
+        self.ims = ims # List of images as np.arrays
         self.layer_names = layer_names  # List of layer names
         self.color_dict = color_dict  # Dictionary of color names to RGB values
         self.opacity_sliders = []
@@ -269,6 +624,8 @@ class ImageOverlay(QWidget):
             {'name': layer_names[i], 'image': ims[i]} 
             for i in range(len(ims))
         ] 
+        
+        print(self.layers)
         
         print("done")
         return (ims, layer_names)
@@ -358,8 +715,10 @@ class ImageOverlay(QWidget):
         
     
     def add_layer_controls(self, idx):
+        layer_id = idx
+        idx = len(self.active_images) - 1
         print("add alyers controls", idx)
-        group_box = QGroupBox(f"Layer {idx + 1}: {self.layer_names[idx]}")
+        group_box = QGroupBox(f"Layer {idx + 1}: {self.layer_names[layer_id]}")
         group_layout = QFormLayout()
         
         opacity_slider = QSlider(Qt.Orientation.Horizontal)
@@ -370,11 +729,15 @@ class ImageOverlay(QWidget):
         self.opacity_sliders.append(opacity_slider)
         group_layout.addRow("Opacity:", opacity_slider)
         
-        contrast_slider = QSlider(Qt.Orientation.Horizontal)
-        contrast_slider.setMinimum(50)
-        contrast_slider.setMaximum(150)
-        contrast_slider.setValue(100)
+        # contrast_slider = QSlider(Qt.Orientation.Horizontal)
+        # 
+        # contrast_slider.setValue(100)
+        # 
+        contrast_slider = qtrangeslider.QLabeledDoubleRangeSlider(Qt.Orientation.Horizontal)
         contrast_slider.valueChanged.connect(lambda value: self.update_contrast(value, idx))
+        contrast_slider.setMaximum(255)
+        contrast_slider.setDecimals(0)
+
         self.contrast_sliders.append(contrast_slider)
         group_layout.addRow("Contrast:", contrast_slider)
         
@@ -399,9 +762,18 @@ class ImageOverlay(QWidget):
         self.scroll_layout.addWidget(group_box)
     
     def show_layer_dialog(self):
+        if not hasattr(self, 'layers'):
+            from PyQt6.QtWidgets import QMessageBox
+
+            import ui.app
+
+            QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
+            return
+        
         dialog = LayerDialog(self.layers, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selected_index = dialog.get_selected_layer_index()
+            print("selected indexxxx is ", selected_index)
             if selected_index is not None:
                 self.add_layer(selected_index)
     
@@ -420,13 +792,16 @@ class ImageOverlay(QWidget):
     def add_layer(self, index):
         new_img = self.layers[index]['image']
         new_name = self.layers[index]['name']
+        
+        print(new_name)
+        
         self.active_images.append(new_img)
-        self.layer_names.append(new_name)
+        # self.layer_names.append(new_name)
         self.current_opacities.append(1.0)
         self.current_contrasts.append(1.0)
         self.current_visibilities.append(True)
         self.current_tints.append(QColor(255, 255, 255))
-        self.add_layer_controls(len(self.active_images) - 1)
+        self.add_layer_controls(index)
         self.update_image()
     
     def update_opacity(self, value, idx):
@@ -434,7 +809,9 @@ class ImageOverlay(QWidget):
         self.update_image()
     
     def update_contrast(self, value, idx):
-        self.current_contrasts[idx] = value / 100.0
+        value = [int(value[0]), int(value[1])]
+        print("contrast updated value", value, idx)
+        self.current_contrasts[idx] = value
         self.update_image()
     
     def update_visibility(self, checked, idx):
@@ -456,6 +833,13 @@ class ImageOverlay(QWidget):
             img = np.clip(img, minval, maxval)
             img = ((img - minval) / (maxval - minval)) * 255
             return (img.astype(np.uint8))
+    
+    def slider_adjust_contrast(self, img, range):
+        print("slider_adjust_contrast", img.dtype, range)
+        # min, max = range
+        # winsorized_arr = np.clip(img, min, max)
+        # return winsorized_arr
+        return adjust_contrast(img)
         
     def update_image(self):
         if len(self.active_images) == 0:
@@ -465,10 +849,14 @@ class ImageOverlay(QWidget):
         
         for img, opacity, contrast, visible, tint in zip(self.active_images, self.current_opacities, self.current_contrasts, self.current_visibilities, self.current_tints):
             if visible:
-                print(contrast)
-                adjusted_img = img * contrast
-                adjusted_img = scale_image_to_255(adjusted_img)
-                adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to
+                print("dollar eighty", contrast)    
+                 
+                adjusted_img = img * 1.0
+                # adjusted_img = winsorize_array(adjusted_img, 0, 255)
+                if type(contrast) == type([]):
+                    adjusted_img = np.clip(adjusted_img, contrast[0], contrast[1])  
+                    adjusted_img = scale_image_to_255(adjusted_img)
+                # Clip values to
                 adjusted_img = self.apply_tint(adjusted_img, tint)
                 adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to stay in the valid range
                 combined_image += adjusted_img * opacity

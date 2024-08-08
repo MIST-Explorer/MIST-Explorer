@@ -99,16 +99,17 @@ class Ui_MainWindow(QMainWindow):
         self.saveSignal.emit()
         
     def preprocessUISetup(self):
-        self.preprocessing_tab = QWidget()
+        self.scrollarea = QScrollArea()
+        self.preprocessing_tab = QWidget(self.scrollarea)
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
+        # 
+
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
 
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
 
-
         self.save_button = QPushButton('Save Canvas')
         self.save_button.clicked.connect(self.save_canvas)
-        
         
         # crop
         self.crop_groupbox = CropUI(self.preprocessing_tab)
@@ -123,15 +124,22 @@ class Ui_MainWindow(QMainWindow):
         
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
+        
+        
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
-
+        
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        
+        self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)
 
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+
+        
 
     def updateProgressBar(self, value):
         if self.progressBar.value() == 100:

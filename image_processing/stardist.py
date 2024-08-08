@@ -27,8 +27,17 @@ class StarDist(QObject):
         'nms_threshold': 0.3,
         'n_tiles': 0,
         'radius': 5,
-        }
+        }   
 
+    def adjust_contrast(self, img, min=2, max = 98):
+            # pixvals = np.array(img)
+
+            minval = np.percentile(img, min) # room for experimentation 
+            maxval = np.percentile(img, max) # room for experimentation 
+            img = np.clip(img, minval, maxval)
+            img = ((img - minval) / (maxval - minval)) * 255
+            return (img.astype(np.uint8))
+            
     def runStarDist(self):
         
         model = StarDist2D.from_pretrained(str(self.params['model']))
@@ -45,15 +54,18 @@ class StarDist(QObject):
             scaleDown = arr.shape[0] > 10000
 
             if scaleDown:
-                scale_factor = 20
+                scale_factor = 1
                 cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
             else:
                 cell_image = arr
                             
+
             if self.params['n_tiles'] == 0:
-                stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
+                self.params['n_tiles'] = 10
+                stardist_labels, _ = model.predict_instances(normalize(self.adjust_contrast(cell_image), self.params['percentile_low'], self.params['percentile_high']), 
                                                              prob_thresh=self.params['prob_threshold'], 
-                                                             nms_thresh=self.params['nms_threshold'])
+                                                             nms_thresh=self.params['nms_threshold'],
+                                                             n_tiles=(self.params['n_tiles'], self.params['n_tiles']))
             else:
                 stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                              prob_thresh=self.params['prob_threshold'], 
@@ -79,7 +91,8 @@ class StarDist(QObject):
             lut = self.generate_lut("viridis")
 
             print("converting label to rgb...")
-            stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
+            # stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
+            stardist_labels_rgb = stardist_labels_grayscale
             end_time = time.time()  
             print(start_time - end_time)
             # convert to pixmap
