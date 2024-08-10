@@ -13,7 +13,6 @@ import pystackreg.util
 from PyQt6.QtCore import pyqtSignal
 import re
 import tqdm
-import image_processing.canvas as canvas
 
 class Register:
     # registrationDone = pyqtSignal(np.ndarray)
@@ -28,7 +27,6 @@ class Register:
             'num_tiles': 5,
             'overlap': 500,
         }
-        self.channels = canvas.ImageGraphicsView().channels
 
         self.tifs = (
             { 

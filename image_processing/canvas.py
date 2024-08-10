@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QTransform
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
 import Dialogs, tifffile as tiff, numpy as np
 from PIL import Image, ImageSequence
 import cv2
@@ -34,22 +34,25 @@ class ReferenceGraphicsView(QGraphicsView):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 file_path = url.toLocalFile()
-                pixmap = QPixmap(file_path) 
-                if not pixmap.isNull():
-                    self.addImage(pixmap)
+                if file_path:
+                    self.addImage(file_path)
             event.acceptProposedAction()
 
-    def addImage(self, pixmap: QPixmap):
+    def addImage(self, file_path):
         # check if canvas already has an image
         self.resetTransform()
         if self.reference_pixmapItem:
             self.deleteImage() 
-        # else 
-        self.reset_reference_pixmap=pixmap
-        self.reference_pixmap = pixmap
-        self.reset_reference_pixmapItem = QGraphicsPixmapItem(pixmap)
-        self.reference_pixmapItem = QGraphicsPixmapItem(pixmap)
 
+        image = Image.open(file_path)
+        image.seek(0)
+        arr = np.array(image).astype(np.uint8)
+
+        # MAX_SIZE = (500, 500)
+        # arr = np.array(image.thumbnail(MAX_SIZE))
+        qimage = self.numpy_to_qimage(arr)
+        self.reference_pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
+    
         # center the image
         self.scene().addItem(self.reference_pixmapItem)
 
@@ -66,6 +69,24 @@ class ReferenceGraphicsView(QGraphicsView):
         if self.reference_pixmapItem:
             self.reference_pixmapItem.setPixmap(self.reset_reference_pixmap)
             self.scene().update()
+
+    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
+        if len(array.shape) == 2:
+            # Grayscale image
+            height, width = array.shape
+            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
+        elif len(array.shape) == 3:
+            height, width, channels = array.shape
+            if channels == 3:
+                # RGB image
+                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
+            elif channels == 4:
+                # RGBA image
+                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
+        else:
+            raise ValueError("Unsupported array shape: {}".format(array.shape))
+        return qimage
+
 
 
 ##########################################################
@@ -149,7 +170,7 @@ class ImageGraphicsView(QGraphicsView):
 
                     qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                     self.channels[channel_name] = qimage_channel # for displaying on canvas
-                    
+                    self.reset_channels = self.channels.copy()
                     # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
 
                 channel_one_qimage = next(iter(self.channels.values()))
@@ -190,8 +211,6 @@ class ImageGraphicsView(QGraphicsView):
 
         return array
         
-    
-
     def read_tiff_pages(self, file_path):
         pages = []
         with tiff.TiffFile(file_path) as tif:
@@ -235,22 +254,36 @@ class ImageGraphicsView(QGraphicsView):
 
     def resetImage(self):
         if self.pixmapItem: 
+            self.channels = self.reset_channels
             self.toPixmapItem(self.reset_pixmap)
+    def rotate_image_task(self, channels, angle):
+        transform = QTransform()
+        transform.rotate(angle)
+        rotated_images = [(image.transformed(transform, Qt.TransformationMode.SmoothTransformation)).convertToFormat(image.format()) for image in channels.values()]
+        return dict(zip(channels.keys(), rotated_images))
 
-    
-    # rotate
-    def rotateImage(self, angle_text:str):
-        angle = None
+    def rotateImage(self, angle_text: str):
         try:
             angle = float(angle_text)
         except ValueError:
             print("Error: Please enter a valid number.")
+            return
 
-        if self.pixmap and angle != None:
-            image = self.pixmap.toImage()
-            transform = QTransform()
-            
-            transform.rotate(angle)
-            rotated_image = image.transformed(transform, Qt.TransformationMode.SmoothTransformation)
-            rotated_pixmapItem = QGraphicsPixmapItem(QPixmap.fromImage(rotated_image))
-            self.canvasUpdated.emit(rotated_pixmapItem)
+        if self.pixmap and angle is not None:
+            from qt_threading import Worker
+            self.worker = Worker(self.rotate_image_task, self.channels, angle)
+            self.worker.result.connect(self.onRotationCompleted)
+            self.worker.error.connect(self.onError)
+            self.worker.start()
+
+    @pyqtSlot(object)
+    def onRotationCompleted(self, rotated_channels):
+        self.channels = rotated_channels
+
+        rotated_pixmap = QGraphicsPixmapItem(QPixmap(next(iter(self.channels.values()))))
+        self.canvasUpdated.emit(rotated_pixmap)
+        self.channelLoaded.emit(self.channels, self.np_channels)
+
+    @pyqtSlot(str)
+    def onError(self, error_message):
+        print(f"Error: {error_message}")

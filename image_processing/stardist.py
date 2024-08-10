@@ -30,7 +30,7 @@ class StarDist(QObject):
         }
 
     def runStarDist(self):
-        
+
         model = StarDist2D.from_pretrained(str(self.params['model']))
 
         try:
@@ -39,17 +39,19 @@ class StarDist(QObject):
                 arr = self.np_image
             # case: image has multiple channels
             else:
-                arr = self.np_channels[self.params['channel']] 
+                arr = self.qimage_to_numpy(self.channels[self.params['channel']])
+                # arr = self.np_channels[self.params['channel']] 
 
             # scale down image if it's a large image
             scaleDown = arr.shape[0] > 10000
 
             if scaleDown:
-                scale_factor = 20
+                scale_factor = 10
                 cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
             else:
                 cell_image = arr
                             
+
             if self.params['n_tiles'] == 0:
                 stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                              prob_thresh=self.params['prob_threshold'], 
@@ -58,7 +60,7 @@ class StarDist(QObject):
                 stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                              prob_thresh=self.params['prob_threshold'], 
                                                              nms_thresh=self.params['nms_threshold'], 
-                                                             n_tiles =self.params['n_tiles'])
+                                                             n_tiles =(self.params['n_tiles'], (self.params['n_tiles'])))
 
             # size it back to original
             if scaleDown:
@@ -108,9 +110,10 @@ class StarDist(QObject):
         normalized_data = normalized_data.astype(np.uint8)
         return normalized_data
 
-    def updateChannels(self,_, channels):
+    def updateChannels(self, channels, np_channels):
         self.np_image = None
-        self.np_channels = channels
+        self.np_channels = np_channels
+        self.channels = channels
 
     def numpy_to_qimage(self, array:np.ndarray) -> QImage:
         if len(array.shape) == 2:
@@ -129,19 +132,20 @@ class StarDist(QObject):
             raise ValueError("Unsupported array shape: {}".format(array.shape))
         return qimage
 
-    # def qimage_to_numpy(self, qimage:QImage):
-    #     # Ensure the QImage format is suitable for conversion
-    #     if qimage.format() == QImage.Format.Format_Grayscale8:
-    #         width = qimage.width()
-    #         height = qimage.height()
-    #         ptr = qimage.constBits()
-    #         ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
+    def qimage_to_numpy(self, qimage:QImage):
+        # Ensure the QImage format is suitable for conversion
+        print(qimage.format())
+        if qimage.format() == QImage.Format.Format_Grayscale8:
+            width = qimage.width()
+            height = qimage.height()
+            ptr = qimage.constBits()
+            ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
             
-    #         # Convert QImage to a 2D numpy array
-    #         arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
-    #         return arr
-    #     else:
-    #         raise ValueError("Unsupported QImage format for conversion to NumPy array")
+            # Convert QImage to a 2D numpy array
+            arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
+            return arr
+        else:
+            raise ValueError("Unsupported QImage format for conversion to NumPy array")
         
     def setImageToProcess(self, np_image):
         self.np_channels = None

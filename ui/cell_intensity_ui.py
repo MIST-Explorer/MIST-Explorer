@@ -136,6 +136,10 @@ class CellIntensityUI(QWidget):
         self.run_button = QPushButton(self.cell_intensity_groupbox)
         self.run_button.setObjectName("run_button")
         self.cellintensity_components_vlayout.addWidget(self.run_button)
+
+        # save button
+        self.save_button = QPushButton(self.cell_intensity_groupbox)
+        self.cellintensity_components_vlayout.addWidget(self.save_button)
         self.horizontalLayout_4.addLayout(self.cellintensity_components_vlayout)
         containing_layout.addWidget(self.cell_intensity_groupbox)
 
@@ -160,3 +164,4 @@ class CellIntensityUI(QWidget):
         self.num_cycles_label.setText(_translate("MainWindow", "Number of decoding cycles"))
         self.num_layers_each_label.setText(_translate("MainWindow", "Number of decoding colors"))
         self.run_button.setText(_translate("MainWindow", "Run"))
+        self.save_button.setText(_translate("MainWindow", "Save"))

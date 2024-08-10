@@ -78,6 +78,7 @@ class StarDistUI(QWidget):
         self.stardist_label6 = QLabel(self.stardist_groupbox)
         self.stardist_hlayout6.addWidget(self.stardist_label6)
         self.n_tiles = QSpinBox(self.stardist_groupbox)
+        self.n_tiles.setProperty("value", 10)
         self.stardist_hlayout6.addWidget(self.n_tiles)
         self.stardist_components_vlayout.addLayout(self.stardist_hlayout6)
 
@@ -94,8 +95,12 @@ class StarDistUI(QWidget):
 
         # run button
         self.stardist_run_button = QPushButton(self.stardist_groupbox)
-        self.stardist_run_button.setObjectName("stardist_run_button")
         self.stardist_components_vlayout.addWidget(self.stardist_run_button)
+  
+
+        # save button
+        self.save_button = QPushButton(self.stardist_groupbox)
+        self.stardist_components_vlayout.addWidget(self.save_button)
         self.horizontalLayout_4.addLayout(self.stardist_components_vlayout)
         containing_layout.addWidget(self.stardist_groupbox)
 
@@ -121,3 +126,4 @@ class StarDistUI(QWidget):
         self.stardist_label6.setText(_translate("MainWindow", "Number of Tiles"))
         self.stardist_label7.setText(_translate("MainWindow", "Radius"))
         self.stardist_run_button.setText(_translate("MainWindow", "Run"))
+        self.save_button.setText(_translate("MainWindow", "Save"))
