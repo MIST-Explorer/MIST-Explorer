@@ -8,8 +8,8 @@ pystackreg==0.2.7
 PyQt6==6.7.1
 scikit-image==0.24.0
 SimpleITK==2.3.1
-stardist==0.9.1
-tensorflow==2.16.2
+stardist==0.9.1q
+tensorflow==2.17.0
 tifffile==2024.7.2
 tqdm==4.66.4
 diplib==3.5.1
