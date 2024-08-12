@@ -7,6 +7,9 @@ from PIL import Image
 from PyQt6.QtWidgets import QFileDialog
 import cv2
 
+from numba import njit
+from tqdm import tqdm
+
 Image.MAX_IMAGE_PIXELS = None
 
 color_dict = {
@@ -60,20 +63,51 @@ def winsorize_array(arr, lower_percentile, upper_percentile):
     return winsorized_arr
 
 
-def write_protein(protein_name, df, reduced_cell_img):
-    cnv = reduced_cell_img.copy()
+# def write_protein(protein_name, df, reduced_cell_img):
+#     cnv = reduced_cell_img.copy()
     
-    protein_1 = np.array(df[protein_name])
-    protein_1 = winsorize_array(protein_1, 0, .98)
-    protein_1 = rescale_array(protein_1, np.min(protein_1), np.max(protein_1), 60, 255)
+#     protein_1 = np.array(df[protein_name])
+#     protein_1 = winsorize_array(protein_1, 0, .98)
+#     protein_1 = rescale_array(protein_1, np.min(protein_1), np.max(protein_1), 60, 255)
     
-    print("prot written")
+#     print("prot written")
 
-    for id, color in enumerate(protein_1):
-        id += 1
-        cnv[reduced_cell_img == id] = color
+#     from tqdm import tqdm
+#     for id, color in tqdm(enumerate(protein_1)):
+#         # print("     one layer writte")
+#         id += 1
+#         cnv[reduced_cell_img == id] = color
         
-    return cnv 
+#     return cnv 
+
+import time
+def write_protein(protein_data, reduced_cell_img):
+    t = time.time()
+    print(protein_data)
+    cnv  = write_protein_sub(protein_data, reduced_cell_img)
+    print(time.time() - t)
+    
+    return cnv
+
+@njit
+def write_protein_sub(protein_data=np.array([]), reduced_cell_img=np.array([[]])):
+    # Copy the image
+    cnv = reduced_cell_img.copy()
+
+    # Extract protein data, winsorize, and rescale
+    protein_1 = protein_data
+    lower, upper = np.percentile(protein_1, [0, 98])
+    protein_1 = np.clip(protein_1, lower, upper)
+    protein_1 = 60 + (protein_1 - lower) * (255 - 60) / (upper - lower)
+    
+    # Optimize the pixel update using vectorized operations
+    for i in range(cnv.shape[0]):
+        for j in range(cnv.shape[1]):
+            id = reduced_cell_img[i, j]
+            if id > 0 and id <= len(protein_1):
+                cnv[i, j] = protein_1[id - 1]
+
+    return cnv
 
 
 def superimpose_image(base_shape, image, color):
@@ -557,8 +591,12 @@ class ImageOverlay(QWidget):
         # self.df_path = "/Users/clark/Desktop/protein_visualization_app/cell_data_new.csv"
         # self.im_path = '/Users/clark/Desktop/protein_visualization_app/image.png'
         
-        self.df_path =  "/Users/clark/Downloads/cell_data_revised_Cropped Biopsy Dataset_Bubble Cropped.csv"
-        self.im_path = "/Users/clark/Downloads/stardist_labels.png"
+        # self.df_path =  "/Users/clark/Downloads/cell_data_revised_Cropped Biopsy Dataset_Bubble Cropped.csv"
+        # self.im_path = "/Users/clark/Downloads/stardist_labels.png"
+        
+        self.df_path =  "/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
+        self.im_path = "/Users/clark/Downloads/new_sd.png"
+        
         self.initUI()
         
     def load_stardist_image(self):
@@ -568,10 +606,10 @@ class ImageOverlay(QWidget):
         stardist_labels = Image.open(self.im_path)
         stardist_labels = np.array(stardist_labels)
         
-        return stardist_labels
+        # return stardist_labels
         
-        # reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (1000, 1000))
-        # return  reduced_cell_img
+        reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (3000, 3000), interpolation = cv2.INTER_NEAREST_EXACT)
+        return  reduced_cell_img
     
     
 
@@ -580,7 +618,11 @@ class ImageOverlay(QWidget):
             return None
         
         print("df path", self.df_path)
-        df = pd.read_csv(self.df_path)
+        if self.df_path.endswith("csv"):
+            df = pd.read_csv(self.df_path)
+        if self.df_path.endswith("xlsx"):
+            df = pd.read_excel(self.df_path)
+
         print("df raw", df)
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
         return df
@@ -596,8 +638,9 @@ class ImageOverlay(QWidget):
         print(" df loaded")
         
         start = time.time()
-        ims = [write_protein(prot, df, reduced_cell_img).astype("uint8") for prot in df.columns[3:]]
-        print("ims write")
+        
+        ims = [write_protein(np.array(df[protein_name]), reduced_cell_img).astype("uint8") for protein_name in df.columns[3:]]
+        print("ims write", time.time() - start)
         ims = [adjust_contrast(im) for im in ims]  
         print("contrast adjusted") 
         ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
@@ -625,7 +668,7 @@ class ImageOverlay(QWidget):
             for i in range(len(ims))
         ] 
         
-        print(self.layers)
+        # print(self.layers)
         
         print("done")
         return (ims, layer_names)
@@ -640,7 +683,7 @@ class ImageOverlay(QWidget):
         
         # print(self.image_label, "im label is")
         self.image_label = self.pixmap_label
-        print(self.image_label, "im label is")
+        # print(self.image_label, "im label is")
         # main_layout.addWidget(self.image_label)
         
         self.scroll_area = QScrollArea()
@@ -697,7 +740,7 @@ class ImageOverlay(QWidget):
         
     def get_df_path(self):
         # print("Yo")
-        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "CSV Files (*.csv);;All Files (*)")
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Spreadsheets (*.csv *.xlsx);;All Files (*)")
         if file_name:
             self.df_path = file_name
 
@@ -793,7 +836,7 @@ class ImageOverlay(QWidget):
         new_img = self.layers[index]['image']
         new_name = self.layers[index]['name']
         
-        print(new_name)
+        # print(new_name)
         
         self.active_images.append(new_img)
         # self.layer_names.append(new_name)
@@ -835,8 +878,8 @@ class ImageOverlay(QWidget):
             return (img.astype(np.uint8))
     
     def slider_adjust_contrast(self, img, range):
-        print("slider_adjust_contrast", img.dtype, range)
-        # min, max = range
+        # print("slider_adjust_contrast", img.dtype, range)
+        # # min, max = range
         # winsorized_arr = np.clip(img, min, max)
         # return winsorized_arr
         return adjust_contrast(img)
