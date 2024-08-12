@@ -256,10 +256,24 @@ class ImageGraphicsView(QGraphicsView):
         if self.pixmapItem: 
             self.channels = self.reset_channels
             self.toPixmapItem(self.reset_pixmap)
+
+
     def rotate_image_task(self, channels, angle):
-        transform = QTransform()
-        transform.rotate(angle)
-        rotated_images = [(image.transformed(transform, Qt.TransformationMode.SmoothTransformation)).convertToFormat(image.format()) for image in channels.values()]
+
+        t = time.time()
+        rotated_arrays = []
+        for channel in channels.values():
+            height, width = channel.shape[:2]
+            center = (width/2, height/2)
+            rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
+            rotated_arr= cv2.warpAffine(channel, rotation_matrix, (width, height))
+            rotated_arrays.append(rotated_arr)
+
+        # transform = QTransform()
+        # transform.rotate(angle)
+        # rotated_images = [(image.transformed(transform, Qt.TransformationMode.SmoothTransformation)).convertToFormat(image.format()) for image in channels.values()]
+        rotated_images = [self.numpy_to_qimage(array) for array in rotated_arrays]
+        print(time.time()-t)
         return dict(zip(channels.keys(), rotated_images))
 
     def rotateImage(self, angle_text: str):
@@ -271,7 +285,7 @@ class ImageGraphicsView(QGraphicsView):
 
         if self.pixmap and angle is not None:
             from qt_threading import Worker
-            self.worker = Worker(self.rotate_image_task, self.channels, angle)
+            self.worker = Worker(self.rotate_image_task, self.np_channels, angle)
             self.worker.result.connect(self.onRotationCompleted)
             self.worker.error.connect(self.onError)
             self.worker.start()
@@ -287,3 +301,20 @@ class ImageGraphicsView(QGraphicsView):
     @pyqtSlot(str)
     def onError(self, error_message):
         print(f"Error: {error_message}")
+
+    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
+        if len(array.shape) == 2:
+            # Grayscale image
+            height, width = array.shape
+            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
+        elif len(array.shape) == 3:
+            height, width, channels = array.shape
+            if channels == 3:
+                # RGB image
+                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
+            elif channels == 4:
+                # RGBA image
+                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
+        else:
+            raise ValueError("Unsupported array shape: {}".format(array.shape))
+        return qimage
