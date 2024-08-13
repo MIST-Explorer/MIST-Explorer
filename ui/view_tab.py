@@ -63,10 +63,10 @@ def winsorize_array(arr, lower_percentile, upper_percentile):
     return winsorized_arr
 
 
-# def write_protein(protein_name, df, reduced_cell_img):
+# def write_protein_sub(protein_data, reduced_cell_img):
 #     cnv = reduced_cell_img.copy()
     
-#     protein_1 = np.array(df[protein_name])
+#     protein_1 = np.array(protein_data)
 #     protein_1 = winsorize_array(protein_1, 0, .98)
 #     protein_1 = rescale_array(protein_1, np.min(protein_1), np.max(protein_1), 60, 255)
     
@@ -633,13 +633,13 @@ class ImageOverlay(QWidget):
         import time 
         
         print('buidling all')
-        reduced_cell_img = scale_image_to_255(self.load_stardist_image())
+        reduced_cell_img = (self.load_stardist_image()).astype(np.uint16)
         df = self.load_df()
         print(" df loaded")
         
         start = time.time()
         
-        ims = [write_protein(np.array(df[protein_name]), reduced_cell_img).astype("uint8") for protein_name in df.columns[3:]]
+        ims = [write_protein(np.array(df[protein_name]), np.array(reduced_cell_img)) for protein_name in df.columns[3:]]
         print("ims write", time.time() - start)
         ims = [adjust_contrast(im) for im in ims]  
         print("contrast adjusted") 
