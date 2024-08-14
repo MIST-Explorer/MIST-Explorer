@@ -5,8 +5,10 @@ import Dialogs, tifffile as tiff, numpy as np
 from PIL import Image, ImageSequence
 import cv2
 import time
+from qt_threading import Worker
 
 class ReferenceGraphicsView(QGraphicsView):
+    referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -52,14 +54,7 @@ class ReferenceGraphicsView(QGraphicsView):
         # arr = np.array(image.thumbnail(MAX_SIZE))
         qimage = self.numpy_to_qimage(arr)
         self.reference_pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
-    
-        # center the image
-        self.scene().addItem(self.reference_pixmapItem)
-
-        item_rect = self.reference_pixmapItem.boundingRect()
-        self.setSceneRect(item_rect)
-        self.fitInView(self.reference_pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
-        self.centerOn(self.reference_pixmapItem)
+        self.referenceViewAdded.emit(self.reference_pixmapItem)
 
         
     def deleteImage(self):
@@ -129,10 +124,15 @@ class ImageGraphicsView(QGraphicsView):
         self.resetTransform()
 
         if isinstance(file, str):
-            pixmap = self.__filename_to_pixmap(file)
-        
-        #     raise ValueError
-        
+
+           self.image_worker = Worker(self.__filename_to_pixmap, file)
+           self.image_worker.signal.connect(self.onFileNameToPixmapCompleted)
+           self.image_worker.error.connect(self.onError)
+           self.image_worker.start()
+
+
+    @pyqtSlot(object)
+    def onFileNameToPixmapCompleted(self, pixmap):
         self.reset_pixmap=pixmap
         self.reset_pixmapItem = QGraphicsPixmapItem(pixmap)
         self.pixmap = pixmap
@@ -140,11 +140,13 @@ class ImageGraphicsView(QGraphicsView):
         self.newImageAdded.emit(self.pixmapItem)
 
 
+
     def __filename_to_pixmap(self, file_name:str):  
-        t_f = time.time()
+
+        t = time.time()
+
         if file_name.endswith((".tiff", ".tif")):
             
-            t = time.time()
             pages = self.read_tiff_pages(file_name)
             num_channels = len(pages)
             format = QImage.Format.Format_Grayscale8
@@ -175,7 +177,6 @@ class ImageGraphicsView(QGraphicsView):
 
                 channel_one_qimage = next(iter(self.channels.values()))
                 self.channelLoaded.emit(self.channels, self.np_channels)
-                print(f"image loading time: {time.time() - t}")
             else:
                 height, width = pages[0].shape
                 __scaled = self.scale_adjust(pages[0]) 
@@ -190,7 +191,7 @@ class ImageGraphicsView(QGraphicsView):
         else:
             pixmap = QPixmap(file_name)
 
-        print(time.time() - t_f)
+        print(f"image loading time: {time.time() - t}")
 
         return pixmap
     
@@ -229,7 +230,6 @@ class ImageGraphicsView(QGraphicsView):
 
 
         return pages
-
 
 
     def adjustContrast(self,img):  
@@ -284,11 +284,10 @@ class ImageGraphicsView(QGraphicsView):
             return
 
         if self.pixmap and angle is not None:
-            from qt_threading import Worker
-            self.worker = Worker(self.rotate_image_task, self.np_channels, angle)
-            self.worker.result.connect(self.onRotationCompleted)
-            self.worker.error.connect(self.onError)
-            self.worker.start()
+            self.rotation_worker = Worker(self.rotate_image_task, self.np_channels, angle)
+            self.rotation_worker.signal.connect(self.onRotationCompleted) # result is rotated_channels
+            self.rotation_worker.error.connect(self.onError)
+            self.rotation_worker.start()
 
     @pyqtSlot(object)
     def onRotationCompleted(self, rotated_channels):

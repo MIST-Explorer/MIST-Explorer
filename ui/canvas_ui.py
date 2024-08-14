@@ -7,7 +7,7 @@ import Dialogs
 
 class ReferenceGraphicsViewUI(QGraphicsView):
     
-    imageDropped = pyqtSignal(QPixmap)  
+    imageDropped = pyqtSignal(str)  
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -30,10 +30,19 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 file_path = url.toLocalFile()
-                pixmap = QPixmap(file_path) 
-                if not pixmap.isNull():
-                    self.imageDropped.emit(pixmap)
+                if not file_path == None:
+                    self.imageDropped.emit(file_path)
             event.acceptProposedAction()
+
+
+    def addNewImage(self, pixmapItem):
+        # center the image
+        self.scene().addItem(pixmapItem)
+
+        item_rect = pixmapItem.boundingRect()
+        self.setSceneRect(item_rect)
+        self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
+        self.centerOn(pixmapItem)
 
 
 class ImageGraphicsViewUI(QGraphicsView):
@@ -180,10 +189,11 @@ class ImageGraphicsViewUI(QGraphicsView):
         for channel_name, image in self.channels.items():
 
             pixmapItem = QGraphicsPixmapItem(QPixmap(image))
-            cropped = pixmapItem.pixmap().copy(image_rect)
+            cropped = pixmapItem.pixmap().copy(image_rect).toImage()
             cropped_images[channel_name] = cropped
+            self.channels = cropped_images
 
-        channel_one = next(iter(cropped_images.values()))
+        channel_one = QPixmap(next(iter(cropped_images.values())))
         self.dialog = Dialogs.ImageDialog(self, channel_one)
 
         

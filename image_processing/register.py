@@ -31,14 +31,14 @@ class Register:
         self.tifs = (
             { 
                 "path": r"C:\\Users\\jianx\Downloads\\test\\cycle_1.ome.tif", 
-                "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
+                # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
                 "brightfield": 0, 
                 "pystack_transforms" : [],
                 "sitk_transforms": []
             },
             {   
                 "path": r"C:\\Users\\jianx\Downloads\\test\\protein signal.ome.tif", 
-                "flor_layers": [2, 3],   # this actually does not do anything in this program
+                # "flor_layers": [2, 3],   # this actually does not do anything in this program
                 "brightfield": 0, #alignment layer
                 "pystack_transforms" : [],
                 "sitk_transforms": [] 

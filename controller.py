@@ -20,6 +20,7 @@ class Controller:
         self.model_cellIntensity = model_cellIntensity
         self.model_register = model_register
         self.openFilesDialog = None
+        self._small_view = image_processing.canvas.ReferenceGraphicsView()
 
         #menubar signals
         # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
@@ -36,6 +37,8 @@ class Controller:
 
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
+        self.view.small_view.imageDropped.connect(self._small_view.addImage)
+        self._small_view.referenceViewAdded.connect(self.view.small_view.addNewImage)
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
 
