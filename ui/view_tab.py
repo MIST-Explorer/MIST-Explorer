@@ -96,9 +96,9 @@ def write_protein_sub(protein_data=np.array([]), reduced_cell_img=np.array([[]])
 
     # Extract protein data, winsorize, and rescale
     protein_1 = protein_data
-    lower, upper = np.percentile(protein_1, [0, 98])
+    lower, upper = np.percentile(protein_1, [0, 100])
     protein_1 = np.clip(protein_1, lower, upper)
-    protein_1 = 60 + (protein_1 - lower) * (255 - 60) / (upper - lower)
+    #protein_1 = 60 + (protein_1 - lower) * (255 - 60) / (upper - lower)
     
     # Optimize the pixel update using vectorized operations
     for i in range(cnv.shape[0]):
@@ -569,7 +569,7 @@ class ColorDialog(QDialog):
             return selected_items[0].text()
         return None
 
-def adjust_contrast(img, min=5, max = 98):
+def adjust_contrast(img, min=5, max = 100):
             # pixvals = np.array(img)
             minval = np.percentile(img, min) # room for experimentation 
             maxval = np.percentile(img, max) # room for experimentation 
@@ -869,7 +869,7 @@ class ImageOverlay(QWidget):
             tint_img[:, :, c] = img[:, :, c] * (color.getRgb()[c] / 255.0)
         return tint_img
     
-    def adjust_contrast(self, img, min=5, max = 98):
+    def adjust_contrast(self, img, min=5, max = 100):
             # pixvals = np.array(img)
             minval = np.percentile(img, min) # room for experimentation 
             maxval = np.percentile(img, max) # room for experimentation 
