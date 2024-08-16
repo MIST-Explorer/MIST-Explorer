@@ -30,13 +30,14 @@ class Ui_MainWindow(QMainWindow):
         
         # initialize tabs        
         self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabScrollArea.setGeometry(0, 0, 420, 520) 
+        self.tabScrollArea.setMinimumSize(QSize(400,600))
+        self.tabScrollArea.setMaximumWidth(500)
         
-        self.tabWidget = QTabWidget()
+        self.tabWidget = QTabWidget(self.tabScrollArea)
         self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
 
         self.tabWidget.setMinimumSize(QSize(400, 800))
-        self.tabWidget.setMaximumSize(QSize(500, 1500))  
+        # self.tabWidget.setMaximumSize(QSize(500, 1500))  
 
         self.tabScrollArea.setWidget(self.tabWidget)
         
@@ -65,7 +66,7 @@ class Ui_MainWindow(QMainWindow):
 
         self.view_tab.setObjectName("view_tab")
         self.tabWidget.addTab(self.view_tab, "")
-        self.main_layout.addWidget(self.tabWidget)
+        self.main_layout.addWidget(self.tabScrollArea)
 
         ########################################################
 
