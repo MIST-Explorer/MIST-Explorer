@@ -567,6 +567,8 @@ class ColorDialog(QDialog):
             return selected_items[0].text()
         return None
 
+
+# changes made
 def adjust_contrast(img, min=5, max = 100):
             # pixvals = np.array(img)
             minval = np.percentile(img, min) # room for experimentation 
