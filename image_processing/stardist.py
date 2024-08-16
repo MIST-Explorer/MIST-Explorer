@@ -106,11 +106,6 @@ class StarDist(QObject):
     def label2rgb(self, labels, lut):
         return cv.LUT(cv.merge((labels, labels, labels)), lut)
 
-    def normalize_to_uint8(self, data: np.ndarray) -> QImage:
-        normalized_data = 255 * (data - np.min(data)) / (np.max(data) - np.min(data))
-        normalized_data = normalized_data.astype(np.uint8)
-        return normalized_data
-
     def updateChannels(self, channels, np_channels):
         self.np_image = None
         self.np_channels = np_channels

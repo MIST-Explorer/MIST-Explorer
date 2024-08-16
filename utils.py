@@ -69,4 +69,26 @@ def is_grayscale(image: np.ndarray) -> bool:
         return True
     else:
         raise ValueError("Image format not recognized")
+
+
+def normalize_to_uint8(data: np.ndarray) -> np.ndarray:
+    normalized_data = 255 * (data - np.min(data)) / (np.max(data) - np.min(data))
+    normalized_data = normalized_data.astype(np.uint8)
+    return normalized_data
+
+
+def adjustContrast(img, alpha=5, beta=15):  
     
+    # alpha = 5 # Contrast control
+    # beta = 15 # Brightness control
+    return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+
+
+# uint16 to uint8
+def scale_adjust(arr:np.ndarray):
+    if arr.dtype == np.uint16:
+        return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
+    elif arr.dtype == np.uint8:
+        return arr
+    else:
+        print("unsupported array type")

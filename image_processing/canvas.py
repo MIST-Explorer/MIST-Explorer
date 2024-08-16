@@ -6,7 +6,7 @@ from PIL import Image, ImageSequence
 import cv2
 import time
 from qt_threading import Worker
-from utils import numpy_to_qimage
+from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast
 
 class ReferenceGraphicsView(QGraphicsView):
     referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
@@ -46,13 +46,16 @@ class ReferenceGraphicsView(QGraphicsView):
         self.resetTransform()
         if self.reference_pixmapItem:
             self.deleteImage() 
+        with tiff.TiffFile(file_path) as tif:
+            image = tif.pages[0].asarray()
 
-        image = Image.open(file_path)
-        image.seek(0)
-        arr = np.array(image).astype(np.uint8)
+        arr = scale_adjust(np.array(image).astype(np.uint16))
+        arr = adjustContrast(arr, alpha=20, beta=35)
 
-        # MAX_SIZE = (500, 500)
-        # arr = np.array(image.thumbnail(MAX_SIZE))
+        if arr.shape[0] > 20000:
+            thumbnail_size = (int(arr.shape[1]/50), int(arr.shape[0]/50))
+            arr = cv2.resize(arr, thumbnail_size, interpolation=cv2.INTER_AREA)
+        else: pass
         qimage = numpy_to_qimage(arr)
         self.reference_pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
         self.referenceViewAdded.emit(self.reference_pixmapItem)
@@ -147,8 +150,8 @@ class ImageGraphicsView(QGraphicsView):
                     channel_name = f'Channel {channel_num + 1}'
                     height, width = image.shape
                 
-                    __scaled = self.scale_adjust(image) 
-                    image_adjusted = self.adjustContrast(__scaled) # uint8
+                    __scaled = scale_adjust(image) 
+                    image_adjusted = adjustContrast(__scaled) # uint8
                
 
                     bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
@@ -163,8 +166,8 @@ class ImageGraphicsView(QGraphicsView):
                 self.channelLoaded.emit(self.channels, self.np_channels)
             else:
                 height, width = pages[0].shape
-                __scaled = self.scale_adjust(pages[0]) 
-                image_adjusted = self.adjustContrast(__scaled) # uint8
+                __scaled = scale_adjust(pages[0]) 
+                image_adjusted = adjustContrast(__scaled) # uint8
 
                 bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
                 channel_one_qimage = QImage(image_adjusted, height, width, width*bytesPerPixel, format)
@@ -216,21 +219,21 @@ class ImageGraphicsView(QGraphicsView):
         return pages
 
 
-    def adjustContrast(self,img):  
+    # def adjustContrast(self,img):  
         
-        alpha = 5 # Contrast control
-        beta = 15 # Brightness control
-        return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+    #     alpha = 5 # Contrast control
+    #     beta = 15 # Brightness control
+    #     return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
 
 
-    # uint16 to uint8
-    def scale_adjust(self, arr:np.ndarray):
-        if arr.dtype == np.uint16:
-            return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
-        elif arr.dtype == np.uint8:
-            return arr
-        else:
-            print("unsupported array type")
+    # # uint16 to uint8
+    # def scale_adjust(self, arr:np.ndarray):
+    #     if arr.dtype == np.uint16:
+    #         return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
+    #     elif arr.dtype == np.uint8:
+    #         return arr
+    #     else:
+    #         print("unsupported array type")
 
         
     def deleteImage(self):
@@ -243,7 +246,6 @@ class ImageGraphicsView(QGraphicsView):
 
 
     def rotate_image_task(self, channels, angle):
-
         t = time.time()
         rotated_arrays = []
         for channel in channels.values():
