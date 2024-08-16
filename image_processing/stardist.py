@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QMessageBox
 import numpy as np, cv2 as cv, matplotlib as mpl, time, pyclesperanto_prototype as cle
 from image_processing.canvas import ImageGraphicsView
 import ui.app
+from utils import numpy_to_qimage
 # STARDIST
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -85,7 +86,7 @@ class StarDist(QObject):
             end_time = time.time()  
             print(start_time - end_time)
             # convert to pixmap
-            stardist_qimage = self.numpy_to_qimage(stardist_labels_rgb)
+            stardist_qimage = numpy_to_qimage(stardist_labels_rgb)
             stardist_pixmap = QPixmap(stardist_qimage)
             self.stardistDone.emit(stardist_pixmap)
             self.sendGrayScale.emit(stardist_labels_grayscale)
@@ -114,38 +115,6 @@ class StarDist(QObject):
         self.np_image = None
         self.np_channels = np_channels
         self.channels = channels
-
-    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
-        if len(array.shape) == 2:
-            # Grayscale image
-            height, width = array.shape
-            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
-        elif len(array.shape) == 3:
-            height, width, channels = array.shape
-            if channels == 3:
-                # RGB image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
-            elif channels == 4:
-                # RGBA image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
-        else:
-            raise ValueError("Unsupported array shape: {}".format(array.shape))
-        return qimage
-
-    def qimage_to_numpy(self, qimage:QImage):
-        # Ensure the QImage format is suitable for conversion
-        print(qimage.format())
-        if qimage.format() == QImage.Format.Format_Grayscale8:
-            width = qimage.width()
-            height = qimage.height()
-            ptr = qimage.constBits()
-            ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
-            
-            # Convert QImage to a 2D numpy array
-            arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
-            return arr
-        else:
-            raise ValueError("Unsupported QImage format for conversion to NumPy array")
         
     def setImageToProcess(self, np_image):
         self.np_channels = None

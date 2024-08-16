@@ -6,6 +6,7 @@ from PIL import Image, ImageSequence
 import cv2
 import time
 from qt_threading import Worker
+from utils import numpy_to_qimage
 
 class ReferenceGraphicsView(QGraphicsView):
     referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
@@ -52,7 +53,7 @@ class ReferenceGraphicsView(QGraphicsView):
 
         # MAX_SIZE = (500, 500)
         # arr = np.array(image.thumbnail(MAX_SIZE))
-        qimage = self.numpy_to_qimage(arr)
+        qimage = numpy_to_qimage(arr)
         self.reference_pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
         self.referenceViewAdded.emit(self.reference_pixmapItem)
 
@@ -64,23 +65,6 @@ class ReferenceGraphicsView(QGraphicsView):
         if self.reference_pixmapItem:
             self.reference_pixmapItem.setPixmap(self.reset_reference_pixmap)
             self.scene().update()
-
-    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
-        if len(array.shape) == 2:
-            # Grayscale image
-            height, width = array.shape
-            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
-        elif len(array.shape) == 3:
-            height, width, channels = array.shape
-            if channels == 3:
-                # RGB image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
-            elif channels == 4:
-                # RGBA image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
-        else:
-            raise ValueError("Unsupported array shape: {}".format(array.shape))
-        return qimage
 
 
 
