@@ -4,9 +4,9 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from stardist.models import StarDist2D
 from PIL import Image
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 import cv2
-
+import os
 from numba import njit
 from tqdm import tqdm
 
@@ -503,8 +503,6 @@ def build_range_slider():
 
 class LayerDialog(QDialog):
     
-    
-    
     def __init__(self, layers, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Select Layer to Add")
@@ -608,11 +606,14 @@ class ImageOverlay(QWidget):
         
         # return stardist_labels
         
-        reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (3000, 3000), interpolation = cv2.INTER_NEAREST_EXACT)
+        # reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (3000, 3000), interpolation = cv2.INTER_NEAREST_EXACT)
+        
+        scale_down_factor = 1 / self.scale_down.value()
+        
+        reduced_cell_img = cv2.resize(stardist_labels, (0,0), fx=scale_down_factor, fy=scale_down_factor, interpolation = cv2.INTER_NEAREST_EXACT) 
         return  reduced_cell_img
     
     
-
     def load_df(self):
         if self.df_path == None:
             return None
@@ -632,9 +633,22 @@ class ImageOverlay(QWidget):
         
         import time 
         
+        if not hasattr(self, 'im_path'):
+
+            import ui.app
+            QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Please an load image first!")
+            return
+        
+        if not hasattr(self, 'df_path'):
+
+            import ui.app
+            QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Please load data first!")
+            return
+        
         print('buidling all')
         reduced_cell_img = (self.load_stardist_image()).astype(np.uint16)
         df = self.load_df()
+        self.df = df
         print(" df loaded")
         
         start = time.time()
@@ -658,6 +672,7 @@ class ImageOverlay(QWidget):
         self.visibility_buttons = []
         self.color_tints = []
         self.color_labels = []
+        self.group_box_array = []
         self.current_opacities = [1.0] * len(ims)
         self.current_contrasts = [1.0] * len(ims)
         self.current_visibilities = [True] * len(ims)
@@ -671,6 +686,23 @@ class ImageOverlay(QWidget):
         # print(self.layers)
         
         print("done")
+        
+        self.scroll_area.setVisible(True)
+        
+        self.add_layer_button.setVisible(True)
+        self.open_image.setVisible(False)
+        self.open_image_label.setVisible(False)
+        self.open_df.setVisible(False)
+        self.open_df_label.setVisible(False)
+        
+        self.scale_down_label.setVisible(False)
+        self.scale_down.setVisible(False)
+        
+        self.todo_label.setVisible(False)
+        
+        self.apply_button.setVisible(False)
+        self.cancel_reset.setVisible(True)
+        
         return (ims, layer_names)
          
     
@@ -678,6 +710,29 @@ class ImageOverlay(QWidget):
         self.im_path = path
         
         
+    def cancel_reset_first(self):
+        reply = QMessageBox()
+        reply.setText("Are you sure you want to reset?")
+        reply.setStandardButtons(QMessageBox.StandardButton.Yes | 
+                     QMessageBox.StandardButton.No)
+
+        resp = reply.exec()
+
+        if resp == QMessageBox.StandardButton.Yes:
+            self.open_image.setVisible(True)
+            self.open_image_label.setVisible(False)
+            
+            self.open_df.setVisible(True)
+            self.open_df_label.setVisible(False)
+            
+            self.apply_button.setVisible(True)
+            
+            #
+            
+            self.add_layer_button.setVisible(False)
+            self.cancel_reset.setVisible(False)
+    
+    
     def initUI(self):
         main_layout = QVBoxLayout()
         
@@ -693,29 +748,72 @@ class ImageOverlay(QWidget):
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
         
-        # for i, _ in enumerate(self.ims):
-        #     self.add_layer_controls(i)
         
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll_area.setWidget(self.scroll_content)
         
         main_layout.addWidget(self.scroll_area)
+        # self.scroll_area.addStretch()
+        # self.scroll_area.setVisible(False)
+        
+        # - - - - -
+        
+        # self.todo_label = QLabel("To get started:\n     open a stardist image and its corresponding cell data\n     click apply!")
+        self.todo_label.setVisible(True)
+        main_layout.addWidget(self.todo_label)
         
         self.add_layer_button = QPushButton('Add Layer')
         self.add_layer_button.clicked.connect(self.show_layer_dialog)
         main_layout.addWidget(self.add_layer_button)
+        self.add_layer_button.setVisible(False)
         
-        self.add_example = QPushButton('Open Image')
-        self.add_example.clicked.connect(self.load_example)
-        main_layout.addWidget(self.add_example)
+        self.cancel_reset = QPushButton('Cancel And Upload New')
+        self.cancel_reset.clicked.connect(self.cancel_reset_first)
+        main_layout.addWidget(self.cancel_reset)
+        self.cancel_reset.setVisible(False)
+        
+        # self.r_u_sure = QPushButton('Are you sure?')
+        # self.r_u_sure.clicked.connect(self.cancel_reset_second)
+        # main_layout.addWidget(self.r_u_sure)
+        # self.r_u_sure.setVisible(False)
+        
+        ## ----
+        
+        self.open_image = QPushButton('Open Image')
+        self.open_image.clicked.connect(self.load_example)
+        main_layout.addWidget(self.open_image)
+        
+        self.open_image_label = QLabel("Path: ")
+        self.open_image_label.setVisible(False)
+        main_layout.addWidget(self.open_image_label)
         
         self.open_df = QPushButton('Open Cell Data')
         self.open_df.clicked.connect(self.get_df_path)
         main_layout.addWidget(self.open_df)
         
-        self.open_df = QPushButton('Apply')
-        self.open_df.clicked.connect(self.build_all)
-        main_layout.addWidget(self.open_df)
+        self.open_df_label = QLabel("Path: ")
+        self.open_df_label.setVisible(False)
+        main_layout.addWidget(self.open_df_label)
+        
+        ### scale slider
+        self.scale_down_label = QLabel("Scale Down Factor: ")
+        main_layout.addWidget(self.scale_down_label)
+        
+        self.scale_down =  QSlider(Qt.Orientation.Horizontal)
+        self.scale_down.setTickPosition(QSlider.TicksAbove)
+        self.scale_down.valueChanged.connect(self.scale_slider_update)
+        
+        self.scale_down.setRange(1, 10)
+        self.scale_down.setValue(4)
+        
+        main_layout.addWidget(self.scale_down)
+        ### scale slider
+        
+        self.apply_button = QPushButton('Apply')
+        self.apply_button.clicked.connect(self.build_all)
+        main_layout.addWidget(self.apply_button)
+        # main_layout.addStretch()
+        # main_layout.setDirection(QVBoxLayout.BottomToTop)
         
         # self.main_btn = QPushButton('run main')
         # self.main_btn.clicked.connect(self.main)
@@ -725,12 +823,28 @@ class ImageOverlay(QWidget):
         self.setLayout(main_layout)
         self.update_image()
     
+    def scale_slider_update(self, value):
+        if value == 1:
+            self.scale_down_label.setText(f'Scale Down Factor: original size')
+            return
+        self.scale_down_label.setText(f'Scale Down Factor: 1/{value} of original size')
+        
+    
+    def less_than_15_chars(self, string):
+        if len(string) > 50:
+            return string[:49] + "..."
+        
+        return string
+    
     def load_example(self):
         # print("Yo")
 
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
         if file_name:
             # combined_image = np.array(Image.open(file_name))
+            
+            self.open_image_label.setText(f"File: {self.less_than_15_chars(os.path.basename(file_name))}")
+            self.open_image_label.setVisible(True)
             self.im_path = file_name
 
             # height, width, _ = combined_image.shape
@@ -739,9 +853,14 @@ class ImageOverlay(QWidget):
             # self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
         
     def get_df_path(self):
-        # print("Yo")
+
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Spreadsheets (*.csv *.xlsx);;All Files (*)")
+        
         if file_name:
+            
+            # print()
+            self.open_df_label.setText(f"File: {self.less_than_15_chars(os.path.basename(file_name))}")
+            self.open_df_label.setVisible(True)
             self.df_path = file_name
 
             
@@ -756,57 +875,8 @@ class ImageOverlay(QWidget):
         self.pixmap = pixmap
         self.pixmapItem = (pixmap)
         
-    
-    def add_layer_controls(self, idx):
-        layer_id = idx
-        idx = len(self.active_images) - 1
-        print("add alyers controls", idx)
-        group_box = QGroupBox(f"Layer {idx + 1}: {self.layer_names[layer_id]}")
-        group_layout = QFormLayout()
-        
-        opacity_slider = QSlider(Qt.Orientation.Horizontal)
-        opacity_slider.setMinimum(0)
-        opacity_slider.setMaximum(100)
-        opacity_slider.setValue(100)
-        opacity_slider.valueChanged.connect(lambda value: self.update_opacity(value, idx))
-        self.opacity_sliders.append(opacity_slider)
-        group_layout.addRow("Opacity:", opacity_slider)
-        
-        # contrast_slider = QSlider(Qt.Orientation.Horizontal)
-        # 
-        # contrast_slider.setValue(100)
-        # 
-        contrast_slider = qtrangeslider.QLabeledDoubleRangeSlider(Qt.Orientation.Horizontal)
-        contrast_slider.valueChanged.connect(lambda value: self.update_contrast(value, idx))
-        contrast_slider.setMaximum(255)
-        contrast_slider.setDecimals(0)
-
-        self.contrast_sliders.append(contrast_slider)
-        group_layout.addRow("Contrast:", contrast_slider)
-        
-        visibility_button = QPushButton("Toggle Visibility")
-        visibility_button.setCheckable(True)
-        visibility_button.setChecked(True)
-        visibility_button.toggled.connect(lambda checked: self.update_visibility(checked, idx))
-        self.visibility_buttons.append(visibility_button)
-        group_layout.addRow("Visibility:", visibility_button)
-        
-        color_button = QPushButton("Select Tint Color")
-        color_button.clicked.connect(lambda : self.show_color_dialog(idx))
-        self.color_tints.append(color_button)
-        color_label = QLabel("None")
-        self.color_labels.append(color_label)
-        color_layout = QHBoxLayout()
-        color_layout.addWidget(color_button)
-        color_layout.addWidget(color_label)
-        group_layout.addRow("Tint Color:", color_layout)
-        
-        group_box.setLayout(group_layout)
-        self.scroll_layout.addWidget(group_box)
-    
     def show_layer_dialog(self):
         if not hasattr(self, 'layers'):
-            from PyQt6.QtWidgets import QMessageBox
 
             import ui.app
 
@@ -846,6 +916,95 @@ class ImageOverlay(QWidget):
         self.current_tints.append(QColor(255, 255, 255))
         self.add_layer_controls(index)
         self.update_image()
+        
+    def delete_layer(self, index):
+        print(index)
+        print("before", len(self.active_images))
+        self.active_images.pop(index)
+        print(len(self.active_images))
+        self.current_opacities.pop(index)
+        self.current_contrasts.pop(index)
+        self.current_visibilities.pop(index)
+        self.current_tints.pop(index)
+        
+        layer = self.group_box_array[index]
+        self.scroll_layout.removeWidget(layer)
+        layer.deleteLater()
+        layer = None
+        
+        self.group_box_array.pop(index)
+        self.update_image()
+        
+        if len(self.active_images) == 0:
+            combined_image = np.zeros((10,10,10))
+        
+            height, width, _ = combined_image.shape
+            bytes_per_line = 3
+
+            q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888) # interesting image.tobytes() works well, maybe you don't need to do 
+            
+            self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
+        
+    def add_layer_controls(self, idx):
+        layer_id = idx
+        idx = len(self.active_images) - 1
+        print("add alyers controls", idx)
+        group_box = QGroupBox(f"Layer {idx + 1}: {self.layer_names[layer_id]}")
+        
+        group_layout = QFormLayout()
+        
+        opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        opacity_slider.setMinimum(0)
+        opacity_slider.setMaximum(100)
+        opacity_slider.setValue(100)
+        opacity_slider.valueChanged.connect(lambda value: self.update_opacity(value, idx))
+        self.opacity_sliders.append(opacity_slider)
+        group_layout.addRow("Opacity:", opacity_slider)
+        
+        # contrast_slider = QSlider(Qt.Orientation.Horizontal)
+        # 
+        # contrast_slider.setValue(100)
+        # 
+        contrast_slider = qtrangeslider.QLabeledDoubleRangeSlider(Qt.Orientation.Horizontal)
+        contrast_slider.valueChanged.connect(lambda value: self.update_contrast(value, idx))
+        contrast_slider.setMaximum(255)
+        contrast_slider.setValue((0, 255))
+        contrast_slider.setDecimals(0)
+
+        self.contrast_sliders.append(contrast_slider)
+        group_layout.addRow("Contrast:", contrast_slider)
+        
+        visibility_button = QPushButton("Toggle Visibility")
+        visibility_button.setCheckable(True)
+        visibility_button.setChecked(True)
+        visibility_button.toggled.connect(lambda checked: self.update_visibility(checked, idx))
+        self.visibility_buttons.append(visibility_button)
+        group_layout.addRow("Visibility:", visibility_button)
+        
+        color_button = QPushButton("Select Tint Color")
+        color_button.clicked.connect(lambda : self.show_color_dialog(idx))
+        self.color_tints.append(color_button)
+        color_label = QLabel("None")
+        self.color_labels.append(color_label)
+        color_layout = QHBoxLayout()
+        color_layout.addWidget(color_button)
+        color_layout.addWidget(color_label)
+        group_layout.addRow("Tint Color:", color_layout)
+        
+        # delete_button = QPushButton("Show Stats")
+        # delete_button.clicked.connect(lambda: self.show_stats(self.layer_names[layer_id]))
+        # # self.visibility_buttons.append(delete_button)
+        # group_layout.addRow("Stats:", delete_button)
+        
+        delete_button = QPushButton("Delete Layer")
+        delete_button.clicked.connect(lambda: self.delete_layer(len(self.active_images) - 1))
+        # self.visibility_buttons.append(delete_button)
+        group_layout.addRow("", delete_button)
+        
+        group_box.setLayout(group_layout)
+        self.group_box_array.append(group_box)
+        self.scroll_layout.addWidget(group_box)
+    
     
     def update_opacity(self, value, idx):
         self.current_opacities[idx] = value / 100.0
