@@ -698,7 +698,7 @@ class ImageOverlay(QWidget):
         self.scale_down_label.setVisible(False)
         self.scale_down.setVisible(False)
         
-        self.todo_label.setVisible(False)
+        # self.todo_label.setVisible(False)
         
         self.apply_button.setVisible(False)
         self.cancel_reset.setVisible(True)
@@ -759,8 +759,8 @@ class ImageOverlay(QWidget):
         # - - - - -
         
         # self.todo_label = QLabel("To get started:\n     open a stardist image and its corresponding cell data\n     click apply!")
-        self.todo_label.setVisible(True)
-        main_layout.addWidget(self.todo_label)
+        # self.todo_label.setVisible(True)
+        # main_layout.addWidget(self.todo_label)
         
         self.add_layer_button = QPushButton('Add Layer')
         self.add_layer_button.clicked.connect(self.show_layer_dialog)
