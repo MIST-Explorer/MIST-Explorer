@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QMessageBox
 import numpy as np, cv2 as cv, matplotlib as mpl, time, pyclesperanto_prototype as cle
 from image_processing.canvas import ImageGraphicsView
 import ui.app
-from utils import numpy_to_qimage
+from utils import numpy_to_qimage, qimage_to_numpy
 # STARDIST
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -40,7 +40,8 @@ class StarDist(QObject):
                 arr = self.np_image
             # case: image has multiple channels
             else:
-                arr = self.qimage_to_numpy(self.channels[self.params['channel']])
+                print(type(self.channels[self.params['channel']]))
+                arr = qimage_to_numpy(self.channels[self.params['channel']])
                 # arr = self.np_channels[self.params['channel']] 
 
             # scale down image if it's a large image

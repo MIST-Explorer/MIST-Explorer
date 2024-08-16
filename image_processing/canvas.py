@@ -64,12 +64,6 @@ class ReferenceGraphicsView(QGraphicsView):
     def deleteImage(self):
         self.scene().clear()
 
-    def resetImage(self):
-        if self.reference_pixmapItem:
-            self.reference_pixmapItem.setPixmap(self.reset_reference_pixmap)
-            self.scene().update()
-
-
 
 ##########################################################
 class ImageGraphicsView(QGraphicsView):
@@ -159,18 +153,37 @@ class ImageGraphicsView(QGraphicsView):
 
                     qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                     self.channels[channel_name] = qimage_channel # for displaying on canvas
-                    self.reset_channels = self.channels.copy()
+                    self.reset_channels = {key: img.copy() for key, img in self.channels.items()} #deep copy
+
                     # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
 
                 channel_one_qimage = next(iter(self.channels.values()))
                 self.channelLoaded.emit(self.channels, self.np_channels)
             else:
-                height, width = pages[0].shape
+                # determine if image is grayscale or rgb
+                if pages[0].ndim == 2:
+                    h, w = pages[0].shape
+                elif pages[0].ndim == 3:
+                    h, w, ch = pages[0].shape
+                elif pages[0].ndim == 4:
+                    h, w, ch, alpha = pages[0].shape
+                else:
+                    raise ValueError("image type not supported")
+
                 __scaled = scale_adjust(pages[0]) 
                 image_adjusted = adjustContrast(__scaled) # uint8
-
+                print(image_adjusted.dtype)
+                print(image_adjusted.shape)
                 bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
-                channel_one_qimage = QImage(image_adjusted, height, width, width*bytesPerPixel, format)
+                if pages[0].ndim == 2:
+                    channel_one_qimage = QImage(image_adjusted, w, h, w*bytesPerPixel, format)
+                elif pages[0].ndim == 3:
+                    channel_one_qimage = QImage(image_adjusted.tobytes(), w, h, QImage.Format.Format_RGB888)
+                elif pages[0].ndim == 4:
+                    channel_one_qimage = QImage(image_adjusted.tobytes(), w, h, QImage.Format.Format_RGBA8888)
+                else:
+                    raise ValueError("image type not supported")
+
                 self.channelNotLoaded.emit(image_adjusted)
 
             pixmap = QPixmap(channel_one_qimage)
@@ -242,6 +255,7 @@ class ImageGraphicsView(QGraphicsView):
     def resetImage(self):
         if self.pixmapItem: 
             self.channels = self.reset_channels
+            self.channelLoaded.emit(self.channels, self.np_channels)
             self.toPixmapItem(self.reset_pixmap)
 
 
@@ -258,7 +272,7 @@ class ImageGraphicsView(QGraphicsView):
         # transform = QTransform()
         # transform.rotate(angle)
         # rotated_images = [(image.transformed(transform, Qt.TransformationMode.SmoothTransformation)).convertToFormat(image.format()) for image in channels.values()]
-        rotated_images = [self.numpy_to_qimage(array) for array in rotated_arrays]
+        rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
         return dict(zip(channels.keys(), rotated_images))
 
@@ -277,7 +291,7 @@ class ImageGraphicsView(QGraphicsView):
 
     @pyqtSlot(object)
     def onRotationCompleted(self, rotated_channels):
-        self.channels = rotated_channels
+        self.updateChannels(rotated_channels)
 
         rotated_pixmap = QGraphicsPixmapItem(QPixmap(next(iter(self.channels.values()))))
         self.canvasUpdated.emit(rotated_pixmap)
@@ -287,19 +301,6 @@ class ImageGraphicsView(QGraphicsView):
     def onError(self, error_message):
         print(f"Error: {error_message}")
 
-    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
-        if len(array.shape) == 2:
-            # Grayscale image
-            height, width = array.shape
-            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
-        elif len(array.shape) == 3:
-            height, width, channels = array.shape
-            if channels == 3:
-                # RGB image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
-            elif channels == 4:
-                # RGBA image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
-        else:
-            raise ValueError("Unsupported array shape: {}".format(array.shape))
-        return qimage
+    def updateChannels(self, channels :dict) -> None:
+        self.channels = channels
+        self.channelLoaded.emit(self.channels, self.np_channels)

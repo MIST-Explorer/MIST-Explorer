@@ -53,9 +53,10 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess)
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar)
 
+        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels)
         
         # crop signals
-        self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop)
+        self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop) 
         self.view.crop_groupbox.cancel_crop_button.triggered.connect(self.view.canvas.endCrop)
         
         # confirm rotate signal
@@ -85,7 +86,7 @@ class Controller:
         self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         self.model_stardist.sendGrayScale.connect(self.model_cellIntensity.loadStardistLabels)
         # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
-
+        self.view.stardist_groupbox.save_button.clicked.connect(self.controlSave)
         # generate cell data signals
         # change params
         self.view.cellIntensity_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
@@ -167,11 +168,7 @@ class Controller:
         print(pm)
         if pm != None:
             im = self.pixmap_to_image(pm)
-            
-        
-            
-            
-            file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png","All Files(*);;Text Files(*.txt)")
+            file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
             if file_name:
                 print(file_name)
                 Image.fromarray(im).save(file_name)
@@ -182,7 +179,7 @@ class Controller:
         self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model_canvas.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
 
     def openFileDialog(self, viewer):
-        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.jpg *.tif);;All Files (*)")
         if file_name:
             viewer.addImage(file_name)
 

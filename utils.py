@@ -28,18 +28,16 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
 
 def qimage_to_numpy(qimage:QImage):
     # Ensure the QImage format is suitable for conversion
-    print(qimage.format())
-    if qimage.format() == QImage.Format.Format_Grayscale8:
-        width = qimage.width()
-        height = qimage.height()
-        ptr = qimage.constBits()
-        ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
-        
-        # Convert QImage to a 2D numpy array
-        arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
-        return arr
-    else:
-        raise ValueError("Unsupported QImage format for conversion to NumPy array")
+    qimage.convertToFormat(QImage.Format.Format_Grayscale8)
+    width = qimage.width()
+    height = qimage.height()
+    ptr = qimage.constBits()
+    ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
+    
+    # Convert QImage to a 2D numpy array
+    arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
+    return arr    
+ 
     
 
 # this and qimage to numpy seems repetitive, delete one of them

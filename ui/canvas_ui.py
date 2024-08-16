@@ -1,9 +1,8 @@
 from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
 import Dialogs
-
-
+from qt_threading import Worker
 
 class ReferenceGraphicsViewUI(QGraphicsView):
     
@@ -182,7 +181,14 @@ class ImageGraphicsViewUI(QGraphicsView):
                     self.showCroppedImage(image_rect)
         else: super().mouseReleaseEvent(event)
 
+
     def showCroppedImage(self, image_rect):
+            self.crop_worker = Worker(self.cropImageTask, image_rect)
+            self.crop_worker.signal.connect(self.onCropCompleted) # result is cropped images dict
+            # crop_worker.error.connect(self.onError)
+            self.crop_worker.start()
+
+    def cropImageTask(self, image_rect):
 
         cropped_images = {}
         
@@ -191,12 +197,17 @@ class ImageGraphicsViewUI(QGraphicsView):
             pixmapItem = QGraphicsPixmapItem(QPixmap(image))
             cropped = pixmapItem.pixmap().copy(image_rect).toImage()
             cropped_images[channel_name] = cropped
-            self.channels = cropped_images
 
-        channel_one = QPixmap(next(iter(cropped_images.values())))
-        self.dialog = Dialogs.ImageDialog(self, channel_one)
 
-        
+        return cropped_images
+    
+    cropSignal = pyqtSignal(dict)
+    @pyqtSlot(object)
+    def onCropCompleted(self, cropped_images):
+        self.cropSignal.emit(cropped_images)
+        channel1_qimage = list(cropped_images.values())[0]
+        channel1_pixmap = QPixmap(channel1_qimage)
+        self.dialog = Dialogs.ImageDialog(self, channel1_pixmap)
         self.endCrop()
         self.dialog.exec()
 
@@ -208,6 +219,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.begin_crop = False
         self.unsetCursor()
 
-    def loadChannels(self, value):
-        self.channels = value
+    def loadChannels(self, channels):
+        self.channels = channels
     
