@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 from PyQt6.QtCore import pyqtSignal
 from PIL import Image
+from Dialogs import ImageDialog
         
 class Controller:
     controllerSignal = pyqtSignal(object)

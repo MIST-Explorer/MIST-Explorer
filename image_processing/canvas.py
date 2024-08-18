@@ -257,16 +257,26 @@ class ImageGraphicsView(QGraphicsView):
             self.toPixmapItem(self.reset_pixmap)
 
 
-    def rotate_image_task(self, channels, angle):
+    def rotate_image_task(self, channels:dict, angle):
         t = time.time()
         rotated_arrays = []
         print("rotation channel dtype", list(channels.values())[0].dtype)
-        import matplotlib.pyplot as plt
-        cv2.imshow("test", list(channels.values())[2])
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        for channel in channels.values():
+        # import matplotlib.pyplot as plt
+        # cv2.imshow("test", list(channels.values())[2])
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        d = list(channels.values())[0]
+        print(d.data.contiguous)
+
+        # channels_arr = []
+        # for i, channel in enumerate(channels.values()):
+        #     print(f"Channel {i}: shape={channel.shape}, dtype={channel.dtype}, contiguous={channel.flags['C_CONTIGUOUS']}")
+        #     channels_arr.append(np.ascontiguousarray(channel))
+        # print("here")
+
+        for i, channel in channels.items():
             print(channel.shape)
+            print(channel.data.contiguous)
             height, width = channel.shape
             center = (int(width/2), int(height/2))
             rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)

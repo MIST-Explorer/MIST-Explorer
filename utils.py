@@ -10,13 +10,16 @@ import time
 
 def numpy_to_qimage(array:np.ndarray) -> QImage:
 
+    if not array.data.contiguous:
+        array = np.ascontiguousarray(array)
+
     if len(array.shape) == 2:
         # Grayscale image
-        print("converting to grayscale")
         height, width = array.shape
         bytes_per_line = width
-        array = array.copy().data
-        qimage =  QImage(array, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
+        print("converting to grayscale")
+        print("is array contiguous?: ", array.data.contiguous)
+        qimage =  QImage(array.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
     elif len(array.shape) == 3:
         height, width, channels = array.shape
         if channels == 3:

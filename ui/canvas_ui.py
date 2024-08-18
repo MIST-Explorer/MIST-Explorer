@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
-import Dialogs
+import Dialogs, numpy as np
 from qt_threading import Worker
 
 class ReferenceGraphicsViewUI(QGraphicsView):
@@ -168,13 +168,13 @@ class ImageGraphicsViewUI(QGraphicsView):
                     y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
                     print(x_ratio, y_ratio)
 
-                    # need to scale current rect up to the size of actual image 
-                    # image_rect = QRect(
-                    #     int(selectedRect.left() * x_ratio),
-                    #     int(selectedRect.top() * y_ratio),
-                    #     int(selectedRect.width() * x_ratio),
-                    #     int(selectedRect.height() * y_ratio)
-                    # )
+                    #need to scale current rect up to the size of actual image 
+                    self.__qt_image_rect = QRect(
+                        int(selectedRect.left() * x_ratio),
+                        int(selectedRect.top() * y_ratio),
+                        int(selectedRect.width() * x_ratio),
+                        int(selectedRect.height() * y_ratio)
+                    )
 
                     left = int(selectedRect.left() * x_ratio)
                     top = int(selectedRect.top() * y_ratio)
@@ -189,13 +189,28 @@ class ImageGraphicsViewUI(QGraphicsView):
 
 
     def showCroppedImage(self, image_rect):
-            self.crop_worker = Worker(self.cropImageTask, image_rect)
-            self.crop_worker.signal.connect(self.onCropCompleted) # result is cropped images dict
+            
+            print("in view.canvas: ", self.currentChannelNum)
+            q_im = list(self.channels.values())[self.currentChannelNum]
+            pix = QPixmap(q_im)
+            cropped = pix.copy(self.__qt_image_rect).toImage()
+            print("converting to pixmap") 
+            cropped_pix = QPixmap(cropped)
+            self.dialog = Dialogs.ImageDialog(self, cropped_pix)
+            self.dialog.exec()
+
+            print("confirmed crop?", self.dialog.confirm_crop)
+            if self.dialog.confirm_crop:
+                self.crop_worker = Worker(self.cropImageTask, image_rect)
+                self.crop_worker.signal.connect(self.onCropCompleted) # result is cropped images dict
+                self.crop_worker.start()
+            else:
+                self.endCrop()
+                print("rejected")
             #somewhere here should be a signal indicating that the cropped image was rejected and don't follow through with the rest of the code
             # crop_worker.error.connect(self.onError)
-            self.crop_worker.start()
 
-    def cropImageTask(self, image_rect):
+    def cropImageTask(self, image_rect) -> dict:
         from utils import qimage_to_numpy
         # cropped_images = {}
         cropped_arrays = {}
@@ -213,8 +228,8 @@ class ImageGraphicsViewUI(QGraphicsView):
             # print("type of cropped:", type(cropped))
             # cropped_images[channel_name] = cropped
 
-        print("debuggingggg")
-        print(cropped_arrays['Channel 3'].shape)
+        # print("debuggingggg")
+        # print(cropped_arrays['Channel 3'].shape)
         # import cv2
         # cv2.imshow("test cropping", cropped_arrays['Channel 3'])
         # cv2.waitKey(0)
@@ -223,23 +238,30 @@ class ImageGraphicsViewUI(QGraphicsView):
         return cropped_arrays
     
     cropSignal = pyqtSignal(dict, bool)
-    @pyqtSlot(object)
+    @pyqtSlot(dict)
     def onCropCompleted(self, cropped_images:dict):
-        # import cv2
+        import cv2
         from utils import numpy_to_qimage
-        # cv2.imshow("test cropping", qimage_to_numpy(list(cropped_images.values())[2]))
+
+
+        # current_channel = list(cropped_images.values())[self.currentChannelNum]
+        # cv2.imshow("test cropping", current)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
-        self.cropSignal.emit(cropped_images, False)
-        print("in view.canvas: ", self.currentChannelNum)
+        
+        # channel_qimage = numpy_to_qimage(current_channel)
+        # channel_pixmap = QPixmap(channel_qimage)
+        # self.dialog = Dialogs.ImageDialog(self, channel_pixmap)
 
-        print("converting to pixmap")
-        channel_qimage = numpy_to_qimage(list(cropped_images.values())[self.currentChannelNum])
-        print("reached")
-        channel_pixmap = QPixmap(channel_qimage)
-        self.dialog = Dialogs.ImageDialog(self, channel_pixmap)
+
+
         self.endCrop()
-        self.dialog.exec()
+        # self.dialog.exec()
+        print("emitting cropped images")
+        self.cropSignal.emit(cropped_images, False)
+        print("reached")
+
+
 
     def startCrop(self):
         self.begin_crop = True
@@ -252,9 +274,12 @@ class ImageGraphicsViewUI(QGraphicsView):
     def loadChannels(self, channels):
         self.channels = channels
     
-    def setCurrentChannel(self, channel_num) -> None:
+    def setCurrentChannel(self, channel_num:int) -> None:
         self.currentChannelNum = channel_num
         print("in view.canvas: ", self.currentChannelNum)
+
+    def _confirmCrop(self, confirmed:bool):
+        self.confirmCrop = confirmed
 
 
     

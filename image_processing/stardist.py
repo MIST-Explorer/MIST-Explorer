@@ -58,7 +58,7 @@ class StarDist(QObject):
             scaleDown = arr.shape[0] > 10000
 
             if scaleDown:
-                scale_factor = 4
+                scale_factor = 2
                 cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
 
             else:

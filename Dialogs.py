@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtWidgets import (QDialog, QComboBox, QHBoxLayout, QGridLayout, QVBoxLayout, QCheckBox, QSlider, 
                              QListWidgetItem, QGraphicsView, QGraphicsScene, QListWidget, QPushButton, QLabel, QFileDialog,
                              QDialogButtonBox, QGraphicsPixmapItem)
@@ -347,6 +347,7 @@ class ImageDialog(QDialog):
         self.setLayout(self._layout)
 
     def confirm(self):
+        self.confirm_crop = True
         self.canvas.updateCanvas(self.cropped_pixmapItem)
         self.accept()
 
