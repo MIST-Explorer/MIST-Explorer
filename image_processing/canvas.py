@@ -6,7 +6,7 @@ from PIL import Image, ImageSequence
 import cv2
 import time
 from qt_threading import Worker
-from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast
+from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
 
 class ReferenceGraphicsView(QGraphicsView):
     referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
@@ -70,13 +70,13 @@ class ImageGraphicsView(QGraphicsView):
     
     canvasUpdated = pyqtSignal(QGraphicsPixmapItem)
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
-    channelLoaded = pyqtSignal(dict, dict)
+    channelLoaded = pyqtSignal(dict, dict, bool)
     channelNotLoaded = pyqtSignal(np.ndarray)
   
     # need some dead code analysis
     saveImage = pyqtSignal(QGraphicsPixmapItem)  
 
-    updateProgress = pyqtSignal(int)
+    updateProgress = pyqtSignal(int, str)
 
 
     def __init__(self):
@@ -158,7 +158,7 @@ class ImageGraphicsView(QGraphicsView):
                     # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
 
                 channel_one_qimage = next(iter(self.channels.values()))
-                self.channelLoaded.emit(self.channels, self.np_channels)
+                self.channelLoaded.emit(self.channels, self.np_channels, True)
             else:
                 # determine if image is grayscale or rgb
                 if pages[0].ndim == 2:
@@ -223,12 +223,10 @@ class ImageGraphicsView(QGraphicsView):
                         print(f"Page {i} is blank, skipping.")
                         continue
                     pages.append(image)
-                    self.updateProgress.emit(int((i+1)/len(tif.pages)*100))
+                    self.updateProgress.emit(int((i+1)/len(tif.pages)*100), "Loading image")
                 except Exception as e:
                     print(f"Error reading page {i}: {e}")
                     continue
-
-
         return pages
 
 
@@ -255,16 +253,22 @@ class ImageGraphicsView(QGraphicsView):
     def resetImage(self):
         if self.pixmapItem: 
             self.channels = self.reset_channels
-            self.channelLoaded.emit(self.channels, self.np_channels)
+            self.channelLoaded.emit(self.channels, self.np_channels, True)
             self.toPixmapItem(self.reset_pixmap)
 
 
     def rotate_image_task(self, channels, angle):
         t = time.time()
         rotated_arrays = []
+        print("rotation channel dtype", list(channels.values())[0].dtype)
+        import matplotlib.pyplot as plt
+        cv2.imshow("test", list(channels.values())[2])
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         for channel in channels.values():
-            height, width = channel.shape[:2]
-            center = (width/2, height/2)
+            print(channel.shape)
+            height, width = channel.shape
+            center = (int(width/2), int(height/2))
             rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
             rotated_arr= cv2.warpAffine(channel, rotation_matrix, (width, height))
             rotated_arrays.append(rotated_arr)
@@ -290,17 +294,32 @@ class ImageGraphicsView(QGraphicsView):
             self.rotation_worker.start()
 
     @pyqtSlot(object)
-    def onRotationCompleted(self, rotated_channels):
-        self.updateChannels(rotated_channels)
-
-        rotated_pixmap = QGraphicsPixmapItem(QPixmap(next(iter(self.channels.values()))))
-        self.canvasUpdated.emit(rotated_pixmap)
-        self.channelLoaded.emit(self.channels, self.np_channels)
+    def onRotationCompleted(self, rotated_channels:dict):
+        self.channels = rotated_channels
+        print("rotation curr channel num: ", self.currentChannelNum)
+        channel_qimage = list(rotated_channels.values())[self.currentChannelNum]
+        print(type(channel_qimage))
+        channel_pixmap = QPixmap(channel_qimage)
+        rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
+        self.canvasUpdated.emit(rotated_pixmapItem)
+        self.np_channels = {key: qimage_to_numpy(img) for key, img in self.channels.items()} 
+        self.channelLoaded.emit(self.channels, self.np_channels, False)
 
     @pyqtSlot(str)
     def onError(self, error_message):
         print(f"Error: {error_message}")
 
-    def updateChannels(self, channels :dict) -> None:
-        self.channels = channels
-        self.channelLoaded.emit(self.channels, self.np_channels)
+    def updateChannels(self, channels:dict, clear:bool) -> None: #cropsignal will update this
+        self.np_channels = channels #np arrays
+
+        print("in updateChannels method of canvas.py")
+        self.channels = {key: numpy_to_qimage(arr) for key, arr in self.np_channels.items()} #convert to qimage to numpy arrays
+        print("clear channel?", clear)
+        self.channelLoaded.emit(self.channels, self.np_channels, clear)
+
+    def swapChannel(self, index):
+        channel_pixmap = QPixmap.fromImage(self.channels[f'Channel {index+1}'])
+        self.toPixmapItem(channel_pixmap)
+
+    def setCurrentChannel(self, index):
+        self.currentChannelNum = index

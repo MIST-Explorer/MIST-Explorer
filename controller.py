@@ -4,9 +4,11 @@ from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
 import numpy as np
 import cv2
+from PyQt6.QtCore import pyqtSignal
 from PIL import Image
         
 class Controller:
+    controllerSignal = pyqtSignal(object)
     def __init__(self, 
                  model_canvas: image_processing.canvas.ImageGraphicsView, 
                  model_stardist: image_processing.stardist.StarDist,
@@ -32,7 +34,10 @@ class Controller:
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
         self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
-        self.view.toolBar.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged)
+        self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
+        self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
+        self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
+
 
 
 
@@ -44,16 +49,16 @@ class Controller:
 
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
-        self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector)
-        self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector)
-        self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels)
-        self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels)
-        self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector)
-        self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)
-        self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess)
-        self.model_canvas.updateProgress.connect(self.view.updateProgressBar)
+        self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
+        self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
+        self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
+        self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
+        self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer
+        self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
+        self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
+        self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
 
-        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels)
+        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.channels for further image_processing   
         
         # crop signals
         self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop) 
@@ -85,6 +90,7 @@ class Controller:
         # display stardist result
         self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         self.model_stardist.sendGrayScale.connect(self.model_cellIntensity.loadStardistLabels)
+        self.model_stardist.progress.connect(self.view.updateProgressBar)
         # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
         self.view.stardist_groupbox.save_button.clicked.connect(self.controlSave)
         # generate cell data signals
@@ -189,7 +195,11 @@ class Controller:
     def on_actionOpen_triggered(self):
        self.openFileDialog(self.model_canvas)  
 
-    def on_channelSelector_currentIndexChanged(self, index):
-        if self.model_canvas.channels:
-            channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
-            self.model_canvas.toPixmapItem(channel_pixmap)
+    # def on_channelSelector_currentIndexChanged(self, index):
+    #     if self.view.toolBar.channelSelector.count() != 0:
+    #         print("current index: ", self.view.toolBar.channelSelector.currentIndex())
+    #         # self.controllerSignal.emit(self.view.toolBar.channelSelector.currentIndex())
+    #         self.view.canvas.setCurrentChannel(self.view.toolBar.channelSelector.currentIndex()) 
+    #         channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
+    #         self.model_canvas.toPixmapItem(channel_pixmap)
+

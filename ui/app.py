@@ -1,4 +1,4 @@
-from PyQt6.QtGui import QImageReader
+from PyQt6.QtGui import QImageReader, QPalette
 
 from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
 
@@ -73,13 +73,36 @@ class Ui_MainWindow(QMainWindow):
         self.setCentralWidget(self.centralwidget)
         
         # status bar
+        container = QWidget()
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
-
+        self.progressBarLabel = QLabel("Doing something ...")
         self.progressBar = QProgressBar()
-        self.statusbar.addPermanentWidget(self.progressBar)
+        progressBarLayout = QHBoxLayout()
         self.progressBar.setMaximum(100)
+        progressBarLayout.addWidget(self.progressBarLabel)
+        progressBarLayout.addWidget(self.progressBar)
+        container.setLayout(progressBarLayout)
 
+        self.statusbar.addPermanentWidget(container)
+        
+        progressBarStyle = """
+            QProgressBar {
+                border: 2px solid grey;
+                border-radius: 2px;
+                text-align: right;
+                height: 5px;
+                margin-right: 30px;
+            }
+        
+            QProgressBar::chunk {
+                background-color: green;
+                width: 20px;
+            }
+        """
+        self.progressBar.setStyleSheet(progressBarStyle)
+  
+        self.progressBar.text
         self.__retranslateUI()
 
         self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
@@ -141,8 +164,9 @@ class Ui_MainWindow(QMainWindow):
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
 
-    def updateProgressBar(self, value):
+    def updateProgressBar(self, value, str):
         if self.progressBar.value() == 100:
             self.progressBar.reset()
         self.progressBar.setValue(value)
+        self.progressBarLabel.setText(str + " ...")
 

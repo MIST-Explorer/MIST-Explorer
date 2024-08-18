@@ -12,8 +12,8 @@ class Worker(QThread):
 
     def run(self):
         try:
-            self.result = self.func(*self.args, **self.kwargs)
             print("thread is running")
+            self.result = self.func(*self.args, **self.kwargs)
             self.signal.emit(self.result)
         except Exception as e:
             self.error.emit(str(e))

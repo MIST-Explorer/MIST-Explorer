@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
 import Dialogs
 from qt_threading import Worker
@@ -16,7 +16,6 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setScene(QGraphicsScene(self))
         self.setSceneRect(0, 0, 200, 150)
         self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
-
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -61,6 +60,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.origin = QPoint()
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
         self.scale_factor = 1.25
+        # self.currentChannelNum = 0
 
     def setupUI(self):
         self.setMinimumSize(QSize(600, 600))
@@ -169,12 +169,18 @@ class ImageGraphicsViewUI(QGraphicsView):
                     print(x_ratio, y_ratio)
 
                     # need to scale current rect up to the size of actual image 
-                    image_rect = QRect(
-                        int(selectedRect.left() * x_ratio),
-                        int(selectedRect.top() * y_ratio),
-                        int(selectedRect.width() * x_ratio),
-                        int(selectedRect.height() * y_ratio)
-                    )
+                    # image_rect = QRect(
+                    #     int(selectedRect.left() * x_ratio),
+                    #     int(selectedRect.top() * y_ratio),
+                    #     int(selectedRect.width() * x_ratio),
+                    #     int(selectedRect.height() * y_ratio)
+                    # )
+
+                    left = int(selectedRect.left() * x_ratio)
+                    top = int(selectedRect.top() * y_ratio)
+                    right = int(selectedRect.right() * x_ratio)  
+                    bottom = int(selectedRect.bottom() * y_ratio)  
+                    image_rect = (left, top, right, bottom)
                     print(image_rect)
                     
                     # Show the cropped image in a new window
@@ -185,29 +191,53 @@ class ImageGraphicsViewUI(QGraphicsView):
     def showCroppedImage(self, image_rect):
             self.crop_worker = Worker(self.cropImageTask, image_rect)
             self.crop_worker.signal.connect(self.onCropCompleted) # result is cropped images dict
+            #somewhere here should be a signal indicating that the cropped image was rejected and don't follow through with the rest of the code
             # crop_worker.error.connect(self.onError)
             self.crop_worker.start()
 
     def cropImageTask(self, image_rect):
-
-        cropped_images = {}
+        from utils import qimage_to_numpy
+        # cropped_images = {}
+        cropped_arrays = {}
+        left, top, right, bottom = image_rect
         
         for channel_name, image in self.channels.items():
 
-            pixmapItem = QGraphicsPixmapItem(QPixmap(image))
-            cropped = pixmapItem.pixmap().copy(image_rect).toImage()
-            cropped_images[channel_name] = cropped
+            arr = qimage_to_numpy(image)
+            cropped_array = arr[top:bottom+1, left:right+1]
+            cropped_arrays[channel_name] = cropped_array
 
+            # pixmap = QPixmap(image)
+            # cropped = pixmap.copy(image_rect).toImage()
+            # cropped.convertToFormat(QImage.Format.Format_Grayscale8)
+            # print("type of cropped:", type(cropped))
+            # cropped_images[channel_name] = cropped
 
-        return cropped_images
+        print("debuggingggg")
+        print(cropped_arrays['Channel 3'].shape)
+        # import cv2
+        # cv2.imshow("test cropping", cropped_arrays['Channel 3'])
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+        return cropped_arrays
     
-    cropSignal = pyqtSignal(dict)
+    cropSignal = pyqtSignal(dict, bool)
     @pyqtSlot(object)
-    def onCropCompleted(self, cropped_images):
-        self.cropSignal.emit(cropped_images)
-        channel1_qimage = list(cropped_images.values())[0]
-        channel1_pixmap = QPixmap(channel1_qimage)
-        self.dialog = Dialogs.ImageDialog(self, channel1_pixmap)
+    def onCropCompleted(self, cropped_images:dict):
+        # import cv2
+        from utils import numpy_to_qimage
+        # cv2.imshow("test cropping", qimage_to_numpy(list(cropped_images.values())[2]))
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        self.cropSignal.emit(cropped_images, False)
+        print("in view.canvas: ", self.currentChannelNum)
+
+        print("converting to pixmap")
+        channel_qimage = numpy_to_qimage(list(cropped_images.values())[self.currentChannelNum])
+        print("reached")
+        channel_pixmap = QPixmap(channel_qimage)
+        self.dialog = Dialogs.ImageDialog(self, channel_pixmap)
         self.endCrop()
         self.dialog.exec()
 
@@ -221,4 +251,10 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def loadChannels(self, channels):
         self.channels = channels
+    
+    def setCurrentChannel(self, channel_num) -> None:
+        self.currentChannelNum = channel_num
+        print("in view.canvas: ", self.currentChannelNum)
+
+
     

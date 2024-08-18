@@ -9,10 +9,14 @@ import time
 
 
 def numpy_to_qimage(array:np.ndarray) -> QImage:
+
     if len(array.shape) == 2:
         # Grayscale image
+        print("converting to grayscale")
         height, width = array.shape
-        qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
+        bytes_per_line = width
+        array = array.copy().data
+        qimage =  QImage(array, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
     elif len(array.shape) == 3:
         height, width, channels = array.shape
         if channels == 3:
@@ -23,19 +27,25 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
             qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
     else:
         raise ValueError("Unsupported array shape: {}".format(array.shape))
-    return qimage
+    return qimage.copy()
 
 
 def qimage_to_numpy(qimage:QImage):
     # Ensure the QImage format is suitable for conversion
-    qimage.convertToFormat(QImage.Format.Format_Grayscale8)
+    print("checking format: ", qimage.format())
+    if qimage.format() != QImage.Format.Format_Grayscale8:
+        print("converting to grayscale8")
+        qimage.convertToFormat(QImage.Format.Format_Grayscale8)
+
     width = qimage.width()
     height = qimage.height()
-    ptr = qimage.constBits()
-    ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
-    
+    ptr = qimage.bits()
+    ptr.setsize(width * height)    # arr = np.frombuffer(ptr, np.uint8).reshape((height, width))
+
     # Convert QImage to a 2D numpy array
-    arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
+    # arr = np.array(ptr).reshape(height, width).astype('uint8')
+    arr = np.ndarray((height, width), buffer=ptr, strides=[width, 1], dtype=np.uint8)
+
     return arr    
  
     

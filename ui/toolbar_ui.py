@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox
-from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
 from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
 from ui.tool import Action
 import matplotlib.pyplot as plt, numpy as np
@@ -16,12 +16,16 @@ class ToolBarUI(QWidget):
         self.__addActions()
         self.__retranslateUI()
 
-
-    def updateChannelSelector(self, channels:dict):
-        if self.channelSelector.count() == 0:
+    def updateChannelSelector(self, channels:dict, _, clear=False):
+        print("in toolbar, clearing?", clear)
+        if clear:
+            self.clearChannelSelector()
             self.channelSelector.addItems(list(channels.keys()))
+        else:
+            print("just updating, do nothing")
 
     def clearChannelSelector(self):
+        print("toolbar channel selector is cleared")
         self.channelSelector.clear()
 
     def __createActions(self, parent):
@@ -30,6 +34,7 @@ class ToolBarUI(QWidget):
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "icons/brightness.png")
         self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
+        self.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged)
         self.cmapSelector = QComboBox(parent)
 
         self.operatorComboBox.setMinimumContentsLength(15)
@@ -115,4 +120,14 @@ class ToolBarUI(QWidget):
         self.channelSelector.setToolTip(_translate("MainWindow", "Select a channel"))
         self.actionOpenBrightnessContrast.setText(_translate("MainWindow", "Brightness and Contrast"))
         self.actionOpenBrightnessContrast.setToolTip(_translate("MainWindow", "Brightness and Contrast"))
+    
+    channelChanged = pyqtSignal(int)
+    @pyqtSlot(int)
+    def on_channelSelector_currentIndexChanged(self, index):
+        if self.channelSelector.count() != 0:
+            print("current index: ", self.channelSelector.currentIndex())
+            # self.controllerSignal.emit(self.view.toolBar.channelSelector.currentIndex())
+            self.channelChanged.emit(index)
+            # channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
+            # self.model_canvas.toPixmapItem(channel_pixmap)
 
