@@ -265,8 +265,7 @@ class ImageGraphicsView(QGraphicsView):
         # cv2.imshow("test", list(channels.values())[2])
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
-        d = list(channels.values())[0]
-        print(d.data.contiguous)
+
 
         # channels_arr = []
         # for i, channel in enumerate(channels.values()):
@@ -274,9 +273,17 @@ class ImageGraphicsView(QGraphicsView):
         #     channels_arr.append(np.ascontiguousarray(channel))
         # print("here")
 
-        for i, channel in channels.items():
+        for channel in channels.values():
+            print(channel.dtype)
             print(channel.shape)
             print(channel.data.contiguous)
+            try:
+                if not channel.data.contiguous:
+                    print("converting to contiguous array")
+                    channel = np.ascontiguousarray(channel, dtype='uint8')
+            except Exception as e:
+                print("error: ", str(e))
+                
             height, width = channel.shape
             center = (int(width/2), int(height/2))
             rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)

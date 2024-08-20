@@ -221,6 +221,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             arr = qimage_to_numpy(image)
             cropped_array = arr[top:bottom+1, left:right+1]
             cropped_arrays[channel_name] = cropped_array
+            cropped_arrays_cont = {key: np.ascontiguousarray(a) for key, a in cropped_arrays.items()}
 
             # pixmap = QPixmap(image)
             # cropped = pixmap.copy(image_rect).toImage()
@@ -228,14 +229,14 @@ class ImageGraphicsViewUI(QGraphicsView):
             # print("type of cropped:", type(cropped))
             # cropped_images[channel_name] = cropped
 
-        # print("debuggingggg")
-        # print(cropped_arrays['Channel 3'].shape)
-        # import cv2
-        # cv2.imshow("test cropping", cropped_arrays['Channel 3'])
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        print("debuggingggg")
+        print(cropped_arrays_cont['Channel 3'].shape)
+        import cv2
+        cv2.imshow("test cropping", cropped_arrays_cont['Channel 3'])
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
-        return cropped_arrays
+        return cropped_arrays_cont
     
     cropSignal = pyqtSignal(dict, bool)
     @pyqtSlot(dict)
@@ -253,12 +254,11 @@ class ImageGraphicsViewUI(QGraphicsView):
         # channel_pixmap = QPixmap(channel_qimage)
         # self.dialog = Dialogs.ImageDialog(self, channel_pixmap)
 
-
-
         self.endCrop()
+
+        self.cropSignal.emit(cropped_images, False)
         # self.dialog.exec()
         print("emitting cropped images")
-        self.cropSignal.emit(cropped_images, False)
         print("reached")
 
 

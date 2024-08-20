@@ -10,11 +10,11 @@ from pystackreg import StackReg
 from PIL import Image
 import time
 import pystackreg.util
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot
 import re
 import tqdm
 
-class Register:
+class Register(QThread):
     # registrationDone = pyqtSignal(np.ndarray)
     def __init__(self):
         Image.MAX_IMAGE_PIXELS = 99999999999    
@@ -350,9 +350,9 @@ class Register:
                 return sitk.Resample(image, reference_image, transform,
                                     interpolator, default_value)
 
-    def remove_large_blobs(self, image):
-        out = inputs[24][0] - np.array(dip.AreaOpening(inputs[24][0], filterSize=150, connectivity=2))
-        return np.array(out)
+    # def remove_large_blobs(self, image):
+    #     out = inputs[24][0] - np.array(dip.AreaOpening(inputs[24][0], filterSize=150, connectivity=2))
+    #     return np.array(out)
 
 
     def equalize_shape(self, cy1_rescale, cy2_rescale):
@@ -368,6 +368,9 @@ class Register:
         cy2_rescale = cy2_rescale[0:cy1x, 0:cy1y]
         
         return cy1_rescale, cy2_rescale
+    
+    def updateChannels(self, _, channels):
+        self.np_channels = channels
     
 
 ############################

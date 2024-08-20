@@ -54,6 +54,7 @@ class Controller:
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
         self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
         self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
+        self.model_canvas.channelLoaded.connect(self.model_register.updateChannels)
         self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
