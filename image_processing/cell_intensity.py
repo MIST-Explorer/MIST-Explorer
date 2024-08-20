@@ -1,12 +1,14 @@
 
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QThread
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
-import numpy as np, cv2 as cv, math, time, pandas as pd, itertools, tqdm
+import numpy as np, cv2 as cv, math, time, pandas as pd, itertools
 from image_processing.canvas import ImageGraphicsView
 from image_processing.register import Register
 import ui.app
 from PIL import Image
+from tqdm import tqdm
+
 # import SimpleITK as sitk
 
 class CellIntensity:
@@ -28,15 +30,19 @@ class CellIntensity:
         
         }
         self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
+        print("bead data init")
         self.color_code = pd.read_csv("sample_data/ColorCode.csv")
-        self.stardist_labels = None 
+        self.stardist_labels = np.array(Image.open("C:\\Users\\jason\\Downloads\\dilated_stardist_labels.tif"))
 
       
-    def run(self):
+    def generateCellIntensityTable(self):
         # registration code
-        reg = Register()
-        reg.runRegistration() 
-        self.protein_signal_array = reg.protein_signal_array
+        self.reg_thread = QThread()
+        self.reg_task = Register()
+        self.reg_task.moveToThread(self.reg_thread)
+        self.reg_thread.start()
+        self.reg_thread.started.connect(self.reg_task.runRegister)
+        self.protein_signal_array = self.reg_task.protein_signal_array
 
 
         if (self.bead_data.any()==None):

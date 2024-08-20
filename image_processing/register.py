@@ -10,13 +10,14 @@ from pystackreg import StackReg
 from PIL import Image
 import time
 import pystackreg.util
-from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot
+from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot, QObject
 import re
 import tqdm
 
-class Register(QThread):
+class Register(QObject):
     # registrationDone = pyqtSignal(np.ndarray)
     def __init__(self):
+        super().__init__()
         Image.MAX_IMAGE_PIXELS = 99999999999    
         self.protein_signal_array = None
         self.params = { 
@@ -29,15 +30,15 @@ class Register(QThread):
         }
 
         self.tifs = (
-            { 
-                "path": r"C:\\Users\\jianx\Downloads\\test\\cycle_1.ome.tif", 
+            {
+                "path": r"C:\\Users\\jason\Downloads\\test\\cycle_1.ome.tif", 
                 # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
                 "brightfield": 0, 
                 "pystack_transforms" : [],
                 "sitk_transforms": []
             },
             {   
-                "path": r"C:\\Users\\jianx\Downloads\\test\\protein signal.ome.tif", 
+                "path": r"C:\\Users\\jason\Downloads\\test\\protein signal.ome.tif", 
                 # "flor_layers": [2, 3],   # this actually does not do anything in this program
                 "brightfield": 0, #alignment layer
                 "pystack_transforms" : [],
@@ -45,7 +46,7 @@ class Register(QThread):
             },
         )
 
-    def runRegistration(self):
+    def runRegister(self):
         m = self.params["max_size"]
         self.OVERLAP = self.params["overlap"]
         self.NUM_TILES = self.params['num_tiles']
@@ -251,10 +252,6 @@ class Register(QThread):
 
     def setOverlap(self, value):
         self.params['overlap'] = value
-
-    def run(self):
-        pass
-
 
     def onskip(self, param):
         fixed_img, moving_img, ymin, xmin, radius, x, y = param

@@ -110,7 +110,7 @@ class Controller:
 
         self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadBeadData)
         self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadColorCode)
-        self.view.cellIntensity_groupbox.run_button.pressed.connect(self.model_cellIntensity.run)
+        self.view.cellIntensity_groupbox.run_button.pressed.connect(self.model_cellIntensity.generateCellIntensityTable)
         
 
         # Display Butterfly
