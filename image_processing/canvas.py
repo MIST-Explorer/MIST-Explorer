@@ -297,7 +297,7 @@ class ImageGraphicsView(QGraphicsView):
         # rotated_images = [(image.transformed(transform, Qt.TransformationMode.SmoothTransformation)).convertToFormat(image.format()) for image in channels.values()]
         rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
-        return dict(zip(channels.keys(), rotated_images))
+        return dict(zip(channels.keys(), rotated_images)), dict(zip(channels.keys(), rotated_arrays))
 
     def rotateImage(self, angle_text: str):
         try:
@@ -314,14 +314,15 @@ class ImageGraphicsView(QGraphicsView):
 
     @pyqtSlot(object)
     def onRotationCompleted(self, rotated_channels:dict):
-        self.channels = rotated_channels
+        self.channels = rotated_channels[0]
+        self.np_channels = rotated_channels[1]
         print("rotation curr channel num: ", self.currentChannelNum)
-        channel_qimage = list(rotated_channels.values())[self.currentChannelNum]
+        channel_qimage = list(self.channels.values())[self.currentChannelNum]
         print(type(channel_qimage))
         channel_pixmap = QPixmap(channel_qimage)
         rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
         self.canvasUpdated.emit(rotated_pixmapItem)
-        self.np_channels = {key: qimage_to_numpy(img) for key, img in self.channels.items()} 
+        # self.np_channels = {key: qimage_to_numpy(img) for key, img in self.channels.items()} 
         self.channelLoaded.emit(self.channels, self.np_channels, False)
 
     @pyqtSlot(str)

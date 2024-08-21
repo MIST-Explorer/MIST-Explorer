@@ -58,7 +58,7 @@ class StarDist(QObject):
             scaleDown = arr.shape[0] > 10000
 
             if scaleDown:
-                scale_factor = 5
+                scale_factor = 1
                 cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
 
             else:
@@ -66,11 +66,18 @@ class StarDist(QObject):
                             
             self.progress.emit(25, "Training model")
 
+
+
             if self.params['n_tiles'] == 0:
+                guess_tiles= model._guess_n_tiles(cell_image)
+                total_tiles = int(guess_tiles[0] * guess_tiles[1])
+                # self.setNumberTiles(n_tiles)
                 stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                              prob_thresh=self.params['prob_threshold'], 
-                                                             nms_thresh=self.params['nms_threshold'])
+                                                             nms_thresh=self.params['nms_threshold'], n_tiles = guess_tiles)
+                
             else:
+
                 stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                              prob_thresh=self.params['prob_threshold'], 
                                                              nms_thresh=self.params['nms_threshold'], 
@@ -89,8 +96,7 @@ class StarDist(QObject):
             start_time = time.time()  
 
             print("dilating...")
-            self.progress.emit(50, "Dilating")
-
+            self.progress.emit(95, "Dilating")
 
             # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='w+', shape=stardist_labels.shape)
             # data[:] = stardist_labels[:]
@@ -103,7 +109,7 @@ class StarDist(QObject):
 
 
             print("generating lut...")
-            self.progress.emit(75, "generating LUT")
+            self.progress.emit(97, "generating LUT")
 
             lut = self.generate_lut("viridis")
 
@@ -120,6 +126,10 @@ class StarDist(QObject):
 
         except AttributeError: # should probably start defining custom exceptions
             QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
+
+    # @pyqtSlot(int)
+    # def updateProgress(self, num):
+    #     self.progress.emit(num, f"Generating Tile {num}")
     
     # only uint8
     @pyqtSlot(object)
