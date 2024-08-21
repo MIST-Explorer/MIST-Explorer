@@ -16,7 +16,7 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
     if len(array.shape) == 2:
         # Grayscale image
         height, width = array.shape
-        bytes_per_line = width
+        bytes_per_line = width #uint8
         print("converting to grayscale")
         print("is array contiguous?: ", array.data.contiguous)
         qimage =  QImage(array.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
@@ -46,8 +46,8 @@ def qimage_to_numpy(qimage:QImage):
     ptr.setsize(width * height)    # arr = np.frombuffer(ptr, np.uint8).reshape((height, width))
 
     # Convert QImage to a 2D numpy array
-    # arr = np.array(ptr).reshape(height, width).astype('uint8')
-    arr = np.ndarray((height, width), buffer=ptr, strides=[width, 1], dtype=np.uint8)
+    arr = np.array(ptr).reshape(height, width).astype('uint8')
+    # arr = np.ndarray((height, width), buffer=ptr, strides=[width, 1], dtype=np.uint8)
 
     return arr    
  

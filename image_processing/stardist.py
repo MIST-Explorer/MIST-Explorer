@@ -50,15 +50,15 @@ class StarDist(QObject):
                 arr = self.np_image
             # case: image has multiple channels
             else:
-                print(type(self.channels[self.params['channel']]))
-                arr = qimage_to_numpy(self.channels[self.params['channel']])
-                # arr = self.np_channels[self.params['channel']] 
+                # print(type(self.channels[self.params['channel']]))
+                # arr = qimage_to_numpy(self.channels[self.params['channel']])
+                arr = self.np_channels[self.params['channel']] 
 
             # scale down image if it's a large image
             scaleDown = arr.shape[0] > 10000
 
             if scaleDown:
-                scale_factor = 1
+                scale_factor = 5
                 cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
 
             else:

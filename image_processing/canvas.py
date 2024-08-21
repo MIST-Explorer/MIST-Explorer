@@ -153,6 +153,8 @@ class ImageGraphicsView(QGraphicsView):
 
                     qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                     self.channels[channel_name] = qimage_channel # for displaying on canvas
+
+                    self.reset_np_channels = {key: img.copy() for key, img in self.np_channels.items()} #deep copy
                     self.reset_channels = {key: img.copy() for key, img in self.channels.items()} #deep copy
 
                     # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
@@ -253,7 +255,7 @@ class ImageGraphicsView(QGraphicsView):
     def resetImage(self):
         if self.pixmapItem: 
             self.channels = self.reset_channels
-            self.channelLoaded.emit(self.channels, self.np_channels, True)
+            self.channelLoaded.emit(self.reset_channels, self.reset_np_channels, True)
             self.toPixmapItem(self.reset_pixmap)
 
 

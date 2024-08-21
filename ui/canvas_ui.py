@@ -216,19 +216,18 @@ class ImageGraphicsViewUI(QGraphicsView):
         cropped_arrays = {}
         left, top, right, bottom = image_rect
         
-        for channel_name, image in self.channels.items():
+        for channel_name, image_arr in self.np_channels.items():
 
-            arr = qimage_to_numpy(image)
-            cropped_array = arr[top:bottom+1, left:right+1]
+            # arr = qimage_to_numpy(image)
+            cropped_array = image_arr[top:bottom+1, left:right+1]
             cropped_arrays[channel_name] = cropped_array
-            cropped_arrays_cont = {key: np.ascontiguousarray(a) for key, a in cropped_arrays.items()}
 
             # pixmap = QPixmap(image)
             # cropped = pixmap.copy(image_rect).toImage()
             # cropped.convertToFormat(QImage.Format.Format_Grayscale8)
             # print("type of cropped:", type(cropped))
             # cropped_images[channel_name] = cropped
-
+        cropped_arrays_cont = {key: np.ascontiguousarray(a, dtype="uint8") for key, a in cropped_arrays.items() if not a.data.contiguous}
         print("debuggingggg")
         print(cropped_arrays_cont['Channel 3'].shape)
         import cv2
@@ -271,8 +270,9 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.begin_crop = False
         self.unsetCursor()
 
-    def loadChannels(self, channels):
+    def loadChannels(self, channels, np_channels):
         self.channels = channels
+        self.np_channels = np_channels
     
     def setCurrentChannel(self, channel_num:int) -> None:
         self.currentChannelNum = channel_num
