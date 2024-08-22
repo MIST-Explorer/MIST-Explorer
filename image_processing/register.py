@@ -31,14 +31,14 @@ class Register(QObject):
 
         self.tifs = (
             {
-                "path": r"C:\\Users\\jason\Downloads\\test\\cycle_1.ome.tif", 
+                "path": r"testing/testCycle 1.ome.tif", 
                 # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
                 "brightfield": 0, 
                 "pystack_transforms" : [],
                 "sitk_transforms": []
             },
             {   
-                "path": r"C:\\Users\\jason\Downloads\\test\\protein signal.ome.tif", 
+                "path": r"testing/test/protein signal.ome.tif", 
                 # "flor_layers": [2, 3],   # this actually does not do anything in this program
                 "brightfield": 0, #alignment layer
                 "pystack_transforms" : [],
