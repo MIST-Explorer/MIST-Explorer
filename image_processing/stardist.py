@@ -14,7 +14,6 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from stardist.models import StarDist2D
 from csbdeep.utils import normalize
-import tensorflow as tf
 
 class StarDist(QObject):
     stardistDone = pyqtSignal(QPixmap)
@@ -37,9 +36,18 @@ class StarDist(QObject):
     
 
     def runStarDist(self):
-        self.stardist_worker = Worker(self.stardistTask)
-        self.stardist_worker.start()
-        self.stardist_worker.signal.connect(self.onStarDistCompleted)
+        import tensorflow as tf
+        gpu = len(tf.config.list_physical_devices('GPU')) > 0
+        if gpu:
+            device_context = tf.test.gpu_device_name()
+            print("gpu name: ", device_context)
+        else:
+            device_context = tf.device('/CPU:0')
+
+        with tf.device(device_context):
+            self.stardist_worker = Worker(self.stardistTask)
+            self.stardist_worker.start()
+            self.stardist_worker.signal.connect(self.onStarDistCompleted)
         
     def stardistTask(self):
         self.progress.emit(0, "Starting StarDist")
