@@ -32,7 +32,7 @@ class CellIntensity:
         self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
         print("bead data init")
         self.color_code = pd.read_csv("sample_data/ColorCode.csv")
-        self.stardist_labels = np.array(Image.open("C:\\Users\\jianx\\Downloads\\dilated_stardist_labels.tif"))
+        self.stardist_labels = np.array(Image.open("C:\\Users\\jason\\Downloads\\dilated_stardist_labels.tif"))
 
       
     def generateCellIntensityTable(self):

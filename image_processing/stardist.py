@@ -14,6 +14,7 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from stardist.models import StarDist2D
 from csbdeep.utils import normalize
+import tensorflow as tf
 
 class StarDist(QObject):
     stardistDone = pyqtSignal(QPixmap)

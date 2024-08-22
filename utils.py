@@ -103,3 +103,7 @@ def scale_adjust(arr:np.ndarray):
         return arr
     else:
         print("unsupported array type")
+
+
+def recolor(arr):
+    pass
