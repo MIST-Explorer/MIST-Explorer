@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
-import Dialogs, numpy as np
+import Dialogs, numpy as np, matplotlib as mpl, cv2
 from qt_threading import Worker
+import utils
 
 class ReferenceGraphicsViewUI(QGraphicsView):
     
@@ -228,12 +229,12 @@ class ImageGraphicsViewUI(QGraphicsView):
             # print("type of cropped:", type(cropped))
             # cropped_images[channel_name] = cropped
         cropped_arrays_cont = {key: np.ascontiguousarray(a, dtype="uint8") for key, a in cropped_arrays.items() if not a.data.contiguous}
-        print("debuggingggg")
-        print(cropped_arrays_cont['Channel 3'].shape)
-        import cv2
-        cv2.imshow("test cropping", cropped_arrays_cont['Channel 3'])
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # print("debuggingggg")
+        # print(cropped_arrays_cont['Channel 3'].shape)
+        # import cv2
+        # cv2.imshow("test cropping", cropped_arrays_cont['Channel 3'])
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         return cropped_arrays_cont
     
@@ -241,7 +242,6 @@ class ImageGraphicsViewUI(QGraphicsView):
     @pyqtSlot(dict)
     def onCropCompleted(self, cropped_images:dict):
         import cv2
-        from utils import numpy_to_qimage
 
 
         # current_channel = list(cropped_images.values())[self.currentChannelNum]
@@ -260,8 +260,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         print("emitting cropped images")
         print("reached")
 
-
-
     def startCrop(self):
         self.begin_crop = True
         self.setCursor(self.crop_cursor)
@@ -270,9 +268,13 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.begin_crop = False
         self.unsetCursor()
 
-    def loadChannels(self, channels, np_channels):
-        self.channels = channels
+    def loadChannels(self, np_channels):
         self.np_channels = np_channels
+        self.channels = self.__numpy2QImageDict(self.np_channels)
+
+    def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
+        return {key: utils.numpy_to_qimage(arr) for key, arr in numpy_channels_dict.items()} 
+    
     
     def setCurrentChannel(self, channel_num:int) -> None:
         self.currentChannelNum = channel_num

@@ -366,7 +366,7 @@ class Register(QObject):
         
         return cy1_rescale, cy2_rescale
     
-    def updateChannels(self, _, channels):
+    def updateChannels(self, channels):
         self.np_channels = channels
     
 

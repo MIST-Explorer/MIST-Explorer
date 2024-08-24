@@ -1,9 +1,9 @@
-from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QTransform
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
-import Dialogs, tifffile as tiff, numpy as np
-from PIL import Image, ImageSequence
-import cv2
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot
+import tifffile as tiff, numpy as np
+# from PIL import Image, ImageSequence
+import cv2, matplotlib as mpl
 import time
 from qt_threading import Worker
 from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
@@ -70,7 +70,7 @@ class ImageGraphicsView(QGraphicsView):
     
     canvasUpdated = pyqtSignal(QGraphicsPixmapItem)
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
-    channelLoaded = pyqtSignal(dict, dict, bool)
+    channelLoaded = pyqtSignal(dict, bool)
     channelNotLoaded = pyqtSignal(np.ndarray)
   
     # need some dead code analysis
@@ -89,15 +89,40 @@ class ImageGraphicsView(QGraphicsView):
         self.pixmap=None
         self.pixmapItem=None
         self.begin_crop = False
-        self.crop_cursor =  QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
+        self.crop_cursor =  QCursor(QPixmap("icons/clicks.png").scaled(25,25, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
 
 
-    def toPixmapItem(self, pixmap):
+    def toPixmapItem(self, data:QPixmap|np.ndarray):
         #convert pixmap to pixmapItem
-        self.pixmap = pixmap
-        self.pixmapItem = QGraphicsPixmapItem(pixmap)
+        if type(data) == QPixmap:
+            self.pixmap = data
+        else:
+            self.pixmap = QPixmap(numpy_to_qimage(data))
+            
+        self.pixmapItem = QGraphicsPixmapItem(self.pixmap)
         self.canvasUpdated.emit(self.pixmapItem)
+        
+    def change_cmap(self, cmap_text: str):
+        print("generating lut...")
+        lut = self.generate_lut(cmap_text)
+        print("converting label to rgb...")
+        stardist_labels_rgb = self.label2rgb(self.stardist_labels, lut).astype(np.uint8)
+        # self.progress.emit(99, "converting to rgb")
+        # convert to pixmap
+        self.toPixmapItem(stardist_labels_rgb)
+    
+    def generate_lut(self, cmap:str):
+        label_range = np.linspace(0, 1, 256)
+        return np.uint8(mpl.colormaps[cmap](label_range)[:,2::-1]*256).reshape(256, 1, 3)
 
+    def label2rgb(self, labels, lut):
+        return cv2.LUT(cv2.merge((labels, labels, labels)), lut)
+    
+
+    def loadStardistLabels(self, stardist_labels_grayscale :np.ndarray):
+        self.stardist_labels = stardist_labels_grayscale
+        self.toPixmapItem(self.stardist_labels)
+    
     def addImage(self, file:str):
         '''add a new image'''
 
@@ -160,7 +185,7 @@ class ImageGraphicsView(QGraphicsView):
                     # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
 
                 channel_one_qimage = next(iter(self.channels.values()))
-                self.channelLoaded.emit(self.channels, self.np_channels, True)
+                self.channelLoaded.emit(self.np_channels, True)
             else:
                 # determine if image is grayscale or rgb
                 if pages[0].ndim == 2:
@@ -196,6 +221,9 @@ class ImageGraphicsView(QGraphicsView):
         print(f"image loading time: {time.time() - t}")
 
         return pixmap
+    
+    def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
+        return {key: numpy_to_qimage(arr) for key, arr in numpy_channels_dict.items()} 
     
     def pixmap_to_numpy_array(self):
         # Convert the QPixmap to a QImage
@@ -255,7 +283,7 @@ class ImageGraphicsView(QGraphicsView):
     def resetImage(self):
         if self.pixmapItem: 
             self.channels = self.reset_channels
-            self.channelLoaded.emit(self.reset_channels, self.reset_np_channels, True)
+            self.channelLoaded.emit(self.reset_np_channels, True)
             self.toPixmapItem(self.reset_pixmap)
 
 
@@ -323,7 +351,7 @@ class ImageGraphicsView(QGraphicsView):
         rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
         self.canvasUpdated.emit(rotated_pixmapItem)
         # self.np_channels = {key: qimage_to_numpy(img) for key, img in self.channels.items()} 
-        self.channelLoaded.emit(self.channels, self.np_channels, False)
+        self.channelLoaded.emit(self.np_channels, False)
 
     @pyqtSlot(str)
     def onError(self, error_message):
@@ -333,9 +361,9 @@ class ImageGraphicsView(QGraphicsView):
         self.np_channels = channels #np arrays
 
         print("in updateChannels method of canvas.py")
-        self.channels = {key: numpy_to_qimage(arr) for key, arr in self.np_channels.items()} #convert to qimage to numpy arrays
+        self.channels = self.__numpy2QImageDict(self.np_channels)
         print("clear channel?", clear)
-        self.channelLoaded.emit(self.channels, self.np_channels, clear)
+        self.channelLoaded.emit(self.np_channels, clear)
 
     def swapChannel(self, index):
         channel_pixmap = QPixmap.fromImage(self.channels[f'Channel {index+1}'])

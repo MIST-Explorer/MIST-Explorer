@@ -16,8 +16,8 @@ from stardist.models import StarDist2D
 from csbdeep.utils import normalize
 
 class StarDist(QObject):
-    stardistDone = pyqtSignal(QPixmap)
-    sendGrayScale = pyqtSignal(np.ndarray)
+    stardistDone = pyqtSignal(np.ndarray)
+    # sendGrayScale = pyqtSignal(np.ndarray)
     progress = pyqtSignal(int, str)
     def __init__(self):
         super().__init__()
@@ -30,7 +30,7 @@ class StarDist(QObject):
         'percentile_high': 99.80,
         'prob_threshold': 0.48,
         'nms_threshold': 0.3,
-        'n_tiles': 0,
+        'n_tiles': 10,
         'radius': 5,
         }
     
@@ -117,21 +117,21 @@ class StarDist(QObject):
 
 
 
-            print("generating lut...")
-            self.progress.emit(97, "generating LUT")
+            # print("generating lut...")
+            # self.progress.emit(97, "generating LUT")
 
-            lut = self.generate_lut("viridis")
+            # lut = self.generate_lut("viridis")
 
-            print("converting label to rgb...")
-            stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
-            self.progress.emit(99, "converting to rgb")
+            # print("converting label to rgb...")
+            # stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
+            # self.progress.emit(99, "converting to rgb")
             end_time = time.time()  
             print(start_time - end_time)
             # convert to pixmap
-            stardist_qimage = numpy_to_qimage(stardist_labels_rgb)
-            stardist_pixmap = QPixmap(stardist_qimage)
+            # stardist_qimage = numpy_to_qimage(stardist_labels_rgb)
+            # stardist_pixmap = QPixmap(stardist_qimage)
             self.progress.emit(100, "Done")
-            return (stardist_pixmap, stardist_labels_grayscale)
+            return stardist_labels_grayscale
 
         except AttributeError: # should probably start defining custom exceptions
             QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
@@ -143,8 +143,7 @@ class StarDist(QObject):
     # only uint8
     @pyqtSlot(object)
     def onStarDistCompleted(self, stardist_result):
-        self.stardistDone.emit(stardist_result[0])
-        self.sendGrayScale.emit(stardist_result[1])
+        self.stardistDone.emit(stardist_result)
 
     def change_cmap(self):
         pass
@@ -156,10 +155,9 @@ class StarDist(QObject):
     def label2rgb(self, labels, lut):
         return cv.LUT(cv.merge((labels, labels, labels)), lut)
 
-    def updateChannels(self, channels, np_channels, _):
+    def updateChannels(self, np_channels, _):
         self.np_image = None
         self.np_channels = np_channels
-        self.channels = channels
         
     def setImageToProcess(self, np_image):
         self.np_channels = None

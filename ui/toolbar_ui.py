@@ -3,6 +3,7 @@ from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
 from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
 from ui.tool import Action
 import matplotlib.pyplot as plt, numpy as np
+from PyQt6.QtCore import pyqtSignal
 
 class ToolBarUI(QWidget):
 
@@ -16,7 +17,7 @@ class ToolBarUI(QWidget):
         self.__addActions()
         self.__retranslateUI()
 
-    def updateChannelSelector(self, channels:dict, _, clear=False):
+    def updateChannelSelector(self, channels:dict, clear=False):
         print("in toolbar, clearing?", clear)
         if clear:
             self.clearChannelSelector()
@@ -34,14 +35,16 @@ class ToolBarUI(QWidget):
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "icons/brightness.png")
         self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
-        self.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged)
+        self.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged) #try avoiding connect signal within the same class, but this will do for now
         self.cmapSelector = QComboBox(parent)
+        self.cmapSelector.currentTextChanged.connect(self.on_cmapTextChanged) #try avoiding connect signal within the same class, but this will do for now
+
 
         self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
 
     def __generateCmapThumbnails(self) -> np.ndarray:
-        self.cmap_names = ['viridis', 'plasma', 'inferno', 'magma', 'cividis']
+        self.cmap_names = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
         self.cmap_thumbnail_arr = []
         for cmap_name in self.cmap_names:
             gradient = np.linspace(0, 1, 256)
@@ -67,7 +70,7 @@ class ToolBarUI(QWidget):
         image = QImage(array.tobytes(), width, height, QImage.Format.Format_RGBA8888)
         pixmap = QIcon(QPixmap.fromImage(image))
         return pixmap
-
+    
     def __addCmaps(self):
         thumbnails = self.__generateCmapThumbnails()
         self.cmapSelector.setMinimumSize(QSize(100,20))
@@ -130,4 +133,11 @@ class ToolBarUI(QWidget):
             self.channelChanged.emit(index)
             # channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
             # self.model_canvas.toPixmapItem(channel_pixmap)
+
+    cmapChanged = pyqtSignal(str)
+    @pyqtSlot(str)
+    def on_cmapTextChanged(self, cmap_str :str):
+        if self.channelSelector.count() != 0:
+            print("current cmap str: ", self.cmapSelector.currentText())
+            self.cmapChanged.emit(cmap_str)
 

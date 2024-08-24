@@ -1,4 +1,6 @@
 
+import qimage2ndarray.qimageview_python
+import qimage2ndarray.qimageview_python
 import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity, image_processing.register
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
@@ -38,8 +40,7 @@ class Controller:
         self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
         self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
         self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
-
-
+        self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
 
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
@@ -90,8 +91,8 @@ class Controller:
         self.view.stardist_groupbox.stardist_run_button.pressed.connect(self.model_stardist.runStarDist)
 
         # display stardist result
-        self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
-        self.model_stardist.sendGrayScale.connect(self.model_cellIntensity.loadStardistLabels)
+        self.model_stardist.stardistDone.connect(self.model_canvas.loadStardistLabels) #probably better to use a super class for all model classes so we don't repeat this code
+        self.model_stardist.stardistDone.connect(self.model_cellIntensity.loadStardistLabels)
         self.model_stardist.progress.connect(self.view.updateProgressBar)
         # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
         self.view.stardist_groupbox.save_button.clicked.connect(self.controlSave)
@@ -114,15 +115,14 @@ class Controller:
         
 
         # Display Butterfly
-        self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
+        # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         
         # Save photo
-        self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
+        # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
         self.view.tabWidget.currentChanged.connect(self.view.onChange)
-
 
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
@@ -150,14 +150,19 @@ class Controller:
             return None
         # Convert QPixmap to QImage
         qimage = pixmap.toImage()
-
-        # Convert QImage to numpy array
-        width = qimage.width()
-        height = qimage.height()
-        ptr = qimage.bits()
-        ptr.setsize(height * width * 4)
-        arr = np.array(ptr).reshape(height, width, 4)  # 4 for RGBA
-
+        import qimage2ndarray
+        a =qimage2ndarray.recarray_view(qimage)
+        arr = np.array(a)
+        # # Convert QImage to numpy array
+        # width = qimage.width()
+        # height = qimage.height()
+        # ptr = qimage.bits()
+        # ptr.setsize(height * width)
+        # arr = np.array(ptr).reshape(height, width)  # 4 for RGBA
+        import cv2
+        cv2.imshow("test cropping", arr)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         # Save numpy array as an image file using OpenCV
         return arr
     
@@ -174,8 +179,11 @@ class Controller:
 
         pm = self.model_canvas.pixmap
         print(pm)
+        qimage = pm.toImage()
         if pm != None:
             im = self.pixmap_to_image(pm)
+            # import qimage2ndarray 
+            # im = qimage2ndarray.alpha_view(qimage)
             file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
             if file_name:
                 print(file_name)
@@ -183,6 +191,8 @@ class Controller:
                 
             else:
                 return False
+            
+
     def createBCDialog(self):
         self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model_canvas.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
 
