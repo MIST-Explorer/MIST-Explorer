@@ -1,6 +1,4 @@
 
-import qimage2ndarray.qimageview_python
-import qimage2ndarray.qimageview_python
 import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity, image_processing.register
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import QPixmap
@@ -150,19 +148,19 @@ class Controller:
             return None
         # Convert QPixmap to QImage
         qimage = pixmap.toImage()
-        import qimage2ndarray
-        a =qimage2ndarray.recarray_view(qimage)
-        arr = np.array(a)
-        # # Convert QImage to numpy array
-        # width = qimage.width()
-        # height = qimage.height()
-        # ptr = qimage.bits()
-        # ptr.setsize(height * width)
-        # arr = np.array(ptr).reshape(height, width)  # 4 for RGBA
-        import cv2
-        cv2.imshow("test cropping", arr)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # import qimage2ndarray
+        # a =qimage2ndarray.recarray_view(qimage)
+        # arr = np.array(a)
+        # Convert QImage to numpy array
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(height * width)
+        arr = np.array(ptr).reshape(height, width)  # 4 for RGBA
+        # import cv2
+        # cv2.imshow("test cropping", arr)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
         # Save numpy array as an image file using OpenCV
         return arr
     

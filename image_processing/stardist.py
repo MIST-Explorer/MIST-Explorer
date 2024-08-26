@@ -39,12 +39,12 @@ class StarDist(QObject):
         import tensorflow as tf
         gpu = len(tf.config.list_physical_devices('GPU')) > 0
         if gpu:
-            device_context = tf.test.gpu_device_name()
-            print("gpu name: ", device_context)
+            device_name= tf.test.gpu_device_name()
+            print("gpu name: ", device_name)
         else:
-            device_context = tf.device('/CPU:0')
+            device_name = '/CPU:0'
 
-        with tf.device(device_context):
+        with tf.device(device_name):
             self.stardist_worker = Worker(self.stardistTask)
             self.stardist_worker.start()
             self.stardist_worker.signal.connect(self.onStarDistCompleted)
