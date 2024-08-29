@@ -34,7 +34,7 @@ class Controller:
 
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
-        self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
+        # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
         self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
         self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
         self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
