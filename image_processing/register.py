@@ -18,7 +18,8 @@ class Register(QObject):
     # registrationDone = pyqtSignal(np.ndarray)
     def __init__(self):
         super().__init__()
-        Image.MAX_IMAGE_PIXELS = 99999999999    
+        Image.MAX_IMAGE_PIXELS = 99999999999  
+        self.np_channels = None 
         self.protein_signal_array = None
         self.params = { 
             'alignment_layer': 0,
@@ -31,16 +32,16 @@ class Register(QObject):
 
         self.tifs = (
             {
-                "path": r"testing/test/cycle_1.ome.tif", 
+                # "path": r"testing/test/cycle_1.ome.tif", 
                 # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
-                "brightfield": 0, 
+                "alignment_layer": 0,
                 "pystack_transforms" : [],
                 "sitk_transforms": []
             },
             {   
-                "path": r"testing/test/protein signal.ome.tif", 
+                # "path": r"testing/test/protein signal.ome.tif", 
                 # "flor_layers": [2, 3],   # this actually does not do anything in this program
-                "brightfield": 0, #alignment layer
+                "alignment_layer": 0, #alignment layer
                 "pystack_transforms" : [],
                 "sitk_transforms": [] 
             },
@@ -53,7 +54,7 @@ class Register(QObject):
         basis = self.tifs[0]
         print("opening files!")
         bf1_f = Image.open(basis["path"])
-        bf1_f.seek(basis["brightfield"])
+        bf1_f.seek(basis["alignment_layer"])
         bf1 = np.array(bf1_f)
         bf1 = bf1[0:m, 0:m]
         bf1 = self.adjust_contrast(bf1,50, 99)
@@ -366,9 +367,12 @@ class Register(QObject):
         
         return cy1_rescale, cy2_rescale
     
-    def updateChannels(self, channels):
+    def updateChannels(self, channels) -> None:
         self.np_channels = channels
-    
+        print("protein signal images sent to register", self.np_channels)
+    def updateCycleImage(self, image) -> None:
+        self.cycleImage = image
+        print("cycle images sent to register")
 
 ############################
 class TileMap():

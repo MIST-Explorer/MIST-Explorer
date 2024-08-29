@@ -14,30 +14,135 @@ class ImageType:
         self.name = name
         self.arr = arr
 
-class ReferenceGraphicsView(QGraphicsView):
-    referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
+class __BaseGraphicsView(QGraphicsView):
+    '''base class for graphics view'''
+    channelLoaded = pyqtSignal(dict, bool)
+    channelNotLoaded = pyqtSignal(np.ndarray)
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.channels= None
+        self.np_channels = None
+        self.reset_pixmap =  None
+        self.reset_pixmapItem = None
+        self.pixmap = None
+        self.pixmapItem=None
 
-        self.reset_referencepixmap=None
-        self.reset_reference_pixmapItem=None
-        self.reference_pixmap=None
-        self.reference_pixmapItem=None
-
-        self.setMinimumSize(QSize(300, 300))
-        self.setObjectName("reference_canvas")
-        self.setScene(QGraphicsScene(self))
-        self.setSceneRect(0, 0, 200, 150)
-        self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
-
-
-# drag and drog has issue with some tiff images, need to fix
+    # drag and drog has issue with some tiff images, need to fix
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event: QDragEnterEvent):
         event.acceptProposedAction()
+
+    def read_tiff_pages(self, file_path):
+        pages = []
+        with tiff.TiffFile(file_path) as tif:
+            for i, page in enumerate(tif.pages):
+                try:
+                    image = page.asarray()
+                    # Check if the image is blank
+                    if np.all(image == image.flat[0]):
+                        print(f"Page {i} is blank, skipping.")
+                        continue
+                    pages.append(image)
+                    self.updateProgress.emit(int((i+1)/len(tif.pages)*100), "Loading image")
+                except Exception as e:
+                    print(f"Error reading page {i}: {e}")
+                    continue
+        return pages
+    
+    def filename_to_pixmap(self, file_name:str):  
+
+            t = time.time()
+
+            if file_name.endswith((".tiff", ".tif")):
+                
+                pages = self.read_tiff_pages(file_name)
+                num_channels = len(pages)
+                format = QImage.Format.Format_Grayscale8
+
+                if (num_channels > 1):
+
+                    # resultSize = QSize(width, height)
+                    # self.resultImage = QImage(resultSize, QImage.Format.Format_ARGB32_Premultiplied)
+
+                    self.channels = {}
+                    self.np_channels = {}
+                    for channel_num, image in enumerate(pages):
+
+                        channel_name = f'Channel {channel_num + 1}'
+                        height, width = image.shape
+                    
+                        __scaled = scale_adjust(image) 
+                        image_adjusted = adjustContrast(__scaled) # uint8
+                
+
+                        bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
+                        self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
+
+                        qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
+                        self.channels[channel_name] = qimage_channel # for displaying on canvas
+
+                        self.reset_np_channels = {key: img.copy() for key, img in self.np_channels.items()} #deep copy
+                        self.reset_channels = {key: img.copy() for key, img in self.channels.items()} #deep copy
+
+                        # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
+
+                    channel_one_qimage = next(iter(self.channels.values()))
+                    self.channelLoaded.emit(self.np_channels, True)
+                else:
+                    # determine if image is grayscale or rgb
+                    if pages[0].ndim == 2:
+                        h, w = pages[0].shape
+                    elif pages[0].ndim == 3:
+                        h, w, ch = pages[0].shape
+                    elif pages[0].ndim == 4:
+                        h, w, ch, alpha = pages[0].shape
+                    else:
+                        raise ValueError("image type not supported")
+
+                    __scaled = scale_adjust(pages[0]) 
+                    image_adjusted = adjustContrast(__scaled) # uint8
+                    print(image_adjusted.dtype)
+                    print(image_adjusted.shape)
+                    bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
+                    if pages[0].ndim == 2:
+                        channel_one_qimage = QImage(image_adjusted, w, h, w*bytesPerPixel, format)
+                    elif pages[0].ndim == 3:
+                        channel_one_qimage = QImage(image_adjusted.tobytes(), w, h, QImage.Format.Format_RGB888)
+                    elif pages[0].ndim == 4:
+                        channel_one_qimage = QImage(image_adjusted.tobytes(), w, h, QImage.Format.Format_RGBA8888)
+                    else:
+                        raise ValueError("image type not supported")
+
+                    self.channelNotLoaded.emit(image_adjusted)
+
+                pixmap = QPixmap(channel_one_qimage)
+
+            else:
+                pixmap = QPixmap(file_name)
+
+            print(f"image loading time: {time.time() - t}")
+
+            return pixmap
+    
+    def deleteImage(self):
+        self.scene().clear()
+
+
+class ReferenceGraphicsView(__BaseGraphicsView):
+
+    referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
+    registerSignal = pyqtSignal(np.ndarray)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumSize(QSize(300, 300))
+        self.setObjectName("reference_canvas")
+        self.setScene(QGraphicsScene(self))
+        self.setSceneRect(0, 0, 200, 150)
+        self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
 
     def dropEvent(self, event: QDropEvent):
         if event.mimeData().hasUrls():
@@ -50,44 +155,36 @@ class ReferenceGraphicsView(QGraphicsView):
     def addImage(self, file_path):
         # check if canvas already has an image
         self.resetTransform()
-        if self.reference_pixmapItem:
+        if self.pixmapItem:
             self.deleteImage() 
         with tiff.TiffFile(file_path) as tif:
             image = tif.pages[0].asarray()
 
         arr = scale_adjust(np.array(image).astype(np.uint16))
         arr = adjustContrast(arr, alpha=20, beta=35)
-
+        # size down the image for display
         if arr.shape[0] > 20000:
             thumbnail_size = (int(arr.shape[1]/50), int(arr.shape[0]/50))
             arr = cv2.resize(arr, thumbnail_size, interpolation=cv2.INTER_AREA)
         else: pass
         qimage = numpy_to_qimage(arr)
-        self.reference_pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
-        self.referenceViewAdded.emit(self.reference_pixmapItem)
-
+        self.pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
+        self.referenceViewAdded.emit(self.pixmapItem)
         
-    def deleteImage(self):
-        self.scene().clear()
-
 
 ##########################################################
-class ImageGraphicsView(QGraphicsView):
+class ImageGraphicsView(__BaseGraphicsView):
     
     canvasUpdated = pyqtSignal(QGraphicsPixmapItem)
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
-    channelLoaded = pyqtSignal(dict, bool)
-    channelNotLoaded = pyqtSignal(np.ndarray)
-  
     # need some dead code analysis
     saveImage = pyqtSignal(QGraphicsPixmapItem)  
-
     updateProgress = pyqtSignal(int, str)
 
 
-    def __init__(self):
+    def __init__(self, parent=None):
 
-        super().__init__()
+        super().__init__(parent)
         self.channels= None
         # self.channel_selector_combobox = self.view.toolBar.channelSelector
         self.reset_pixmap=None
@@ -137,7 +234,7 @@ class ImageGraphicsView(QGraphicsView):
 
         if isinstance(file, str):
 
-           self.image_worker = Worker(self.__filename_to_pixmap, file)
+           self.image_worker = Worker(self.filename_to_pixmap, file)
            self.image_worker.signal.connect(self.onFileNameToPixmapCompleted)
            self.image_worker.error.connect(self.onError)
            self.image_worker.start()
@@ -151,82 +248,6 @@ class ImageGraphicsView(QGraphicsView):
         self.pixmapItem = QGraphicsPixmapItem(pixmap)
         self.newImageAdded.emit(self.pixmapItem)
 
-
-
-    def __filename_to_pixmap(self, file_name:str):  
-
-        t = time.time()
-
-        if file_name.endswith((".tiff", ".tif")):
-            
-            pages = self.read_tiff_pages(file_name)
-            num_channels = len(pages)
-            format = QImage.Format.Format_Grayscale8
-
-            if (num_channels > 1):
-
-                # resultSize = QSize(width, height)
-                # self.resultImage = QImage(resultSize, QImage.Format.Format_ARGB32_Premultiplied)
-
-                self.channels = {}
-                self.np_channels = {}
-                for channel_num, image in enumerate(pages):
-
-                    channel_name = f'Channel {channel_num + 1}'
-                    height, width = image.shape
-                
-                    __scaled = scale_adjust(image) 
-                    image_adjusted = adjustContrast(__scaled) # uint8
-               
-
-                    bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
-                    self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
-
-                    qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
-                    self.channels[channel_name] = qimage_channel # for displaying on canvas
-
-                    self.reset_np_channels = {key: img.copy() for key, img in self.np_channels.items()} #deep copy
-                    self.reset_channels = {key: img.copy() for key, img in self.channels.items()} #deep copy
-
-                    # self.updateProgress.emit(int((channel_num+1)/num_channels*100))
-
-                channel_one_qimage = next(iter(self.channels.values()))
-                self.channelLoaded.emit(self.np_channels, True)
-            else:
-                # determine if image is grayscale or rgb
-                if pages[0].ndim == 2:
-                    h, w = pages[0].shape
-                elif pages[0].ndim == 3:
-                    h, w, ch = pages[0].shape
-                elif pages[0].ndim == 4:
-                    h, w, ch, alpha = pages[0].shape
-                else:
-                    raise ValueError("image type not supported")
-
-                __scaled = scale_adjust(pages[0]) 
-                image_adjusted = adjustContrast(__scaled) # uint8
-                print(image_adjusted.dtype)
-                print(image_adjusted.shape)
-                bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
-                if pages[0].ndim == 2:
-                    channel_one_qimage = QImage(image_adjusted, w, h, w*bytesPerPixel, format)
-                elif pages[0].ndim == 3:
-                    channel_one_qimage = QImage(image_adjusted.tobytes(), w, h, QImage.Format.Format_RGB888)
-                elif pages[0].ndim == 4:
-                    channel_one_qimage = QImage(image_adjusted.tobytes(), w, h, QImage.Format.Format_RGBA8888)
-                else:
-                    raise ValueError("image type not supported")
-
-                self.channelNotLoaded.emit(image_adjusted)
-
-            pixmap = QPixmap(channel_one_qimage)
-
-        else:
-            pixmap = QPixmap(file_name)
-
-        print(f"image loading time: {time.time() - t}")
-
-        return pixmap
     
     def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
         return {key: numpy_to_qimage(arr) for key, arr in numpy_channels_dict.items()} 
@@ -247,23 +268,6 @@ class ImageGraphicsView(QGraphicsView):
         array = np.array(ptr).reshape((height, width, 4))
 
         return array
-        
-    def read_tiff_pages(self, file_path):
-        pages = []
-        with tiff.TiffFile(file_path) as tif:
-            for i, page in enumerate(tif.pages):
-                try:
-                    image = page.asarray()
-                    # Check if the image is blank
-                    if np.all(image == image.flat[0]):
-                        print(f"Page {i} is blank, skipping.")
-                        continue
-                    pages.append(image)
-                    self.updateProgress.emit(int((i+1)/len(tif.pages)*100), "Loading image")
-                except Exception as e:
-                    print(f"Error reading page {i}: {e}")
-                    continue
-        return pages
 
 
     # def adjustContrast(self,img):  
@@ -282,9 +286,7 @@ class ImageGraphicsView(QGraphicsView):
     #     else:
     #         print("unsupported array type")
 
-        
-    def deleteImage(self):
-        self.scene().clear()
+    
 
     def resetImage(self):
         if self.pixmapItem: 
