@@ -8,6 +8,12 @@ import time
 from qt_threading import Worker
 from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
 
+
+class ImageType:
+    def __init__(self, name: str, arr):
+        self.name = name
+        self.arr = arr
+
 class ReferenceGraphicsView(QGraphicsView):
     referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
     def __init__(self, parent=None):
@@ -119,8 +125,8 @@ class ImageGraphicsView(QGraphicsView):
         return cv2.LUT(cv2.merge((labels, labels, labels)), lut)
     
 
-    def loadStardistLabels(self, stardist_labels_grayscale :np.ndarray):
-        self.stardist_labels = stardist_labels_grayscale
+    def loadStardistLabels(self, stardist: ImageType):
+        self.stardist_labels = stardist.arr
         self.toPixmapItem(self.stardist_labels)
     
     def addImage(self, file:str):

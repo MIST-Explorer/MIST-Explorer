@@ -31,7 +31,7 @@ class Register(QObject):
 
         self.tifs = (
             {
-                "path": r"testing/testCycle 1.ome.tif", 
+                "path": r"testing/test/cycle_1.ome.tif", 
                 # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
                 "brightfield": 0, 
                 "pystack_transforms" : [],

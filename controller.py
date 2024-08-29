@@ -1,6 +1,6 @@
 
 import ui.app, Dialogs, image_processing.canvas, image_processing.stardist, image_processing.cell_intensity, image_processing.register
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
 import numpy as np
 import cv2
@@ -91,6 +91,7 @@ class Controller:
         # display stardist result
         self.model_stardist.stardistDone.connect(self.model_canvas.loadStardistLabels) #probably better to use a super class for all model classes so we don't repeat this code
         self.model_stardist.stardistDone.connect(self.model_cellIntensity.loadStardistLabels)
+        self.model_stardist.errorSignal.connect(self.handleError)
         self.model_stardist.progress.connect(self.view.updateProgressBar)
         # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
         self.view.stardist_groupbox.save_button.clicked.connect(self.controlSave)
@@ -110,6 +111,9 @@ class Controller:
         self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadBeadData)
         self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadColorCode)
         self.view.cellIntensity_groupbox.run_button.pressed.connect(self.model_cellIntensity.generateCellIntensityTable)
+
+        self.model_cellIntensity.errorSignal.connect(self.handleError)
+        self.view.cellIntensity_groupbox.save_button.clicked.connect(self.controlSave)
         
 
         # Display Butterfly
@@ -121,6 +125,9 @@ class Controller:
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
         self.view.tabWidget.currentChanged.connect(self.view.onChange)
+
+    def handleError(self, error_message):
+        QMessageBox.critical(self.view,"Error", error_message)
 
     def on_action_openFiles_triggered(self):
         self.openFilesDialog = Dialogs.OpenFilesDialog(self.view)
@@ -174,10 +181,10 @@ class Controller:
             raise ValueError("Image format not recognized")
         
     def controlSave(self):
-
+        
         pm = self.model_canvas.pixmap
         print(pm)
-        qimage = pm.toImage()
+        # qimage = pm.toImage()
         if pm != None:
             im = self.pixmap_to_image(pm)
             # import qimage2ndarray 
@@ -189,6 +196,9 @@ class Controller:
                 
             else:
                 return False
+            
+        else:
+            self.handleError("No image in canvas, please load image")
             
 
     def createBCDialog(self):

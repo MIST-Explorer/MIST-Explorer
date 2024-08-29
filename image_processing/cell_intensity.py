@@ -3,7 +3,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import pyqtSignal, QObject, QThread
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 import numpy as np, cv2 as cv, math, time, pandas as pd, itertools
-from image_processing.canvas import ImageGraphicsView
+from image_processing.canvas import ImageGraphicsView, ImageType
 from image_processing.register import Register
 import ui.app
 from PIL import Image
@@ -11,10 +11,10 @@ from tqdm import tqdm
 
 # import SimpleITK as sitk
 
-class CellIntensity:
+class CellIntensity(QObject):
+    errorSignal = pyqtSignal(str)
     def __init__(self):
-
-
+        super().__init__()
         self.params = {
         'alignment_layer': 'Channel 1',
         'cell_layer': 'Channel 3',
@@ -32,25 +32,21 @@ class CellIntensity:
         self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
         print("bead data init")
         self.color_code = pd.read_csv("sample_data/ColorCode.csv")
-        self.stardist_labels = np.array(Image.open("testing/dilated_stardist_labels.tif"))
-
-      
+        self.stardist_labels = None
     def generateCellIntensityTable(self):
-        # registration code
-        self.reg_thread = QThread()
-        self.reg_task = Register()
-        self.reg_task.moveToThread(self.reg_thread)
-        self.reg_thread.start()
-        self.reg_thread.started.connect(self.reg_task.runRegister)
-        self.protein_signal_array = self.reg_task.protein_signal_array
-
-
-        if (self.bead_data.any()==None):
-            QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Please select all necessary parameters")
+        if (self.stardist_labels is None or self.bead_data is None or self.color_code is None):
+            self.errorSignal.emit("Please select all necessary parameters")
+            return
 
         else:
-
-
+            # registration code
+            self.reg_thread = QThread()
+            self.reg_task = Register()
+            self.reg_task.moveToThread(self.reg_thread)
+            self.reg_thread.start()
+            self.reg_thread.started.connect(self.reg_task.runRegister)
+            self.protein_signal_array = self.reg_task.protein_signal_array
+            
             possible_value_of_layers = list(range(0, self.params['num_decoding_colors']))
             all_protein_permutations = [''.join([str(x) for x in p]) for p in itertools.product(possible_value_of_layers, repeat=self.params['num_decoding_cycles'])]
             color_code_to_index = {k: i for i, k in enumerate(all_protein_permutations)}
@@ -65,14 +61,11 @@ class CellIntensity:
 
             cell_data_dict = {}
             num_proteins = len(color_code_to_index)
-            if self.stardist_labels.any():
-                for cell_id in range(1, np.max(self.stardist_labels) + 1):
-                    cell_data_dict[cell_id] = []
-                    for i in range(num_proteins):
-                        cell_data_dict[cell_id].append([])
+            for cell_id in range(1, np.max(self.stardist_labels) + 1):
+                cell_data_dict[cell_id] = []
+                for i in range(num_proteins):
+                    cell_data_dict[cell_id].append([])
 
-            else:
-                print("stardist not done yet")
 
             data_modified = np.zeros((len(self.bead_data), 3))
             data_modified[:, 0:2] = self.bead_data[:, 0:2].astype("uint16")
@@ -254,8 +247,8 @@ class CellIntensity:
         # adjust bead intensity relative to
         return np.median(bg_pixels)- percentile_bg*0.3
 
-    def loadStardistLabels(self, stardist_labels_grayscale):
-        self.stardist_labels = stardist_labels_grayscale
+    def loadStardistLabels(self, stardist:ImageType) ->None:
+        self.stardist_labels = stardist.arr
     
     def loadBeadData(self):
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Bead Data", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
