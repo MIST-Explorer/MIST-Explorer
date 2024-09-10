@@ -26,26 +26,37 @@ class CellIntensity(QObject):
         'num_decoding_colors': 3,
         'radius_fg': 2,
         'radius_bg': 6
-
-        
         }
+
         self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
         print("bead data init")
         self.color_code = pd.read_csv("sample_data/ColorCode.csv")
         self.stardist_labels = None
+        self.reg_task = Register()
+        self.reg_task.imageReady.connect(self.isReady)
+        self.ready = False
+    def isReady(self, isReady):
+        self.ready = isReady
+        print(self.ready)
+            
     def generateCellIntensityTable(self):
         if (self.stardist_labels is None or self.bead_data is None or self.color_code is None):
             self.errorSignal.emit("Please select all necessary parameters")
             return
 
-        else:
+        else: # don't need else statement i think?
             # registration code
-            self.reg_thread = QThread()
-            self.reg_task = Register()
-            self.reg_task.moveToThread(self.reg_thread)
-            self.reg_thread.start()
-            self.reg_thread.started.connect(self.reg_task.runRegister)
-            self.protein_signal_array = self.reg_task.protein_signal_array
+
+            if self.ready:
+                print('images are ready to register...registering now')
+                self.reg_thread = QThread()
+                self.reg_task.moveToThread(self.reg_thread)
+                self.reg_thread.start()
+                self.reg_thread.started.connect(self.reg_task.runRegister)
+                self.protein_signal_array = self.reg_task.protein_signal_array
+            else: 
+                print('not ready')
+                return
             
             possible_value_of_layers = list(range(0, self.params['num_decoding_colors']))
             all_protein_permutations = [''.join([str(x) for x in p]) for p in itertools.product(possible_value_of_layers, repeat=self.params['num_decoding_cycles'])]

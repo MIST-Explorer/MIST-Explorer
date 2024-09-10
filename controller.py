@@ -46,7 +46,7 @@ class Controller:
         self._small_view.referenceViewAdded.connect(self.view.small_view.addNewImage)
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
-
+        self._small_view.channelLoaded.connect(self.model_register.updateCycleImage)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
@@ -201,8 +201,8 @@ class Controller:
             self.handleError("No image in canvas, please load image")
             
 
-    def createBCDialog(self):
-        self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model_canvas.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
+    # def createBCDialog(self):
+    #     self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model_canvas.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
 
     def openFileDialog(self, viewer):
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.jpg *.tif);;All Files (*)")
