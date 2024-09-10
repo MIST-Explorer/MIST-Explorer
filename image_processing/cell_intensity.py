@@ -8,12 +8,13 @@ from image_processing.register import Register
 import ui.app
 from PIL import Image
 from tqdm import tqdm
+from image_processing.register import Register
 
 # import SimpleITK as sitk
 
-class CellIntensity(QObject):
+class CellIntensity(QThread):
     errorSignal = pyqtSignal(str)
-    def __init__(self):
+    def __init__(self, model_register: Register):
         super().__init__()
         self.params = {
         'alignment_layer': 'Channel 1',
@@ -32,14 +33,23 @@ class CellIntensity(QObject):
         print("bead data init")
         self.color_code = pd.read_csv("sample_data/ColorCode.csv")
         self.stardist_labels = None
-        self.reg_task = Register()
-        self.reg_task.imageReady.connect(self.isReady)
         self.ready = False
-    def isReady(self, isReady):
+        self.reg_task = model_register
+
+    def isReady(self, isReady:bool):
         self.ready = isReady
-        print(self.ready)
-            
+        print("debug is ready", self.ready)
+    def registrationDone(self, done:bool):
+        self.done = done
+        self.protein_signal_array = self.reg_task.protein_signal_array
+        print("is registration done?: ", self.done)
+
+
     def generateCellIntensityTable(self):
+        self.start()
+        self.finished.connect(self.quit)
+
+    def run(self):
         if (self.stardist_labels is None or self.bead_data is None or self.color_code is None):
             self.errorSignal.emit("Please select all necessary parameters")
             return
@@ -49,11 +59,13 @@ class CellIntensity(QObject):
 
             if self.ready:
                 print('images are ready to register...registering now')
-                self.reg_thread = QThread()
-                self.reg_task.moveToThread(self.reg_thread)
-                self.reg_thread.start()
-                self.reg_thread.started.connect(self.reg_task.runRegister)
-                self.protein_signal_array = self.reg_task.protein_signal_array
+                self.reg_task.runRegister()
+                # self.reg_thread = QThread()
+                # self.reg_task.moveToThread(self.reg_thread)
+                # self.reg_thread.start()
+                # self.reg_thread.started.connect(self.reg_task.runRegister)
+                # self.reg_thread.finished.connect(self.registrationDone)
+                # self.reg_thread.wait()
             else: 
                 print('not ready')
                 return
@@ -243,20 +255,22 @@ class CellIntensity(QObject):
 
 
     def get_adjusted_median_intensity(self, bead_x, bead_y):
-        
-        radius_bg = self.params['radius_bg']
-        # radius_fg = self.params['radius_fg']
-        # get entire 13x13 region (or whatever size)
-        region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
-        # use boolean indexing to only get outside ring (donut)
-        bg_pixels = region[self.__background_bool_arr]
-        # use boolean indexing to only get inside (donut hole)
-        bead_pixels = region[self.__bead_bool_arr]
+        if self.done:
+            radius_bg = self.params['radius_bg']
+            # radius_fg = self.params['radius_fg']
+            # get entire 13x13 region (or whatever size)
+            region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
+            # use boolean indexing to only get outside ring (donut)
+            bg_pixels = region[self.__background_bool_arr]
+            # use boolean indexing to only get inside (donut hole)
+            bead_pixels = region[self.__bead_bool_arr]
 
-        # find 80th percentile 
-        percentile_bg = np.percentile(bg_pixels, 80)
-        # adjust bead intensity relative to
-        return np.median(bg_pixels)- percentile_bg*0.3
+            # find 80th percentile 
+            percentile_bg = np.percentile(bg_pixels, 80)
+            # adjust bead intensity relative to
+            return np.median(bg_pixels)- percentile_bg*0.3
+        else:
+            return False
 
     def loadStardistLabels(self, stardist:ImageType) ->None:
         self.stardist_labels = stardist.arr

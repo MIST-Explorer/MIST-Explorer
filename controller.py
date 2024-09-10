@@ -24,7 +24,6 @@ class Controller:
         self.model_register = model_register
         self.openFilesDialog = None
         self._small_view = image_processing.canvas.ReferenceGraphicsView()
-
         #menubar signals
         # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
         self.view.menubar.actionOpenReference.triggered.connect(self.on_action_reference_triggered)
@@ -116,6 +115,9 @@ class Controller:
         self.view.cellIntensity_groupbox.save_button.clicked.connect(self.controlSave)
         
 
+        self.model_register.imageReady.connect(self.model_cellIntensity.isReady)
+        self.model_register.progress.connect(self.view.updateProgressBar)
+        
         # Display Butterfly
         # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
         

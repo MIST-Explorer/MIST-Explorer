@@ -204,6 +204,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             if self.dialog.confirm_crop:
                 self.crop_worker = Worker(self.cropImageTask, image_rect)
                 self.crop_worker.signal.connect(self.onCropCompleted) # result is cropped images dict
+                self.crop_worker.finished.connect(self.crop_worker.quit)
                 self.crop_worker.start()
             else:
                 self.endCrop()

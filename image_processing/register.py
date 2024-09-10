@@ -17,6 +17,7 @@ import tqdm
 class Register(QObject):
     registrationDone = pyqtSignal(np.ndarray)
     imageReady = pyqtSignal(bool)
+    progress = pyqtSignal(int, str)
     def __init__(self):
         super().__init__()
         Image.MAX_IMAGE_PIXELS = 99999999999  
@@ -50,8 +51,6 @@ class Register(QObject):
             },
         )
 
-
-
     def runRegister(self):
 
         m = self.params["max_size"]
@@ -60,12 +59,13 @@ class Register(QObject):
         basis = self.tifs[0]
         print("opening files!")
         print(basis["image_dict"] is None)
-        bf1_f = basis["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"]
+        bf1_f = basis["image_dict"]
+        bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"] # 0 index so add 1 to avoid key error
         # bf1_f = Image.open(basis["path"])
         # bf1_f.seek(basis["alignment_layer"])
         # bf1 = np.array(bf1_f)
         # bf1 = bf1[0:m, 0:m]
-        bf1 = self.adjust_contrast(bf1_f,50, 99)
+        bf1 = self.adjust_contrast(bf1,50, 99)
         fixed_map = TileMap("fixed", bf1, self.OVERLAP, self.NUM_TILES)
 
         # generate tiles
@@ -106,6 +106,8 @@ class Register(QObject):
             for tile_n, tile_set in enumerate(inputs):
                 try:
                     print(f"aligned a tile...{tile_n}")
+                    progress_update = int((tile_n/len(inputs))*100)
+                    self.progress.emit(progress_update, f"aligning tile {tile_n}/{len(inputs)}")
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
@@ -384,17 +386,18 @@ class Register(QObject):
         print("debugging", channels)
         self.np_channels = channels
         self.tifs[0]["image_dict"] = channels
-        print("protein signal images sent to register", self.tifs[0]["image_dict"] is None)
-
-        self.imageReady.emit((not self.np_channels is None) and (not self.cycle_channels is None))
+        # print("protein signal images sent to register", self.tifs[0]["image_dict"] is None)
+        if not self.cycle_channels is None:
+            self.imageReady.emit(True)
+            print("this is reached 1")
 
     def updateCycleImage(self, cycle_channels:dict) -> None:
         self.cycle_channels = cycle_channels
         self.tifs[1]["image_dict"] = cycle_channels
-        print("cycle images sent to register", self.tifs[1]["image_dict"] is None)
-        print(self.np_channels is None)
-        print(self.cycle_channels is None)
-        self.imageReady.emit((not self.np_channels is None) and (not self.cycle_channels is None))
+        # print("cycle images sent to register", self.tifs[1]["image_dict"] is None)
+        if not self.np_channels is None:
+            self.imageReady.emit(True)
+            print("this is reached 2")
 
 ############################
 class TileMap():

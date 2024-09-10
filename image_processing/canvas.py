@@ -246,6 +246,7 @@ class ImageGraphicsView(__BaseGraphicsView):
            self.image_worker = Worker(self.filename_to_image, file)
            self.image_worker.signal.connect(self.onFileNameToPixmapCompleted)
            self.image_worker.error.connect(self.onError)
+           self.image_worker.finished.connect(self.image_worker.quit)
            self.image_worker.start()
 
 
@@ -357,6 +358,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.rotation_worker = Worker(self.rotate_image_task, self.np_channels, angle)
             self.rotation_worker.signal.connect(self.onRotationCompleted) # result is rotated_channels
             self.rotation_worker.error.connect(self.onError)
+            self.rotation_worker.finished.connect(self.rotation_worker.quit)
             self.rotation_worker.start()
 
     @pyqtSlot(object)
