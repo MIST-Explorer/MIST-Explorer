@@ -115,6 +115,7 @@ class StarDistUI(QWidget):
     def clearChannelSelector(self):
         self.stardist_channel_selector.clear()
 
+
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
         self.stardist_groupbox.setTitle(_translate("MainWindow", "Stardist"))

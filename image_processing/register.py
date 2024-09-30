@@ -106,8 +106,8 @@ class Register(QObject):
             for tile_n, tile_set in enumerate(inputs):
                 try:
                     print(f"aligned a tile...{tile_n}")
-                    progress_update = int((tile_n/len(inputs))*100)
-                    self.progress.emit(progress_update, f"aligning tile {tile_n}/{len(inputs)}")
+                    progress_update = int(((tile_n+1)/len(inputs))*100)
+                    self.progress.emit(progress_update, f"aligning tile {tile_n+1}/{len(inputs)}")
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
@@ -140,7 +140,7 @@ class Register(QObject):
             # print(tif["path"])
             # file = Image.open(tif["path"])
             file = tif["image_dict"]
-            n_frames = len(file)
+            n_frames = len(file) - 1
             new_registered_tif = []
             
             for layer_number in range(n_frames):
@@ -150,12 +150,16 @@ class Register(QObject):
                 #     continue
 
                 print("Layer Number:", layer_number, "for tif", i)
+                progress_update = int(((layer_number+1)/n_frames)*100)
+                self.progress.emit(progress_update, f"Layer Number: {layer_number+1} for tif {i+1}")
                 
                 bf = file[f'Channel {layer_number + 1}'] # channels are index 1
                 bf1 = bf1_f[f'Channel {layer_number + 1}']  #channels are index 1
-                # file.seek(layer_number) 
+             
                 # bf1_f.seek(layer_number)
                 
+
+                # file.seek(layer_number) 
                 # bf = np.array(file)
                 # bf1 = np.array(bf1_f)
 
@@ -231,10 +235,12 @@ class Register(QObject):
             aligned_protein_signal = new_registered_tif
             # skimage.io.imsave(f"C:\\Users\\Administrator\\Desktop\\Clark Fischer's Files\\test_{i}.tif", new_registered_tif)
 
-        self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
-        cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
-        self.registrationDone.emit(self.protein_signal_array)
-        self.registrationDone.emit(cell_image)
+        # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
+        self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
+        # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
+        cell_image = aligned_protein_signal[self.params['cell_layer'], :, :]
+        self.registrationDone.emit(self.protein_signal_array) #->cell intensity table
+        self.registrationDone.emit(cell_image) #-> stardist
 
     def setAlignmentLayer(self, channel):
         match = re.search(r'\d+', channel)

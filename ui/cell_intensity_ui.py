@@ -1,8 +1,12 @@
-from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QComboBox, QSpinBox, QPushButton, QWidget
-from PyQt6.QtCore import QSize, QCoreApplication, QMetaObject
+from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QComboBox, QSpinBox, QPushButton, QWidget, QFileDialog
+import pandas as pd, numpy as np, os
+from PyQt6.QtCore import QSize, QCoreApplication, QMetaObject, pyqtSignal
 
 
 class CellIntensityUI(QWidget):
+    errorSignal = pyqtSignal(str)
+    emitBeadData = pyqtSignal(np.ndarray)
+    emitColorCode = pyqtSignal(pd.DataFrame)
     def __init__(self, parent=None, containing_layout:QVBoxLayout=None):
         super().__init__()
         self.setupUI(parent, containing_layout)
@@ -24,16 +28,16 @@ class CellIntensityUI(QWidget):
         self.bead_data_layout = QHBoxLayout()
         self.bead_data = QPushButton(self.cell_intensity_groupbox)
         self.bead_data_label = QLabel()
-        self.bead_data_layout.addWidget(self.bead_data_label)
         self.bead_data_layout.addWidget(self.bead_data)
+        self.bead_data_layout.addWidget(self.bead_data_label)
         self.cellintensity_components_vlayout.addLayout(self.bead_data_layout)
 
         # color code
         self.color_code_layout = QHBoxLayout()
         self.color_code= QPushButton(self.cell_intensity_groupbox)
         self.color_code_label = QLabel()
-        self.color_code_layout.addWidget(self.color_code_label)
         self.color_code_layout.addWidget(self.color_code)
+        self.color_code_layout.addWidget(self.color_code_label)
         self.cellintensity_components_vlayout.addLayout(self.color_code_layout)
 
         # ALIGNMENT LAYER
@@ -146,16 +150,36 @@ class CellIntensityUI(QWidget):
         self.__retranslate_UI()
         QMetaObject.connectSlotsByName(self)
 
+
+    def loadBeadData(self):
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Bead Data", "", "Bead Data(*.csv *.xlsx);;All Files (*)")
+        if file_name:
+            try:
+                bead_data = pd.read_csv(file_name).to_numpy().astype("uint16")  # this is the output from the registration->decoding program
+                self.emitBeadData.emit(bead_data)
+                self.bead_data_label.setText(os.path.basename(file_name))
+            except UnicodeDecodeError:
+                self.errorSignal.emit("Please select a valid file type")
+
+    def loadColorCode(self):
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Color Code", "", "Color Code(*.csv *.xlsx);;All Files (*)")
+        if file_name:
+            try:
+                color_code = pd.read_csv(file_name)
+                self.emitColorCode.emit(color_code)
+                self.color_code_label.setText(os.path.basename(file_name))
+            except UnicodeDecodeError:
+                self.errorSignal.emit("Please select a valid file type")
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
         self.cell_intensity_groupbox.setTitle(_translate("MainWindow", "Generate Protein Data of Cells"))
         self.alignment_layer_label.setText(_translate("MainWindow", "Alignment Layer"))
         self.protein_cell_layer_label.setText(_translate("MainWindow", "Cell Layer"))
         self.intensity_layer_label.setText(_translate("MainWindow", "Protein Detection Layer"))
-        self.color_code_label.setText(_translate("MainWindow", "Color Code"))
-        self.color_code.setText(_translate("MainWindow", "Open File"))
-        self.bead_data_label.setText(_translate("MainWindow", "Bead Data"))
-        self.bead_data.setText(_translate("MainWindow", "Open File"))
+        self.color_code_label.setText(_translate("MainWindow", "none selected"))
+        self.color_code.setText(_translate("MainWindow", "Open Color Code"))
+        self.bead_data_label.setText(_translate("MainWindow", "none selected"))
+        self.bead_data.setText(_translate("MainWindow", "Open Bead Data"))
         self.radius_fg_label.setText(_translate("MainWindow", "Radius fg"))
         self.radius_bg_label.setText(_translate("MainWindow", "Radius bg"))
         self.max_size_label.setText(_translate("MainWindow", "Max Size"))

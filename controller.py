@@ -37,6 +37,7 @@ class Controller:
         self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
         self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
         self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
+        self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
 
 
@@ -48,6 +49,7 @@ class Controller:
         self._small_view.channelLoaded.connect(self.model_register.updateCycleImage)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
+        self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
         self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
@@ -93,7 +95,7 @@ class Controller:
         self.model_stardist.errorSignal.connect(self.handleError)
         self.model_stardist.progress.connect(self.view.updateProgressBar)
         # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
-        self.view.stardist_groupbox.save_button.clicked.connect(self.controlSave)
+        self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
         # generate cell data signals
         # change params
         self.view.cellIntensity_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
@@ -107,13 +109,15 @@ class Controller:
         self.view.cellIntensity_groupbox.radius_fg.valueChanged.connect(self.model_cellIntensity.setRadiusFG)
         self.view.cellIntensity_groupbox.radius_bg.valueChanged.connect(self.model_cellIntensity.setRadiusBG)
 
-        self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadBeadData)
-        self.view.cellIntensity_groupbox.bead_data.pressed.connect(self.model_cellIntensity.loadColorCode)
-        self.view.cellIntensity_groupbox.run_button.pressed.connect(self.model_cellIntensity.generateCellIntensityTable)
+        self.view.cellIntensity_groupbox.bead_data.clicked.connect(self.view.cellIntensity_groupbox.loadBeadData)
+        self.view.cellIntensity_groupbox.color_code.clicked.connect(self.view.cellIntensity_groupbox.loadColorCode)
+        self.view.cellIntensity_groupbox.emitBeadData.connect(self.model_cellIntensity.getBeadData)
+        self.view.cellIntensity_groupbox.emitColorCode.connect(self.model_cellIntensity.getColorCode)
+
+        self.view.cellIntensity_groupbox.run_button.clicked.connect(self.model_cellIntensity.generateCellIntensityTable)
 
         self.model_cellIntensity.errorSignal.connect(self.handleError)
-        self.view.cellIntensity_groupbox.save_button.clicked.connect(self.controlSave)
-        
+        self.view.cellIntensity_groupbox.save_button.clicked.connect(self.model_cellIntensity.saveCellData)        
 
         self.model_register.imageReady.connect(self.model_cellIntensity.isReady)
         self.model_register.progress.connect(self.view.updateProgressBar)
@@ -164,8 +168,8 @@ class Controller:
         width = qimage.width()
         height = qimage.height()
         ptr = qimage.bits()
-        ptr.setsize(height * width)
-        arr = np.array(ptr).reshape(height, width)  # 4 for RGBA
+        ptr.setsize(height * width*3)
+        arr = np.array(ptr).reshape(height, width, 3)  # 4 for RGBA
         # import cv2
         # cv2.imshow("test cropping", arr)
         # cv2.waitKey(0)

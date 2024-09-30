@@ -61,7 +61,6 @@ class __BaseGraphicsView(QGraphicsView):
             if file_name.endswith((".tiff", ".tif")):
                 pages = self.read_tiff_pages(file_name)
                 num_channels = len(pages)
-                format = QImage.Format.Format_Grayscale8
 
                 if (num_channels > 1):
 
@@ -74,12 +73,15 @@ class __BaseGraphicsView(QGraphicsView):
 
                         channel_name = f'Channel {channel_num + 1}'
                         height, width = image.shape
-                    
-                        __scaled = scale_adjust(image) 
-                        image_adjusted = adjustContrast(__scaled) # uint8
-                
+                        image_adjusted =image
+                        # __scaled = scale_adjust(image) 
+                        # image_adjusted = adjustContrast(__scaled) # uint8
+
 
                         bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
+                        format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
+
+                        print("my dtype is", image_adjusted.dtype)
                         self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
 
                         qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
@@ -91,6 +93,7 @@ class __BaseGraphicsView(QGraphicsView):
                     channel_one_image = next(iter(self.np_channels.values()))
                     self.channelLoaded.emit(self.np_channels, True)
                 else:
+                    print("not multilayer")
                     # # determine if image is grayscale or rgb
                     # if pages[0].ndim == 2:
                     #     h, w = pages[0].shape
@@ -100,7 +103,7 @@ class __BaseGraphicsView(QGraphicsView):
                     #     h, w, ch, alpha = pages[0].shape
                     # else:
                     #     raise ValueError("image type not supported")
-
+                    print(pages[0].shape)
                     __scaled = scale_adjust(pages[0]) 
                     image_adjusted = adjustContrast(__scaled) # uint8
                     channel_one_image = image_adjusted
@@ -122,7 +125,10 @@ class __BaseGraphicsView(QGraphicsView):
 
             else: # not a .tif image
                 from PIL import Image
-                channel_one_image = np.array(Image.open(file_name), np.uint8)
+                print("not a tif")
+                channel_one_image = np.array(Image.open(file_name))
+                
+                print(channel_one_image.shape)
 
             print(f"image loading time: {time.time() - t}")
 
@@ -252,13 +258,18 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     @pyqtSlot(object)
     def onFileNameToPixmapCompleted(self, image):
+        if image.dtype != np.uint8:
+            image = scale_adjust(image)
+        else:
+            image = image
         qimage = numpy_to_qimage(image)
+        print("file", qimage.format())
         pixmap = QPixmap(qimage)
         self.reset_pixmap=pixmap
         self.reset_pixmapItem = QGraphicsPixmapItem(pixmap)
         self.pixmap = pixmap
         self.pixmapItem = QGraphicsPixmapItem(pixmap)
-        self.newImageAdded.emit(self.pixmapItem)
+        self.newImageAdded.emit(self.pixmapItem) # emit uint16, change to uint8 in canvas_ui
 
     
     def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
@@ -366,7 +377,10 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.channels = rotated_channels[0]
         self.np_channels = rotated_channels[1]
         print("rotation curr channel num: ", self.currentChannelNum)
-        channel_qimage = list(self.channels.values())[self.currentChannelNum]
+
+        channel_image = list(self.np_channels.values())[self.currentChannelNum]
+        channel_image = scale_adjust(channel_image)
+        channel_qimage = numpy_to_qimage(channel_image)
         print(type(channel_qimage))
         channel_pixmap = QPixmap(channel_qimage)
         rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
@@ -392,3 +406,43 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def setCurrentChannel(self, index):
         self.currentChannelNum = index
+
+
+
+    def update_contrast(self, values):
+        min_val, max_val = values  # Get the new min and max from slider
+        contrast_worker = Worker(self.apply_contrast, min_val, max_val)
+        contrast_image = self.apply_contrast(min_val, max_val)
+        contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(contrast_image)))
+        self.canvasUpdated.emit(contrastPix)
+
+    def apply_contrast(self, new_min, new_max):
+        # Get the actual min and max of the original image
+
+        # image = qimage_to_numpy(self.pixmap.toImage())
+        
+        image = qimage_to_numpy(self.pixmap.toImage())
+        
+        # image = self.np_channels[f"Channel {self.currentChannelNum+1}"]
+        image = scale_adjust(image)
+
+        orig_min, orig_max = np.min(image), np.max(image)
+        
+        # Create a LUT based on the original and new min/max values
+        lut = self.create_lut(orig_min, orig_max, new_min, new_max)
+        
+        # Apply the LUT to the image
+        return cv2.LUT(image, lut)
+
+    def create_lut(self, orig_min, orig_max, new_min, new_max):
+        lut = np.zeros(256, dtype=np.uint8)
+        for i in range(256):
+            if i < orig_min:
+                lut[i] = new_min
+            elif i > orig_max:
+                lut[i] = new_max
+            else:
+                lut[i] = ((i - orig_min) / (orig_max - orig_min)) * (new_max - new_min) + new_min
+        return lut
+
+    

@@ -76,7 +76,7 @@ class Ui_MainWindow(QMainWindow):
         container = QWidget()
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
-        self.progressBarLabel = QLabel("Doing something ...")
+        self.progressBarLabel = QLabel("")
         self.progressBar = QProgressBar()
         progressBarLayout = QHBoxLayout()
         self.progressBar.setMaximum(100)

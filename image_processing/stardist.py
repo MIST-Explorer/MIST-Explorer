@@ -74,17 +74,19 @@ class StarDist(QObject):
         self.progress.emit(0, "Starting StarDist")
         model = StarDist2D.from_pretrained(str(self.params['model']))
 
-        # scale down image if it's a large image
-        scaleDown = arr.shape[0] > 10000
+        # # scale down image if it's a large image
+        # scaleDown = arr.shape[0] > 10000
 
-        if scaleDown:
-            scale_factor = 1
-            cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
+        # if scaleDown:
+        #     scale_factor = 1
+        #     cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
 
-        else:
-            cell_image = arr
+        # else:
+        #     cell_image = arr
                         
         self.progress.emit(25, "Training model")
+
+        cell_image = arr
 
         if self.params['n_tiles'] == 0:
             guess_tiles= model._guess_n_tiles(cell_image)
@@ -102,11 +104,11 @@ class StarDist(QObject):
                                                             n_tiles =(self.params['n_tiles'], (self.params['n_tiles'])))
             
 
-        # size it back to original
-        if scaleDown:
-            # cv resize takes uint8 or uint16, can't do uint32
-            normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
-            stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
+        # # size it back to original
+        # if scaleDown:
+        #     # cv resize takes uint8 or uint16, can't do uint32
+        #     normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
+        #     stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
 
         # dilate
         radius = self.params['radius']
@@ -122,7 +124,7 @@ class StarDist(QObject):
 
         # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='r', shape=stardist_labels.shape)
 
-        stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius)).astype(np.uint8)
+        self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius)).astype(np.uint8)
 
 
 
@@ -140,9 +142,16 @@ class StarDist(QObject):
         # stardist_qimage = numpy_to_qimage(stardist_labels_rgb)
         # stardist_pixmap = QPixmap(stardist_qimage)
         self.progress.emit(100, "Done")
-        return ImageType("stardist", stardist_labels_grayscale)
+        return ImageType("stardist", self.stardist_labels_grayscale)
 
-
+    def saveImage(self):
+        from PIL import Image
+        from PyQt6.QtWidgets import QFileDialog
+        file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
+        if not self.stardist_labels_grayscale is None:
+            Image.fromarray(self.stardist_labels_grayscale).save(file_name)
+        else:
+            self.errorSignal.emit("Cannot save. No stardist labels available")
     # @pyqtSlot(int)
     # def updateProgress(self, num):
     #     self.progress.emit(num, f"Generating Tile {num}")
