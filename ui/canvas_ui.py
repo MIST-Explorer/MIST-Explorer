@@ -146,11 +146,14 @@ class ImageGraphicsViewUI(QGraphicsView):
                 scene_pos = self.mapToScene(event.pos())
                 image_pos = self.pixmapItem.mapFromScene(scene_pos)
                 # print(self.parent())
-                self.enc.updateMousePositionLabel(image_pos.x(), image_pos.y())
+                
+                x = int(image_pos.x())
+                y = int(image_pos.y())
+                if x <= self.pixmapItem.pixmap().width() and y <= self.pixmapItem.pixmap().height() and x >= 0 and y >= 0:
+                    self.enc.updateMousePositionLabel(f"X: {x}, Y: {y}")
+                else:
+                    self.enc.updateMousePositionLabel(f"")
             else:
-                # print("Mouse location: None")
-                self.enc.updateMousePositionLabel(0, 0)
-
                 super().mouseMoveEvent(event)
 
 

@@ -49,29 +49,22 @@ class Ui_MainWindow(QMainWindow):
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
         self.canvas.setMinimumSize(QSize(800, 500))
-        
-        self.hello_label = QLabel("Hello!", self.centralwidget)
-        self.hello_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addWidget(self.hello_label)
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
 
         ####### preprocess tab ###################################
+        
         self.preprocessUISetup() # uses self.canvas #stardist
         self.tabWidget.addTab(self.preprocessing_tab, "")
         
         ####### view tab #######################################
 
-
         self.view_tab = ImageOverlay(self.canvas)
-       
-        self.view_tab = ImageOverlay(self.canvas)
-
         self.view_tab.setObjectName("view_tab")
         self.tabWidget.addTab(self.view_tab, "")
         self.main_layout.addWidget(self.tabScrollArea)
-
+        
         ########################################################
 
         self.main_layout.addWidget(self.canvas) 
@@ -99,10 +92,8 @@ class Ui_MainWindow(QMainWindow):
             self.tabWidget.setMinimumSize(QSize(400, 600))
             print("view selected")
     
-    def updateMousePositionLabel(self, x, y):
-        x = int(x)
-        y = int(y)
-        self.hello_label.setText(f"X: {x}, Y: {y}")
+    def updateMousePositionLabel(self, text):
+        self.toolBar.statusLine.setText(text)
     
     def __retranslateUI(self):
         _translate = QCoreApplication.translate

@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox
-from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize
-from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
+from PyQt6.QtWidgets import *
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
 from ui.tool import Action
 import matplotlib.pyplot as plt, numpy as np
 
@@ -16,7 +16,6 @@ class ToolBarUI(QWidget):
         self.__addActions()
         self.__retranslateUI()
 
-
     def updateChannelSelector(self, channels:dict):
         if self.channelSelector.count() == 0:
             self.channelSelector.addItems(list(channels.keys()))
@@ -31,9 +30,13 @@ class ToolBarUI(QWidget):
         self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
         self.cmapSelector = QComboBox(parent)
+        self.statusLine = QLabel("Welcome! Please load an image to get started.")
+        # self.statusLine.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
+        # self.statusLine.setText("Welcome")
+        # self.statusLine.setReadOnly(True)
 
     def __generateCmapThumbnails(self) -> np.ndarray:
         self.cmap_names = ['viridis', 'plasma', 'inferno', 'magma', 'cividis']
@@ -77,6 +80,14 @@ class ToolBarUI(QWidget):
         self.toolbar.addWidget(self.operatorComboBox)
         self.toolbar.addWidget(self.channelSelector)
         self.toolbar.addWidget(self.cmapSelector)
+        self.toolbar.addWidget(self.cmapSelector)
+        
+        self.statusLine.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.statusLine.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.statusLine.setStyleSheet("""margin: 10px; """)
+        
+        
+        self.toolbar.addWidget(self.statusLine)
 
     def __addOp(self, mode, name:str):
         self.operatorComboBox.addItem(name, mode)
@@ -115,4 +126,3 @@ class ToolBarUI(QWidget):
         self.channelSelector.setToolTip(_translate("MainWindow", "Select a channel"))
         self.actionOpenBrightnessContrast.setText(_translate("MainWindow", "Brightness and Contrast"))
         self.actionOpenBrightnessContrast.setToolTip(_translate("MainWindow", "Brightness and Contrast"))
-
