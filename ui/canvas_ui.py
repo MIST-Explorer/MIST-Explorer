@@ -43,9 +43,10 @@ class ImageGraphicsViewUI(QGraphicsView):
     imageCropped = pyqtSignal(dict)
 
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, enc=None):
 
         super().__init__(parent)
+        self.enc = enc
         self.setupUI()
         self.pixmapItem = None
         self.rubberBand = None
@@ -140,7 +141,17 @@ class ImageGraphicsViewUI(QGraphicsView):
     def mouseMoveEvent(self, event:QMouseEvent):
         if not self.isEmpty() and self.begin_crop and self.rubberBand:
                 self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
-        else: super().mouseMoveEvent(event)
+        else:
+            if self.pixmapItem:
+                scene_pos = self.mapToScene(event.pos())
+                image_pos = self.pixmapItem.mapFromScene(scene_pos)
+                # print(self.parent())
+                self.enc.updateMousePositionLabel(image_pos.x(), image_pos.y())
+            else:
+                # print("Mouse location: None")
+                self.enc.updateMousePositionLabel(0, 0)
+
+                super().mouseMoveEvent(event)
 
 
     def mouseReleaseEvent(self, event: QMouseEvent):
