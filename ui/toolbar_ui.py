@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox, QLabel
-from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize
+from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox, QLabel, QSizePolicy
+from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
 from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
 from ui.tool import Action
 import matplotlib.pyplot as plt, numpy as np, cv2
