@@ -7,7 +7,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSc
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
+
 from ui.view_tab import ImageOverlay
+from ui.analysis_tab import AnalysisTab
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self):
@@ -45,28 +47,33 @@ class Ui_MainWindow(QMainWindow):
         self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # canvas
-        self.canvas = ImageGraphicsViewUI(self.centralwidget)
+        self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
         self.canvas.setMinimumSize(QSize(800, 500))
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
 
         ####### preprocess tab ###################################
-        self.preprocessUISetup() 
+        
+        self.preprocessUISetup() # uses self.canvas #stardist
         self.tabWidget.addTab(self.preprocessing_tab, "")
         
         ####### view tab #######################################
 
-
         self.view_tab = ImageOverlay(self.canvas)
-       
-        self.view_tab = ImageOverlay(self.canvas)
-
         self.view_tab.setObjectName("view_tab")
         self.tabWidget.addTab(self.view_tab, "")
+        
+        ####### analysis tab #######################################
+
+        self.analysis_tab = AnalysisTab(self.canvas)
+        self.analysis_tab.setObjectName("analysis_tab")
+        self.tabWidget.addTab(self.analysis_tab, "")
+        
         self.main_layout.addWidget(self.tabScrollArea)
 
-        ########################################################
+        ##########################################################
+        
 
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
@@ -115,13 +122,16 @@ class Ui_MainWindow(QMainWindow):
         elif i == 1:
             self.tabWidget.setMinimumSize(QSize(400, 600))
             print("view selected")
-            
+    
+    def updateMousePositionLabel(self, text):
+        self.toolBar.statusLine.setText(text)
     
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.preprocessing_tab), _translate("MainWindow", "Preprocessing"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.view_tab), _translate("MainWindow", "View"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.analysis_tab), _translate("MainWindow", "Analysis"))
 
     saveSignal = pyqtSignal()
     def save_canvas(self):
@@ -130,16 +140,17 @@ class Ui_MainWindow(QMainWindow):
         self.saveSignal.emit()
         
     def preprocessUISetup(self):
-        self.preprocessing_tab = QWidget()
+        self.scrollarea = QScrollArea()
+        self.preprocessing_tab = QWidget(self.scrollarea)
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
+        # 
+
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
 
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
 
-
         self.save_button = QPushButton('Save Canvas')
         self.save_button.clicked.connect(self.save_canvas)
-        
         
         # crop
         self.crop_groupbox = CropUI(self.preprocessing_tab)
@@ -154,15 +165,22 @@ class Ui_MainWindow(QMainWindow):
         
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
+        
+        
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
-
+        
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        
+        self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)
 
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+
+        
 
     def updateProgressBar(self, value, str):
         if self.progressBar.value() == 100:
