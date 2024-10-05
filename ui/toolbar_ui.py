@@ -72,6 +72,8 @@ class ToolBarUI(QWidget):
         self.contrastSlider = QRangeSlider()
         self.contrastSlider.setOrientation(Qt.Orientation.Horizontal)
         self.contrastSlider.setMaximumWidth(200)
+        self.contrastSlider.setMaximum(255)
+        self.contrastSlider.setMinimum(0)
         # self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
 

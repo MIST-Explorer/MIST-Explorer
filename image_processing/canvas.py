@@ -425,31 +425,25 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         self.canvasUpdated.emit(contrastPix)
 
-    def apply_contrast(self, new_min, new_max):
-        # Get the actual min and max of the original image
-        qimage = self.pixmap.toImage()
-        image = qimage_to_numpy(qimage)
-        # image = self.stardist_labels
-        # image = self.np_channels[f"Channel {self.currentChannelNum+1}"]
-        # image = scale_adjust(image)
 
-        orig_min, orig_max = np.min(image), np.max(image)
-        
-        # Create a LUT based on the original and new min/max values
-        lut = self.create_lut(orig_min, orig_max, new_min, new_max)
-        
-        # Apply the LUT to the image
+    def apply_contrast(self, new_min, new_max):
+
+        qimage = self.pixmap.toImage()
+        image = qimage_to_numpy(qimage) # returns uint8
+        lut = self.create_lut(new_min, new_max)
+        # apply the look up table
         return cv2.LUT(image, lut)
 
-    def create_lut(self, orig_min, orig_max, new_min, new_max):
+
+    def create_lut(self, new_min, new_max):
         lut = np.zeros(256, dtype=np.uint8)
-        for i in range(256):
-            if i < orig_min:
-                lut[i] = new_min
-            elif i > orig_max:
-                lut[i] = new_max
-            else:
-                lut[i] = ((i - orig_min) / (orig_max - orig_min)) * (new_max - new_min) + new_min
+        
+        if new_min >= new_max:
+            raise ValueError("error changing contrast slider")  
+        lut[new_min:new_max+1] = np.linspace(start=0, stop=255, num=(new_max - new_min + 1), endpoint=True, dtype=np.uint8)
+        lut[:new_min] = 0 #clip between 0 and 255
+        lut[new_max+1:] = 255
+
         return lut
 
     
