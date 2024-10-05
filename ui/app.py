@@ -7,7 +7,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSc
 import pandas as pd
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
+
 from ui.view_tab import ImageOverlay
+from ui.analysis_tab import AnalysisTab
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self):
@@ -45,7 +47,6 @@ class Ui_MainWindow(QMainWindow):
         self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
         self.canvas.setMinimumSize(QSize(800, 500))
@@ -63,9 +64,17 @@ class Ui_MainWindow(QMainWindow):
         self.view_tab = ImageOverlay(self.canvas)
         self.view_tab.setObjectName("view_tab")
         self.tabWidget.addTab(self.view_tab, "")
-        self.main_layout.addWidget(self.tabScrollArea)
         
-        ########################################################
+        ####### analysis tab #######################################
+
+        self.analysis_tab = AnalysisTab(self.canvas)
+        self.analysis_tab.setObjectName("analysis_tab")
+        self.tabWidget.addTab(self.analysis_tab, "")
+        
+        self.main_layout.addWidget(self.tabScrollArea)
+
+        ##########################################################
+        
 
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
@@ -100,6 +109,7 @@ class Ui_MainWindow(QMainWindow):
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.preprocessing_tab), _translate("MainWindow", "Preprocessing"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.view_tab), _translate("MainWindow", "View"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.analysis_tab), _translate("MainWindow", "Analysis"))
 
     saveSignal = pyqtSignal()
     def save_canvas(self):
