@@ -215,9 +215,16 @@ class ImageGraphicsView(__BaseGraphicsView):
         if type(data) == QPixmap:
             self.pixmap = data
         else:
+            print("pixmap is set stardist")
             self.pixmap = QPixmap(numpy_to_qimage(data))
             
-        self.pixmapItem = QGraphicsPixmapItem(self.pixmap)
+
+        if hasattr(self, 'pixmapItem') and self.pixmapItem:
+            self.pixmapItem.setPixmap(self.pixmap)  # Update the pixmap of the existing item
+        else:
+            self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # Create a new item if it doesn't exist
+
+
         self.canvasUpdated.emit(self.pixmapItem)
         
     def change_cmap(self, cmap_text: str):
@@ -411,20 +418,20 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def update_contrast(self, values):
         min_val, max_val = values  # Get the new min and max from slider
-        contrast_worker = Worker(self.apply_contrast, min_val, max_val)
+        # contrast_worker = Worker(self.apply_contrast, min_val, max_val)
         contrast_image = self.apply_contrast(min_val, max_val)
+        
         contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(contrast_image)))
+
         self.canvasUpdated.emit(contrastPix)
 
     def apply_contrast(self, new_min, new_max):
         # Get the actual min and max of the original image
-
-        # image = qimage_to_numpy(self.pixmap.toImage())
-        
-        image = qimage_to_numpy(self.pixmap.toImage())
-        
+        qimage = self.pixmap.toImage()
+        image = qimage_to_numpy(qimage)
+        # image = self.stardist_labels
         # image = self.np_channels[f"Channel {self.currentChannelNum+1}"]
-        image = scale_adjust(image)
+        # image = scale_adjust(image)
 
         orig_min, orig_max = np.min(image), np.max(image)
         

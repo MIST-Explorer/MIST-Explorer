@@ -35,30 +35,42 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
     return qimage.copy()
 
 
-def qimage_to_numpy(qimage:QImage):
+def qimage_to_numpy(qimage: QImage):
     # Ensure the QImage format is suitable for conversion
     print("checking format: ", qimage.format())
 
+    valid_formats = [QImage.Format.Format_Grayscale8, QImage.Format.Format_Grayscale16]
+    ptr = qimage.bits()
     width = qimage.width()
     height = qimage.height()
 
-    if qimage.format() == QImage.Format.Format_Grayscale8:
-        ptr = qimage.bits()
-        ptr.setsize(width * height)
-        strides = [qimage.bytesPerLine(), 1]
-        dtype = np.uint8
-    elif qimage.format() == QImage.Format.Format_Grayscale16:
-        ptr = qimage.bits()
-        ptr.setsize(width * height)
-        strides = [qimage.bytesPerLine(), 2]
-        dtype = np.uint16
-
-    else:
-        raise ValueError("Image type not supported")
+    # convert to grayscale
+    if qimage.format() not in valid_formats:
+        if qimage.format() == QImage.Format.Format_RGB32:
     
-    arr = np.ndarray((height, width), buffer=ptr, strides=strides, dtype=dtype)
+            ptr.setsize(width * height *4)
+            arr = np.array(ptr, dtype=np.uint8).reshape(height, width, 4)
 
-    return arr    
+            return arr
+        else:
+            raise ValueError("Unsupported dtype")
+        
+    elif qimage.format() == QImage.Format.Format_Grayscale16:
+        qimage = qimage.convertToFormat(QImage.Format.Format_Grayscale8)
+
+    elif qimage.format() == QImage.Format.Format_Grayscale8:
+        qimage = qimage
+    else:
+        raise ValueError("Unsupported dtype")
+
+
+    # Set buffer size based on dtype
+    ptr.setsize(width * height)
+    
+    print(qimage.format())
+    arr = np.array(ptr).reshape(height, width)
+
+    return arr
  
     
 
