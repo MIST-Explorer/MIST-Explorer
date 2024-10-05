@@ -1070,7 +1070,7 @@ class ImageOverlay(QWidget):
         height, width, _ = combined_image.shape
         bytes_per_line = 3
 
-        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888) # interesting image.tobytes() works well, maybe you don't need to do 
+        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888)
         
         self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
 

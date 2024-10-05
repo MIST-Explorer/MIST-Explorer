@@ -1,10 +1,14 @@
 
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
-import numpy as np, cv2 as cv, matplotlib as mpl, time, pyclesperanto_prototype as cle
-from image_processing.canvas import ImageGraphicsView
+import numpy as np, cv2 as cv, matplotlib as mpl, time
+from pyclesperanto_prototype import dilate_labels
+from image_processing.canvas import ImageGraphicsView, ImageType
 import ui.app
+from utils import numpy_to_qimage, qimage_to_numpy
+from skimage.segmentation import expand_labels
+from qt_threading import Worker
 # STARDIST
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -12,8 +16,11 @@ from stardist.models import StarDist2D
 from csbdeep.utils import normalize
 
 class StarDist(QObject):
-    stardistDone = pyqtSignal(QPixmap)
-    sendGrayScale = pyqtSignal(np.ndarray)
+    stardistDone = pyqtSignal(ImageType)
+    # sendGrayScale = pyqtSignal(np.ndarray)
+    progress = pyqtSignal(int, str)
+    errorSignal = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.np_channels = None
@@ -25,86 +32,134 @@ class StarDist(QObject):
         'percentile_high': 99.80,
         'prob_threshold': 0.48,
         'nms_threshold': 0.3,
-        'n_tiles': 0,
+        'n_tiles': 10,
         'radius': 5,
-        }   
+        }
+    
 
-    def adjust_contrast(self, img, min=2, max = 98):
-            # pixvals = np.array(img)
-
-            minval = np.percentile(img, min) # room for experimentation 
-            maxval = np.percentile(img, max) # room for experimentation 
-            img = np.clip(img, minval, maxval)
-            img = ((img - minval) / (maxval - minval)) * 255
-            return (img.astype(np.uint8))
-            
     def runStarDist(self):
+        print(self.np_channels, self.np_image)
+        # case: image not loaded
+        if self.np_channels is None and self.np_image is None:
+            self.errorSignal.emit("please load image first")  # emit error message
+            print("debug here")
+            return
+        elif self.np_channels and self.np_image:
+            self.errorSignal.emit("unknown error, canvas has both single channel image and multi-channel image initiated")  # emit error message
+            return
         
+        import tensorflow as tf
+        gpu = len(tf.config.list_physical_devices('GPU')) > 0
+        if gpu:
+            device_name= tf.test.gpu_device_name()
+            print("gpu name: ", device_name)
+        else:
+            device_name = '/CPU:0'
+
+        with tf.device(device_name):
+            self.stardist_worker = Worker(self.stardistTask)
+            self.stardist_worker.start()
+            
+            self.stardist_worker.signal.connect(self.onStarDistCompleted)
+        
+    def stardistTask(self):
+
+        # case: image has one channel
+        if self.np_channels is None and self.np_image:
+            arr = self.np_image
+        #
+        elif self.np_channels and self.np_image is None:
+            arr = self.np_channels[self.params['channel']] 
+
+        self.progress.emit(0, "Starting StarDist")
         model = StarDist2D.from_pretrained(str(self.params['model']))
 
-        try:
-            # case: image has only one channel
-            if not self.np_channels:
-                arr = self.np_image
-            # case: image has multiple channels
-            else:
-                arr = self.np_channels[self.params['channel']] 
+        # # scale down image if it's a large image
+        # scaleDown = arr.shape[0] > 10000
 
-            # scale down image if it's a large image
-            scaleDown = arr.shape[0] > 10000
+        # if scaleDown:
+        #     scale_factor = 1
+        #     cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
 
-            if scaleDown:
-                scale_factor = 1
-                cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
-            else:
-                cell_image = arr
-                            
+        # else:
+        #     cell_image = arr
+                        
+        self.progress.emit(25, "Training model")
 
-            if self.params['n_tiles'] == 0:
-                self.params['n_tiles'] = 10
-                stardist_labels, _ = model.predict_instances(normalize(self.adjust_contrast(cell_image), self.params['percentile_low'], self.params['percentile_high']), 
-                                                             prob_thresh=self.params['prob_threshold'], 
-                                                             nms_thresh=self.params['nms_threshold'],
-                                                             n_tiles=(self.params['n_tiles'], self.params['n_tiles']))
-            else:
-                stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
-                                                             prob_thresh=self.params['prob_threshold'], 
-                                                             nms_thresh=self.params['nms_threshold'], 
-                                                             n_tiles =self.params['n_tiles'])
+        cell_image = arr
 
-            # size it back to original
-            if scaleDown:
-                # cv resize takes uint8 or uint16, can't do uint32
+        if self.params['n_tiles'] == 0:
+            guess_tiles= model._guess_n_tiles(cell_image)
+            total_tiles = int(guess_tiles[0] * guess_tiles[1])
+            # self.setNumberTiles(n_tiles)
+            stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
+                                                            prob_thresh=self.params['prob_threshold'], 
+                                                            nms_thresh=self.params['nms_threshold'], n_tiles = guess_tiles)
+            
+        else:
 
-                normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
-                stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
+            stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
+                                                            prob_thresh=self.params['prob_threshold'], 
+                                                            nms_thresh=self.params['nms_threshold'], 
+                                                            n_tiles =(self.params['n_tiles'], (self.params['n_tiles'])))
+            
 
-            # dilate
-            radius = self.params['radius']
+        # # size it back to original
+        # if scaleDown:
+        #     # cv resize takes uint8 or uint16, can't do uint32
+        #     normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
+        #     stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
 
-            start_time = time.time()  
+        # dilate
+        radius = self.params['radius']
 
-            print("dilating...")
-            stardist_labels_grayscale = np.array(cle.dilate_labels(stardist_labels, radius=radius), dtype=np.uint8)
+        start_time = time.time()  
 
-            print("generating lut...")
-            lut = self.generate_lut("viridis")
+        print("dilating...")
+        self.progress.emit(95, "Dilating")
 
-            print("converting label to rgb...")
-            # stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
-            stardist_labels_rgb = stardist_labels_grayscale
-            end_time = time.time()  
-            print(start_time - end_time)
-            # convert to pixmap
-            stardist_qimage = self.numpy_to_qimage(stardist_labels_rgb)
-            stardist_pixmap = QPixmap(stardist_qimage)
-            self.stardistDone.emit(stardist_pixmap)
-            self.sendGrayScale.emit(stardist_labels_grayscale)
+        # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='w+', shape=stardist_labels.shape)
+        # data[:] = stardist_labels[:]
+        # data.flush()
 
-        except AttributeError: # should probably start defining custom exceptions
-            QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Empty canvas, please an load image first")
+        # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='r', shape=stardist_labels.shape)
+
+        self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius)).astype(np.uint8)
+
+
+
+        # print("generating lut...")
+        # self.progress.emit(97, "generating LUT")
+
+        # lut = self.generate_lut("viridis")
+
+        # print("converting label to rgb...")
+        # stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
+        # self.progress.emit(99, "converting to rgb")
+        end_time = time.time()  
+        print(start_time - end_time)
+        # convert to pixmap
+        # stardist_qimage = numpy_to_qimage(stardist_labels_rgb)
+        # stardist_pixmap = QPixmap(stardist_qimage)
+        self.progress.emit(100, "Done")
+        return ImageType("stardist", self.stardist_labels_grayscale)
+
+    def saveImage(self):
+        from PIL import Image
+        from PyQt6.QtWidgets import QFileDialog
+        file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
+        if not self.stardist_labels_grayscale is None:
+            Image.fromarray(self.stardist_labels_grayscale).save(file_name)
+        else:
+            self.errorSignal.emit("Cannot save. No stardist labels available")
+    # @pyqtSlot(int)
+    # def updateProgress(self, num):
+    #     self.progress.emit(num, f"Generating Tile {num}")
     
     # only uint8
+    @pyqtSlot(ImageType)
+    def onStarDistCompleted(self, stardist_result):
+        self.stardistDone.emit(stardist_result)
 
     def change_cmap(self):
         pass
@@ -116,45 +171,9 @@ class StarDist(QObject):
     def label2rgb(self, labels, lut):
         return cv.LUT(cv.merge((labels, labels, labels)), lut)
 
-    def normalize_to_uint8(self, data: np.ndarray) -> QImage:
-        normalized_data = 255 * (data - np.min(data)) / (np.max(data) - np.min(data))
-        normalized_data = normalized_data.astype(np.uint8)
-        return normalized_data
-
-    def updateChannels(self,_, channels):
+    def updateChannels(self, np_channels, _):
         self.np_image = None
-        self.np_channels = channels
-
-    def numpy_to_qimage(self, array:np.ndarray) -> QImage:
-        if len(array.shape) == 2:
-            # Grayscale image
-            height, width = array.shape
-            qimage =  QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
-        elif len(array.shape) == 3:
-            height, width, channels = array.shape
-            if channels == 3:
-                # RGB image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
-            elif channels == 4:
-                # RGBA image
-                qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
-        else:
-            raise ValueError("Unsupported array shape: {}".format(array.shape))
-        return qimage
-
-    # def qimage_to_numpy(self, qimage:QImage):
-    #     # Ensure the QImage format is suitable for conversion
-    #     if qimage.format() == QImage.Format.Format_Grayscale8:
-    #         width = qimage.width()
-    #         height = qimage.height()
-    #         ptr = qimage.constBits()
-    #         ptr.setsize(qimage.sizeInBytes())  # Ensure the pointer size matches the image byte count
-            
-    #         # Convert QImage to a 2D numpy array
-    #         arr = np.ndarray(shape=(height, width), buffer=ptr, dtype=np.uint8)
-    #         return arr
-    #     else:
-    #         raise ValueError("Unsupported QImage format for conversion to NumPy array")
+        self.np_channels = np_channels
         
     def setImageToProcess(self, np_image):
         self.np_channels = None

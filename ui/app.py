@@ -1,4 +1,4 @@
-from PyQt6.QtGui import QImageReader
+from PyQt6.QtGui import QImageReader, QPalette
 
 from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
 
@@ -30,7 +30,7 @@ class Ui_MainWindow(QMainWindow):
         # add a toolbar
         self.toolBar = ToolBarUI(self)
         
-        # initialize tabs        
+        # initialize tabs 
         self.tabScrollArea = QScrollArea(self.centralwidget)
         self.tabScrollArea.setMinimumSize(QSize(400,600))
         self.tabScrollArea.setMaximumWidth(500)
@@ -39,14 +39,13 @@ class Ui_MainWindow(QMainWindow):
         self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
 
         self.tabWidget.setMinimumSize(QSize(400, 800))
-        # self.tabWidget.setMaximumSize(QSize(500, 1500))  
 
         self.tabScrollArea.setWidget(self.tabWidget)
         
         self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
         self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-
+        
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
         self.canvas.setMinimumSize(QSize(800, 500))
@@ -81,13 +80,36 @@ class Ui_MainWindow(QMainWindow):
         self.setCentralWidget(self.centralwidget)
         
         # status bar
+        container = QWidget()
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
-
+        self.progressBarLabel = QLabel("")
         self.progressBar = QProgressBar()
-        self.statusbar.addPermanentWidget(self.progressBar)
+        progressBarLayout = QHBoxLayout()
         self.progressBar.setMaximum(100)
+        progressBarLayout.addWidget(self.progressBarLabel)
+        progressBarLayout.addWidget(self.progressBar)
+        container.setLayout(progressBarLayout)
 
+        self.statusbar.addPermanentWidget(container)
+        
+        progressBarStyle = """
+            QProgressBar {
+                border: 2px solid grey;
+                border-radius: 2px;
+                text-align: right;
+                height: 5px;
+                margin-right: 30px;
+            }
+        
+            QProgressBar::chunk {
+                background-color: green;
+                width: 20px;
+            }
+        """
+        self.progressBar.setStyleSheet(progressBarStyle)
+  
+        self.progressBar.text
         self.__retranslateUI()
 
         self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
@@ -160,8 +182,9 @@ class Ui_MainWindow(QMainWindow):
 
         
 
-    def updateProgressBar(self, value):
+    def updateProgressBar(self, value, str):
         if self.progressBar.value() == 100:
             self.progressBar.reset()
         self.progressBar.setValue(value)
+        self.progressBarLabel.setText(str + " ...")
 

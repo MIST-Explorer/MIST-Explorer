@@ -1,50 +1,69 @@
 
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QThread
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
-import numpy as np, cv2 as cv, math, time, pandas as pd, itertools, tqdm
-from image_processing.canvas import ImageGraphicsView
+import numpy as np, cv2 as cv, math, time, pandas as pd, itertools
+from image_processing.canvas import ImageGraphicsView, ImageType
 from image_processing.register import Register
 import ui.app
 from PIL import Image
+from tqdm import tqdm
+from image_processing.register import Register
+
 # import SimpleITK as sitk
 
-class CellIntensity:
-    def __init__(self):
-
-
+class CellIntensity(QThread):
+    errorSignal = pyqtSignal(str)
+    def __init__(self, model_register: Register):
+        super().__init__()
         self.params = {
-        'alignment_layer': 'Channel 1',
-        'cell_layer': 'Channel 3',
-        'protein_detection_layer' : 'Channel 4',
         'max_size': 23000,
-        'num_tiles': 5,
-        'overlap': 500,
         'num_decoding_cycles': 3,
         'num_decoding_colors': 3,
         'radius_fg': 2,
         'radius_bg': 6
-
-        
         }
+
         # self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
         # self.color_code = pd.read_csv("sample_data/ColorCode.csv")
-        # self.stardist_labels = None 
+        self.stardist_labels = None
+        self.ready = False
+        self.reg_task = model_register
+        self.df_cell_data = None
 
-      
+    def isReady(self, isReady:bool):
+        self.ready = isReady
+        print("debug is ready", self.ready)
+
+
+    def generateCellIntensityTable(self):
+        self.start()
+        # self.reg_task.registrationDone.connect(self.)
+        self.finished.connect(self.quit)
+
     def run(self):
-        # registration code
-        reg = Register()
-        reg.runRegistration() 
-        self.protein_signal_array = reg.protein_signal_array
+        if (self.stardist_labels is None or self.bead_data is None or self.color_code is None):
+            self.errorSignal.emit("Please select all necessary parameters")
+            return
 
+        else: # don't need else statement i think?
+            # registration code
 
-        if (self.bead_data.any()==None):
-            QMessageBox.critical(ui.app.Ui_MainWindow(), "Error", "Please select all necessary parameters")
+            if self.ready:
+                print('images are ready to register...registering now')
+                self.reg_task.runRegister()        
+                self.protein_signal_array = self.reg_task.protein_signal_array
 
-        else:
-
-
+                # self.reg_thread = QThread()
+                # self.reg_task.moveToThread(self.reg_thread)
+                # self.reg_thread.start()
+                # self.reg_thread.started.connect(self.reg_task.runRegister)
+                # self.reg_thread.finished.connect(self.registrationDone)
+                # self.reg_thread.wait()
+            else: 
+                print('not ready')
+                return
+            
             possible_value_of_layers = list(range(0, self.params['num_decoding_colors']))
             all_protein_permutations = [''.join([str(x) for x in p]) for p in itertools.product(possible_value_of_layers, repeat=self.params['num_decoding_cycles'])]
             color_code_to_index = {k: i for i, k in enumerate(all_protein_permutations)}
@@ -59,14 +78,11 @@ class CellIntensity:
 
             cell_data_dict = {}
             num_proteins = len(color_code_to_index)
-            if self.stardist_labels.any():
-                for cell_id in range(1, np.max(self.stardist_labels) + 1):
-                    cell_data_dict[cell_id] = []
-                    for i in range(num_proteins):
-                        cell_data_dict[cell_id].append([])
+            for cell_id in range(1, np.max(self.stardist_labels) + 1):
+                cell_data_dict[cell_id] = []
+                for i in range(num_proteins):
+                    cell_data_dict[cell_id].append([])
 
-            else:
-                print("stardist not done yet")
 
             data_modified = np.zeros((len(self.bead_data), 3))
             data_modified[:, 0:2] = self.bead_data[:, 0:2].astype("uint16")
@@ -207,9 +223,18 @@ class CellIntensity:
             # and all the centroid data
             save_this = np.hstack(([v for k,v in cell_centroids.items()], save_this))
             # and finally save everything
-            df_cell_data = pd.DataFrame(save_this, columns=header) #--> use this to visualize
+            self.df_cell_data = pd.DataFrame(save_this, columns=header) #--> use this to visualize
 
-    def find_nearest_neighbor(query_point, data_points):
+
+    def saveCellData(self):
+        file_name, _ = QFileDialog.getSaveFileName(None, "Save Cell Data File", "cell_data.csv", "*.csv;;*.xlsx;; All Files(*)")
+        if not self.df_cell_data is None:
+            self.df_cell_data.to_csv(file_name, index=False)
+        else:
+            self.errorSignal.emit("Cannot save. Cell data not available")
+        
+
+    def find_nearest_neighbor(self, query_point, data_points):
         # Calculate the Euclidean distance from the query point to each data point
         distances = np.linalg.norm(data_points - query_point, axis=1)
         # Find the index of the nearest neighbor
@@ -233,33 +258,35 @@ class CellIntensity:
 
 
     def get_adjusted_median_intensity(self, bead_x, bead_y):
-        
-        radius_bg = self.params['radius_bg']
-        # radius_fg = self.params['radius_fg']
-        # get entire 13x13 region (or whatever size)
-        region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
-        # use boolean indexing to only get outside ring (donut)
-        bg_pixels = region[self.__background_bool_arr]
-        # use boolean indexing to only get inside (donut hole)
-        bead_pixels = region[self.__bead_bool_arr]
+        if not self.protein_signal_array is None:
+            radius_bg = self.params['radius_bg']
+            # radius_fg = self.params['radius_fg']
+            # get entire 13x13 region (or whatever size)
+            region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
+            # use boolean indexing to only get outside ring (donut)
+            bg_pixels = region[self.__background_bool_arr]
+            # use boolean indexing to only get inside (donut hole)
+            bead_pixels = region[self.__bead_bool_arr]
 
-        # find 80th percentile 
-        percentile_bg = np.percentile(bg_pixels, 80)
-        # adjust bead intensity relative to
-        return np.median(bg_pixels)- percentile_bg*0.3
+            # find 80th percentile 
+            percentile_bg = np.percentile(bg_pixels, 80)
+            # adjust bead intensity relative to
+            return np.median(bg_pixels)- percentile_bg*0.3
+        else:
+            return False
 
-    def loadStardistLabels(self, stardist_labels_grayscale):
-        self.stardist_labels = stardist_labels_grayscale
+    def loadStardistLabels(self, stardist:ImageType) ->None:
+        self.stardist_labels = stardist.arr
     
-    def loadBeadData(self):
-        file_name, _ = QFileDialog.getOpenFileName(None, "Open Bead Data", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
-        if file_name:
-            self.bead_data = pd.read_csv(file_name).to_numpy().astype("uint16")  # this is the output from the registration->decoding program
 
-    def loadColorCode(self):
-        file_name, _ = QFileDialog.getOpenFileName(None, "Open Color Code", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
-        if file_name:
-            self.color_code = pd.read_csv(file_name)
+    def getBeadData(self, bead_data):
+       if isinstance(bead_data, np.ndarray):
+          self.bead_data = bead_data
+
+    def getColorCode(self, color_code):
+       if isinstance(color_code, pd.DataFrame):
+          self.color_code = color_code
+
 
 
     def setAlignmentLayer(self, channel):
