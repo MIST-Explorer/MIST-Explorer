@@ -17,6 +17,10 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QSlider
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QColor
 
+import ui.graphing.Test as test
+
+
+        
 class AnalysisTab(QWidget):
     def __init__(self, pixmap_label):
         super().__init__()
@@ -25,9 +29,10 @@ class AnalysisTab(QWidget):
 
 
     def initUI(self):
-        main_layout = QVBoxLayout()
+        main_layout = QVBoxLayout()        
+        sc = test.Window()
         
-        main_layout.addWidget(QLabel("Analysis Tab"))
+        main_layout.addWidget(sc)
         
         self.setLayout(main_layout)
 

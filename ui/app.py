@@ -1,13 +1,10 @@
-from PyQt6.QtGui import QImageReader, QPalette
-
-from PyQt6.QtCore import QSize, QMetaObject, QCoreApplication, Qt, pyqtSignal
-
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QTabWidget, QStatusBar, QProgressBar, QGroupBox, QLabel, QPushButton, QSizePolicy)
-
+from PyQt6.QtGui import *
+from PyQt6.QtCore import *
+from PyQt6.QtWidgets import *
 import pandas as pd
+
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
-
 from ui.view_tab import ImageOverlay
 from ui.analysis_tab import AnalysisTab
 
@@ -15,8 +12,16 @@ class Ui_MainWindow(QMainWindow):
     def __init__(self):
         QImageReader.setAllocationLimit(0)
         super().__init__()
+        
+        self.shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        self.shortcut.activated.connect(self.select)
+        
         self.setupUI()
 
+    def select(self):
+        print("selecting")
+        self.canvas.select = True
+    
     def setupUI(self):
         self.resize(1280, 800)
         self.setMinimumSize(QSize(1024, 768))
@@ -67,6 +72,7 @@ class Ui_MainWindow(QMainWindow):
         ####### analysis tab #######################################
 
         self.analysis_tab = AnalysisTab(self.canvas)
+        self.analysis_tab.resize(200, 100)
         self.analysis_tab.setObjectName("analysis_tab")
         self.tabWidget.addTab(self.analysis_tab, "")
         
