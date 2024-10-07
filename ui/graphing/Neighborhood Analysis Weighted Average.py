@@ -5,7 +5,17 @@ import itertools
 
 def Neighbor():
     # Load your dataset from the Excel file
-    data = pd.read_excel(r'C:\Users\meaha\Desktop\Warped Cell Data\CompleteBiopsyR1&2.xlsx')
+    # data = pd.read_excel(r'C:\Users\meaha\Desktop\Warped Cell Data\CompleteBiopsyR1&2.xlsx')
+    # Create a dummy dataset
+    data = pd.DataFrame({
+        'Global X': np.random.uniform(0, 12000, 100),
+        'Global Y': np.random.uniform(0, 12000, 100),
+        'Vimentin': np.random.uniform(0, 200, 100),
+        'CD20': np.random.uniform(0, 200, 100),
+        'CD3': np.random.uniform(0, 200, 100),
+        'CD206': np.random.uniform(0, 200, 100),
+        'CD163': np.random.uniform(0, 200, 100)
+    })
 
     # List of proteins to analyze
     proteins = ['Vimentin', 'CD20', 'CD3', 'CD206', 'CD163']  # Protein list
@@ -215,4 +225,5 @@ def Neighbor():
 
 
 
-
+if __name__ == '__main__':
+    Neighbor()

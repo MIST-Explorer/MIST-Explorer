@@ -60,7 +60,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.pixmapItem = None
         self.rubberBand = None
         self.begin_crop = False
-        self.origin = QPoint()
+        self.origin = None
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
         self.scale_factor = 1.25
         
@@ -178,7 +178,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if not self.isEmpty() and self.begin_crop and self.rubberBand:
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
                 
-        if self.select and self.rubberBand:
+        if self.select and self.rubberBand and self.origin != None:
             print("okay, all good to create band")
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
         else:
@@ -222,6 +222,8 @@ class ImageGraphicsViewUI(QGraphicsView):
                     
         elif self.select:
             self.select = False
+            self.origin = None
+            
             if not self.isEmpty():
                 selectedRect = self.rubberBand.geometry()
                 print(f"Selected rectangle: {selectedRect}")
@@ -375,13 +377,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.begin_crop = False
         self.unsetCursor()
         
-    def startSelect(self):
-        self.select = True
-        # self.setCursor(self.crop_cursor)
-        
-    def endSelect(self):
-        self.select = False
-        self.setCursor(self.crop_cursor)
 
 
     def loadChannels(self, np_channels):
