@@ -19,6 +19,7 @@ class CustomRubberBand(QRubberBand):
         self.color = QColor(*self.fill[0:3])
         self.f = QColor(*self.fill)
         
+        
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -42,6 +43,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setScene(QGraphicsScene(self))
         self.setSceneRect(0, 0, 200, 150)
         self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
+        
+        self.parent = parent
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -68,28 +71,23 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
         self.centerOn(pixmapItem)
 
-
 class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
-
     imageCropped = pyqtSignal(dict)
 
-
     def __init__(self, parent=None, enc=None):
-
         super().__init__(parent)
         self.enc = enc
         self.setupUI()
         self.pixmapItem = None
         self.rubberBands = []  # List to store multiple rubber bands
+        self.rubberBandColors = []  # List to store colors of the rubber bands
         self.begin_crop = False
         self.origin = None
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
         self.scale_factor = 1.25
-        
         self.select = False
-        # self.currentChannelNum = 0
 
     def setupUI(self):
         self.setMinimumSize(QSize(600, 600))
@@ -109,8 +107,6 @@ class ImageGraphicsViewUI(QGraphicsView):
     def saveImage(self):
         print("hello")
         
-        
-            
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
         '''add a new image, deletes the older one'''
         # clear
@@ -161,7 +157,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         else:
             self.scale(1/self.scale_factor, 1/self.scale_factor)
 
-
     def mousePressEvent(self, event: QMouseEvent):
         print("mousePressEvent: entered", self.isEmpty(), self.begin_crop, self.select)
         if not self.isEmpty() and self.begin_crop:
@@ -178,14 +173,13 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.origin = event.pos()
                 rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self)
                 self.rubberBands.append(rubberBand)
+                self.rubberBandColors.append(rubberBand.color)  # Store the color of the rubber band
                 rubberBand.setGeometry(QRect(self.origin, QSize()))
                 rubberBand.show()
         
         else: super().mousePressEvent(event)
 
-
     def mouseMoveEvent(self, event:QMouseEvent):
-        
         if self.pixmapItem:
             scene_pos = self.mapToScene(event.pos())
             image_pos = self.pixmapItem.mapFromScene(scene_pos)
@@ -201,11 +195,10 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
                 
         if self.select and self.rubberBands and self.origin != None:
-            print("okay, all good to create band")
+            # print("okay, all good to create band")
             self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
         else:
             super().mouseMoveEvent(event)
-
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         if not self.isEmpty() and self.begin_crop:
@@ -242,64 +235,68 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.select = False
             self.origin = None
             
-            if not self.isEmpty():
-                selectedRect = self.rubberBands[-1].geometry()
-                print(f"Selected rectangle: {selectedRect}")
+            print("HELLO??")
+            self.enc.analysis_tab.add_line_to_current_graph(self.rubberBandColors[-1].getRgb()[0:3])
+        #     if not self.isEmpty():
                 
-                if not selectedRect.isEmpty():
-                    view_rect = self.viewport().rect()
-                    print("view_rect:", view_rect)
+        #         selectedRect = self.rubberBands[-1].geometry()
+        #         print(f"Selected rectangle: {selectedRect}")
+                
+        #         if not selectedRect.isEmpty():
+        #             view_rect = self.viewport().rect()
+        #             print("view_rect:", view_rect)
                     
-                    x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
-                    y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
-                    print(x_ratio, y_ratio)
+        #             x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
+        #             y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
+        #             print(x_ratio, y_ratio)
 
-                    self.__qt_image_rect = QRect(
-                        int(selectedRect.left() * x_ratio),
-                        int(selectedRect.top() * y_ratio),
-                        int(selectedRect.width() * x_ratio),
-                        int(selectedRect.height() * y_ratio)
-                    )
+        #             self.__qt_image_rect = QRect(
+        #                 int(selectedRect.left() * x_ratio),
+        #                 int(selectedRect.top() * y_ratio),
+        #                 int(selectedRect.width() * x_ratio),
+        #                 int(selectedRect.height() * y_ratio)
+        #             )
 
-                    left = int(selectedRect.left() * x_ratio)
-                    top = int(selectedRect.top() * y_ratio)
-                    right = int(selectedRect.right() * x_ratio)  
-                    bottom = int(selectedRect.bottom() * y_ratio)  
-                    image_rect = (left, top, right, bottom)
+        #             left = int(selectedRect.left() * x_ratio)
+        #             top = int(selectedRect.top() * y_ratio)
+        #             right = int(selectedRect.right() * x_ratio)  
+        #             bottom = int(selectedRect.bottom() * y_ratio)  
+        #             image_rect = (left, top, right, bottom)
                     
-                    print(image_rect)
+        #             print(image_rect)
                     
-                    if self.pixmapItem and 0 <= left < self.pixmapItem.pixmap().width() and 0 <= top < self.pixmapItem.pixmap().height():
-                        self.rubberBands[-1].setGeometry(QRect(
-                            self.mapFromScene(self.pixmapItem.mapToScene(QPointF(left, top))),
-                            self.mapFromScene(self.pixmapItem.mapToScene(QPointF(right, bottom)))
-                        ).normalized())
-                    else:
-                        print("Invalid coordinates or pixmapItem is None")
-        else: 
-            super().mouseReleaseEvent(event)
-
+        #             if self.pixmapItem and 0 <= left < self.pixmapItem.pixmap().width() and 0 <= top < self.pixmapItem.pixmap().height():
+        #                 self.rubberBands[-1].setGeometry(QRect(
+        #                     self.mapFromScene(self.pixmapItem.mapToScene(QPointF(left, top))),
+        #                     self.mapFromScene(self.pixmapItem.mapToScene(QPointF(right, bottom)))
+        #                 ).normalized())
+        #             else:
+        #                 print("Invalid coordinates or pixmapItem is None")
+                    
+        #             # Call the method with the color of the rubber band
+        #             # self.parent.analysis_tab.add_line_to_current_graph(self.rubberBandColors[-1])
+        # else: 
+        #     super().mouseReleaseEvent(event)
 
     def showCroppedImage(self, image_rect):
-            
-            print("in view.canvas: ", self.currentChannelNum)
-            q_im = list(self.channels.values())[self.currentChannelNum]
-            pix = QPixmap(q_im)
-            cropped = pix.copy(self.__qt_image_rect).toImage()
-            print("converting to pixmap") 
-            cropped_pix = QPixmap(cropped)
-            self.dialog = Dialogs.ImageDialog(self, cropped_pix)
-            self.dialog.exec()
+        print("in view.canvas: ", self.currentChannelNum)
+        q_im = list(self.channels.values())[self.currentChannelNum]
+        pix = QPixmap(q_im)
+        cropped = pix.copy(self.__qt_image_rect).toImage()
+        print("converting to pixmap") 
+        cropped_pix = QPixmap(cropped)
+        self.dialog = Dialogs.ImageDialog(self, cropped_pix)
+        self.dialog.exec()
 
-            print("confirmed crop?", self.dialog.confirm_crop)
-            if self.dialog.confirm_crop:
-                self.crop_worker = Worker(self.cropImageTask, image_rect)
-                self.crop_worker.signal.connect(self.onCropCompleted) 
-                self.crop_worker.finished.connect(self.crop_worker.quit)
-                self.crop_worker.start()
-            else:
-                self.endCrop()
-                print("rejected")
+        print("confirmed crop?", self.dialog.confirm_crop)
+        if self.dialog.confirm_crop:
+            self.crop_worker = Worker(self.cropImageTask, image_rect)
+            self.crop_worker.signal.connect(self.onCropCompleted) 
+            self.crop_worker.finished.connect(self.crop_worker.quit)
+            self.crop_worker.start()
+        else:
+            self.endCrop()
+            print("rejected")
 
     def cropImageTask(self, image_rect) -> dict:
         from utils import qimage_to_numpy
@@ -319,7 +316,6 @@ class ImageGraphicsViewUI(QGraphicsView):
     def onCropCompleted(self, cropped_images:dict):
         import cv2
 
-
         self.endCrop()
 
         self.cropSignal.emit(cropped_images, False)
@@ -335,39 +331,12 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.begin_crop = False
         self.unsetCursor()
         
-
-
     def loadChannels(self, np_channels):
         self.np_channels = np_channels
         self.channels = self.__numpy2QImageDict(self.np_channels)
         
-
-        def mousePressEvent(self, event: QMouseEvent):
-            print("mousePressEvent: entered", self.isEmpty(), self.begin_crop, self.select)
-            if not self.isEmpty() and self.begin_crop:
-                if event.button() == Qt.MouseButton.LeftButton:
-                    self.origin = event.pos()
-                    if not self.rubberBand:
-                        self.rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self)
-                    self.rubberBand.setGeometry(QRect(self.origin, QSize()))
-                    self.rubberBand.show()
-                    
-            elif self.select:
-                print("mousePressEvent: with select mouse click detected")
-                if event.button() == Qt.MouseButton.LeftButton:
-                    self.origin = event.pos()
-                    rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self)
-                    palette = rubberBand.palette()
-                    palette.setColor(QPalette.ColorRole.WindowText, getRandomColor())
-                    rubberBand.setPalette(palette)
-                    self.rubberBands.append(rubberBand)
-                    rubberBand.setGeometry(QRect(self.origin, QSize()))
-                    rubberBand.show()
-            
-            else: super().mousePressEvent(event)
     def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
         return {key: utils.numpy_to_qimage(arr) for key, arr in numpy_channels_dict.items()} 
-    
     
     def setCurrentChannel(self, channel_num:int) -> None:
         self.currentChannelNum = channel_num

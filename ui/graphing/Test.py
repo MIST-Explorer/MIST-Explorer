@@ -1,85 +1,81 @@
 import sys
-import matplotlib
-# matplotlib.use('Qt6Agg')
-
-from PyQt6 import QtCore, QtWidgets, QtGui
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-
-from matplotlib.figure import Figure
 import random
-
-# class MplCanvas2(FigureCanvasQTAgg):
-
-#     def __init__(self, parent=None, width=5, height=4, dpi=100):
-#         fig = Figure(figsize=(width, height), dpi=dpi)
-#         self.axes = fig.add_subplot(111)
-#         super(MplCanvas, self).__init__(fig)
-        
-
-
+from PyQt6 import QtCore, QtWidgets, QtGui
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
 
 class Window(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
 
-        self.n = 1
-        self.all_data =[]
-        # a figure instance to plot on
+        self.all_data = []
+        self.all_colors = []
+
+        # Create a figure instance to plot on
         self.figure = Figure()
 
-        # this is the Canvas Widget that displays the `figure`
-        # it takes the `figure` instance as a parameter to __init__
+        # Create a Canvas Widget that displays the figure
         self.canvas = FigureCanvasQTAgg(self.figure)
 
-        # this is the Navigation widget
-        # it takes the Canvas widget and a parent
+        # Create a Navigation toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
 
-        # Just some button connected to `plot` method
-        self.button = QtWidgets.QPushButton('Plot')
-        self.button.clicked.connect(self.plot)
+        # Create a button and connect it to the plot method
+        self.plot_button = QtWidgets.QPushButton('Plot')
+        self.plot_button.clicked.connect(self.plot)
 
-        # set the layout
+        # Create a button and connect it to the redraw method
+        self.redraw_button = QtWidgets.QPushButton('Redraw')
+        self.redraw_button.clicked.connect(self.redraw)
+
+        # Set the layout
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
-        layout.addWidget(self.button)
+        layout.addWidget(self.plot_button)
+        layout.addWidget(self.redraw_button)
         self.setLayout(layout)
-        
-        
 
     def plot(self):
-        ''' plot some random stuff '''
-        # random data
-        data = [random.random() for i in range(10)]
+        '''Plot some random data'''
+        data = [random.random() for _ in range(10)]
         self.all_data.append(data)
-        # create an axis
+
+        # Create an axis
         ax = self.figure.add_subplot(111)
 
-        # discards the old graph
+        # Discard the old graph
         ax.clear()
 
-        # plot data
+        # Plot data
         ax.plot(data, '*-')
 
-        # refresh canvas
+        # Refresh canvas
         self.canvas.draw()
+
+    def redraw(self, color):
         
-        
-    def redraw(self):
-        self.n += 1
-        ''' redraw the current graph with up to n different lines in new random colors '''
-        # clear the current figure
+        '''Redraw the current graph with up to n different lines in new random colors'''
+        # Clear the current figure
         self.figure.clear()
 
-        # create an axis
+        # Create an axis
         ax = self.figure.add_subplot(111)
-        
-        self.all_data.append([random.random() for i in range(10)])
-        for data in self.all_data:
-            ax.plot(data, '*-', color=(random.random(), random.random(), random.random()))
 
-        # refresh canvas
+        # Add new random data
+        self.all_data.append([random.random() for _ in range(10)])
+        self.all_colors.append(color)
+        
+        # Plot all data with different colors
+        for data, color in zip(self.all_data, self.all_colors):
+            ax.bar(range(len(data)), data, color=[co/255 for co in color], alpha=0.7)
+            # ax.plot(data, '*-', color=[co/255 for co in color])
+
+        # Refresh canvas
         self.canvas.draw()
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    main_window = Window()
+    main_window.show()
+    sys.exit(app.exec())

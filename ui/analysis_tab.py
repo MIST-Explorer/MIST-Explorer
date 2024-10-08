@@ -109,10 +109,10 @@ class AnalysisTab(QWidget):
             self.current_graph_index += 1
             self.show_graph(self.current_graph_index)
 
-    def add_line_to_current_graph(self):
+    def add_line_to_current_graph(self, color):
         if self.graphs:
             current_graph = self.graphs[self.current_graph_index]
-            current_graph.redraw()
+            current_graph.redraw(color)
 
     def get_random_color(self):
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))
