@@ -205,8 +205,14 @@ class ImageGraphicsViewUI(QGraphicsView):
             
             x = int(image_pos.x())
             y = int(image_pos.y())
+            
+            img = self.pixmapItem.pixmap().toImage()
+            
+                
             if x <= self.pixmapItem.pixmap().width() and y <= self.pixmapItem.pixmap().height() and x >= 0 and y >= 0:
-                self.enc.updateMousePositionLabel(f"X: {x}, Y: {y}")
+                color = QColor(img.pixel(x, y))
+                r, g, b = color.red(), color.green(), color.blue()
+                self.enc.updateMousePositionLabel(f"Intensity: {(r, g, b)}; X: {x}, Y: {y}")
             else:
                 self.enc.updateMousePositionLabel(f"")
                 
