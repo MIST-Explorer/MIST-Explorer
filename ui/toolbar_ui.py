@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox
+from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox, QLabel, QSizePolicy
 from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
 from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
 from ui.tool import Action
@@ -66,7 +66,11 @@ class ToolBarUI(QWidget):
         # self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
         self.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged) #try avoiding connect signal within the same class, but this will do for now
+        
+        self.statusLine = QLabel("Welcome! Please load an image to get started.")
+        
         self.cmapSelector = QComboBox(parent)
+        # self.statusLine.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.cmapSelector.currentTextChanged.connect(self.on_cmapTextChanged) #try avoiding connect signal within the same class, but this will do for now
 
         self.contrastSlider = QRangeSlider()
@@ -74,6 +78,8 @@ class ToolBarUI(QWidget):
         self.contrastSlider.setMaximumWidth(200)
         # self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
+        # self.statusLine.setText("Welcome")
+        # self.statusLine.setReadOnly(True)
 
     def __generateCmapThumbnails(self) -> np.ndarray:
         self.cmap_names = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
@@ -116,7 +122,12 @@ class ToolBarUI(QWidget):
         # self.toolbar.addAction(self.actionOpenBrightnessContrast)
         # self.toolbar.addWidget(self.operatorComboBox)
         self.toolbar.addWidget(self.channelSelector)
-        self.toolbar.addWidget(self.cmapSelector)
+        self.toolbar.addWidget(self.cmapSelector)        
+        self.statusLine.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.statusLine.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.statusLine.setStyleSheet("""margin: 10px; """)
+        self.toolbar.addWidget(self.statusLine)
+        
         self.toolbar.addWidget(self.contrastSlider)
 
     def updateContrastSlider(self, values):
