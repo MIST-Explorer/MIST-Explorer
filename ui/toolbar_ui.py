@@ -72,8 +72,6 @@ class ToolBarUI(QWidget):
         self.contrastSlider = QRangeSlider()
         self.contrastSlider.setOrientation(Qt.Orientation.Horizontal)
         self.contrastSlider.setMaximumWidth(200)
-        self.contrastSlider.setMaximum(255)
-        self.contrastSlider.setMinimum(0)
         # self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
 
@@ -121,34 +119,13 @@ class ToolBarUI(QWidget):
         self.toolbar.addWidget(self.cmapSelector)
         self.toolbar.addWidget(self.contrastSlider)
 
-    # def __addOp(self, mode, name:str):
-    #     self.operatorComboBox.addItem(name, mode)
+    def updateContrastSlider(self, values):
+        min, max = values
 
-    # def __addAllOps(self):
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_SourceOver, ("SourceOver"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_DestinationOver, ("DestinationOver"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Clear, ("Clear"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Source, ("Source"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Destination, ("Destination"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_SourceIn, ("SourceIn"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_DestinationIn, ("DestinationIn"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_SourceOut, ("SourceOut"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_DestinationOut, ("DestinationOut"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_SourceAtop, ("SourceAtop"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_DestinationAtop, ("DestinationAtop"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Xor, ("Xor"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Plus, ("Plus"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Multiply, ("Multiply"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Screen, ("Screen"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Overlay, ("Overlay"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Darken, ("Darken"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Lighten, ("Lighten"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_ColorDodge, ("ColorDodge"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_ColorBurn, ("ColorBurn"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_HardLight, ("HardLight"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_SoftLight, ("SoftLight"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Difference, ("Difference"))
-    #     self.__addOp(QPainter.CompositionMode.CompositionMode_Exclusion, ("Exclusion"))
+        print("the min is, " f'{min}')
+        print("the max is, " f'{max}')
+        self.contrastSlider.setMinimum(min)
+        self.contrastSlider.setMaximum(max)
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate

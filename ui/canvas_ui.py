@@ -50,6 +50,8 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     imageCropped = pyqtSignal(dict)
 
+    imageChanged = pyqtSignal()
+
 
     def __init__(self, parent=None):
 
@@ -76,7 +78,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-            self.__centerImage(self.pixmapItem)
+            # self.__centerImage(self.pixmapItem)
             
     def saveImage(self):
         print("hello")

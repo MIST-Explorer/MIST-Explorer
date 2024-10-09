@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import  QImage, QPixmap
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QTimer
 import Dialogs, tifffile as tiff, numpy as np
 from PIL import Image, ImageSequence
 import cv2
@@ -122,13 +122,15 @@ def scale_adjust(arr:np.ndarray):
         return cv2.convertScaleAbs(arr, alpha=(255.0/65535.0))
     elif arr.dtype == np.uint8:
         return arr
+    elif arr.dtype == np.uint32:
+        array_uint8 = ((arr / arr.max()) * 255).astype(np.uint8)
+        return array_uint8
     else:
         print("unsupported array type")
 
 
-def recolor(arr):
-    pass
-
+# def recolor(arr):
+#     pass
 
 
 class Pixmap(QPixmap):

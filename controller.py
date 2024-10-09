@@ -39,7 +39,8 @@ class Controller:
         self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
-
+        # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
+        self.model_canvas.changeSlider.connect(self.view.toolBar.updateContrastSlider)
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
         self.view.small_view.imageDropped.connect(self._small_view.addImage)
@@ -59,7 +60,7 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
-
+        self.model_canvas.errorSignal.connect(self.handleError)
         self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.channels for further image_processing   
         
         # crop signals

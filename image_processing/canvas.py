@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread, QTimer
 import tifffile as tiff, numpy as np
 # from PIL import Image, ImageSequence
 import cv2, matplotlib as mpl
@@ -19,6 +19,7 @@ class __BaseGraphicsView(QGraphicsView):
     channelLoaded = pyqtSignal(dict, bool)
     channelNotLoaded = pyqtSignal(np.ndarray)
     updateProgress = pyqtSignal(int, str)
+    errorSignal = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -81,7 +82,7 @@ class __BaseGraphicsView(QGraphicsView):
                         bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
                         format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
 
-                        print("my dtype is", image_adjusted.dtype)
+                        print("my dtype is", image_adjusted.dtype)   
                         self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
 
                         qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
@@ -196,6 +197,7 @@ class ImageGraphicsView(__BaseGraphicsView):
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
     # need some dead code analysis
     saveImage = pyqtSignal(QGraphicsPixmapItem)  
+    changeSlider = pyqtSignal(tuple)
 
     def __init__(self, parent=None):
 
@@ -208,45 +210,67 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.pixmapItem=None
         self.begin_crop = False
         self.crop_cursor =  QCursor(QPixmap("icons/clicks.png").scaled(25,25, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
+        self.contrast_worker_running = False 
+        self.timer = QTimer()
+        self.contrast_worker = None
 
-
-    def toPixmapItem(self, data:QPixmap|np.ndarray):
+    def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
         if type(data) == QPixmap:
             self.pixmap = data
+        elif type(data) == QImage:
+            self.pixmap = QPixmap(data)
         else:
-            print("pixmap is set stardist")
             self.pixmap = QPixmap(numpy_to_qimage(data))
             
-
         if hasattr(self, 'pixmapItem') and self.pixmapItem:
-            self.pixmapItem.setPixmap(self.pixmap)  # Update the pixmap of the existing item
+            self.pixmapItem.setPixmap(self.pixmap)  # update the pixmap of the existing item
         else:
-            self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # Create a new item if it doesn't exist
+            self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # create a new item if it doesn't exist
+        
+        print("changing slider")
+        if not self.image is None and not self.image.dtype == np.uint8:
+            print("debug here")
+            image_uint8 = scale_adjust(self.image)
+        else:
+            raise ValueError("there was an error")
 
-
+        self.changeSlider.emit((image_uint8.min(), image_uint8.max()))
+        
         self.canvasUpdated.emit(self.pixmapItem)
         
     def change_cmap(self, cmap_text: str):
         print("generating lut...")
         lut = self.generate_lut(cmap_text)
         print("converting label to rgb...")
-        stardist_labels_rgb = self.label2rgb(self.stardist_labels, lut).astype(np.uint8)
+        adjusted_uint8 = scale_adjust(qimage_to_numpy(self.pixmap.toImage()))
+        if adjusted_uint8.shape[2] >= 3:
+            r = adjusted_uint8[:,:,0]
+            g = adjusted_uint8[:,:,1]
+            b = adjusted_uint8[:,:,2]
+
+        rgb = self.label2rgb((r,g,b), lut).astype(np.uint8)
         # self.progress.emit(99, "converting to rgb")
         # convert to pixmap
-        self.toPixmapItem(stardist_labels_rgb)
+        self.toPixmapItem(rgb)
     
     def generate_lut(self, cmap:str):
         label_range = np.linspace(0, 1, 256)
         return np.uint8(mpl.colormaps[cmap](label_range)[:,2::-1]*256).reshape(256, 1, 3)
 
     def label2rgb(self, labels, lut):
-        return cv2.LUT(cv2.merge((labels, labels, labels)), lut)
+
+        if len(labels) == 1:
+            return cv2.LUT(cv2.merge((labels, labels, labels)), lut)
+        else:
+            r,g,b = labels
+            return cv2.LUT(cv2.merge((r, g, b)), lut)
     
 
     def loadStardistLabels(self, stardist: ImageType):
         self.stardist_labels = stardist.arr
-        self.toPixmapItem(self.stardist_labels)
+        self.image = self.stardist_labels.copy()
+        self.toPixmapItem(self.image)
     
     def addImage(self, file:str):
         '''add a new image'''
@@ -267,8 +291,7 @@ class ImageGraphicsView(__BaseGraphicsView):
     def onFileNameToPixmapCompleted(self, image):
         if image.dtype != np.uint8:
             image = scale_adjust(image)
-        else:
-            image = image
+
         qimage = numpy_to_qimage(image)
         print("file", qimage.format())
         pixmap = QPixmap(qimage)
@@ -377,6 +400,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.rotation_worker.signal.connect(self.onRotationCompleted) # result is rotated_channels
             self.rotation_worker.error.connect(self.onError)
             self.rotation_worker.finished.connect(self.rotation_worker.quit)
+            self.rotation_worker.finished.connect(self.rotation_worker.deleteLater)
             self.rotation_worker.start()
 
     @pyqtSlot(object)
@@ -408,6 +432,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.channelLoaded.emit(self.np_channels, clear)
 
     def swapChannel(self, index):
+        self.image = self.np_channels[f'Channel {index+1}']
         channel_pixmap = QPixmap.fromImage(self.channels[f'Channel {index+1}'])
         self.toPixmapItem(channel_pixmap)
 
@@ -417,14 +442,43 @@ class ImageGraphicsView(__BaseGraphicsView):
 
 
     def update_contrast(self, values):
-        min_val, max_val = values  # Get the new min and max from slider
-        # contrast_worker = Worker(self.apply_contrast, min_val, max_val)
+
+        if self.pixmap is None:
+            self.errorSignal.emit("Canvas empty")
+            return
+        
+        min_val, max_val = values
+        # min_val = int((self.image.min()/65535) *255)
+        # print(min_val)
+        # max_val = int((self.image.max()/65535) *255)
+        # print(max_val)
+
+        # if self.contrast_worker is None:
+        #     self.contrast_worker = Worker(self.apply_contrast, min_val, max_val)
+        # self.contrast_worker.start()
+        # self.contrast_worker.signal.connect(self.contrast_complete)
+
+
         contrast_image = self.apply_contrast(min_val, max_val)
         
         contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(contrast_image)))
 
         self.canvasUpdated.emit(contrastPix)
+    # def contrast_complete(self, data):
+    #     self.contrast_worker_running = False
+    #     contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(data)))
+    #     self.canvasUpdated.emit(contrastPix)
+    #     self.contrast_worker.finished.connect(self.contrast_worker.quit)
+    #     self.contrast_worker.finished.connect(self.contrast_worker.deleteLater)
 
+
+    # def start_timer(self):
+    #     # Stop the timer if it's already running to reset it
+    #     if self.timer.isActive():
+    #         print("stopping timer")
+    #         self.timer.stop()
+    #     # Start the timer with a delay
+    #     self.timer.start(100)  # Delay in milliseconds
 
     def apply_contrast(self, new_min, new_max):
 
@@ -434,14 +488,13 @@ class ImageGraphicsView(__BaseGraphicsView):
         # apply the look up table
         return cv2.LUT(image, lut)
 
-
     def create_lut(self, new_min, new_max):
-        lut = np.zeros(256, dtype=np.uint8)
-        
-        if new_min >= new_max:
-            raise ValueError("error changing contrast slider")  
+
+        lut = np.zeros(256, dtype=np.uint8) 
+
+
         lut[new_min:new_max+1] = np.linspace(start=0, stop=255, num=(new_max - new_min + 1), endpoint=True, dtype=np.uint8)
-        lut[:new_min] = 0 #clip between 0 and 255
+        lut[:new_min] = 0 # clip between 0 and 255
         lut[new_max+1:] = 255
 
         return lut
