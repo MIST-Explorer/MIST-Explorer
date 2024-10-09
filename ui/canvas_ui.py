@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
+from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF
 import Dialogs, numpy as np, matplotlib as mpl, cv2
@@ -180,6 +180,25 @@ class ImageGraphicsViewUI(QGraphicsView):
         else: super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event:QMouseEvent):
+        
+        r = 1
+        g = 2
+        b = 3
+        
+        if self.pixmapItem:
+            pos = event.pos()
+            x, y = pos.x(), pos.y()
+
+            # Get the image pixel RGB value
+            img = self.pixmapItem.pixmap().toImage()
+            if 0 <= x < img.width() and 0 <= y < img.height():
+                color = QColor(img.pixel(x, y))
+                r, g, b = color.red(), color.green(), color.blue()
+
+                # Display the RGB values as a tooltip near the mouse cursor
+                global_pos = self.mapToGlobal(event.pos())
+                QToolTip.showText(global_pos, f"RGB: ({r}, {g}, {b})", self)
+        
         if self.pixmapItem:
             scene_pos = self.mapToScene(event.pos())
             image_pos = self.pixmapItem.mapFromScene(scene_pos)
