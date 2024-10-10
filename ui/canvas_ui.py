@@ -186,18 +186,30 @@ class ImageGraphicsViewUI(QGraphicsView):
         b = 3
         
         if self.pixmapItem:
-            pos = event.pos()
-            x, y = pos.x(), pos.y()
-
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
+            x = int(image_pos.x())
+            y = int(image_pos.y())
             # Get the image pixel RGB value
             img = self.pixmapItem.pixmap().toImage()
             if 0 <= x < img.width() and 0 <= y < img.height():
-                color = QColor(img.pixel(x, y))
-                r, g, b = color.red(), color.green(), color.blue()
-
-                # Display the RGB values as a tooltip near the mouse cursor
                 global_pos = self.mapToGlobal(event.pos())
-                QToolTip.showText(global_pos, f"RGB: ({r}, {g}, {b})", self)
+                QToolTip.showText(global_pos, f"", self)
+                layers = self.enc.view_tab.get_layer_values_at(x, y)
+                if layers:
+                    layers = [f"{layer}: {value[0]}\n" for layer, value in layers]
+                    combined_layers = ''.join(layers)[:-1]
+                    
+                    
+                    
+                    QToolTip.showText(global_pos, combined_layers, self)
+                else:
+                    color = QColor(img.pixel(x, y))
+                    r, g, b = color.red(), color.green(), color.blue()
+                    
+                    QToolTip.showText(global_pos, f"R: {r}, G: {g}, B: {b}", self)
+
         
         if self.pixmapItem:
             scene_pos = self.mapToScene(event.pos())
@@ -207,7 +219,6 @@ class ImageGraphicsViewUI(QGraphicsView):
             y = int(image_pos.y())
             
             img = self.pixmapItem.pixmap().toImage()
-            
                 
             if x <= self.pixmapItem.pixmap().width() and y <= self.pixmapItem.pixmap().height() and x >= 0 and y >= 0:
                 color = QColor(img.pixel(x, y))

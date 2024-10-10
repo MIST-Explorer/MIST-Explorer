@@ -588,12 +588,6 @@ class ImageOverlay(QWidget):
         self.pixmap_label = pixmap_label
         self.active_images = []
         
-        # self.df_path = "/Users/clark/Desktop/protein_visualization_app/cell_data_new.csv"
-        # self.im_path = '/Users/clark/Desktop/protein_visualization_app/image.png'
-        
-        # self.df_path =  "/Users/clark/Downloads/cell_data_revised_Cropped Biopsy Dataset_Bubble Cropped.csv"
-        # self.im_path = "/Users/clark/Downloads/stardist_labels.png"
-        
         self.df_path =  "/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
         self.im_path = "/Users/clark/Downloads/new_sd.png"
         
@@ -665,7 +659,7 @@ class ImageOverlay(QWidget):
         
         print("df", df)
         
-                
+        self.active_images_names = []
         self.ims = ims # List of images as np.arrays
         self.layer_names = layer_names  # List of layer names
         self.color_dict = color_dict  # Dictionary of color names to RGB values
@@ -707,6 +701,16 @@ class ImageOverlay(QWidget):
         
         return (ims, layer_names)
          
+    def get_layer_values_at(self, x, y):
+        if len(self.active_images) == 0:
+            return None
+        
+        layer_values = []
+        for name, img in zip(self.active_images_names, self.active_images):
+            
+            value = img[y, x]
+            layer_values.append((name, value))
+        return layer_values
     
     def update_segmented_image(self, path):
         self.im_path = path
@@ -909,9 +913,9 @@ class ImageOverlay(QWidget):
         new_name = self.layers[index]['name']
         
         # print(new_name)
-        
+        self.active_images_names.append(new_name)
         self.active_images.append(new_img)
-        # self.layer_names.append(new_name)
+        self.layer_names.append(new_name)
         self.current_opacities.append(1.0)
         self.current_contrasts.append(1.0)
         self.current_visibilities.append(True)
@@ -921,7 +925,9 @@ class ImageOverlay(QWidget):
         
     def delete_layer(self, index):
         print(index)
+        
         print("before", len(self.active_images))
+        self.active_images_names.pop(index)
         self.active_images.pop(index)
         print(len(self.active_images))
         self.current_opacities.pop(index)
