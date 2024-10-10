@@ -9,7 +9,7 @@ from ui.view_tab import ImageOverlay
 from ui.analysis_tab import AnalysisTab
 
 class Ui_MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, parent=None):
         QImageReader.setAllocationLimit(0)
         super().__init__()
         
