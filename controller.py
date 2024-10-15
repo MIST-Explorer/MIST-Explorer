@@ -53,6 +53,8 @@ class Controller:
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
+        self.model_canvas.channelLoaded.connect(self.view.cellIntensity_groupbox.updateChannelSelector) #update stardist channel combobox
+
         self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
         self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
         self.model_canvas.channelLoaded.connect(self.model_register.updateChannels)

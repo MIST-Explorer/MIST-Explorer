@@ -243,13 +243,13 @@ class ImageGraphicsView(__BaseGraphicsView):
         print("generating lut...")
         lut = self.generate_lut(cmap_text)
         print("converting label to rgb...")
-        adjusted_uint8 = scale_adjust(qimage_to_numpy(self.pixmap.toImage()))
-        if adjusted_uint8.shape[2] >= 3:
-            r = adjusted_uint8[:,:,0]
-            g = adjusted_uint8[:,:,1]
-            b = adjusted_uint8[:,:,2]
+        adjusted_uint8 = scale_adjust(self.image)
+        # if adjusted_uint8.shape[2] >= 3:
+        #     r = adjusted_uint8[:,:,0]
+        #     g = adjusted_uint8[:,:,1]
+        #     b = adjusted_uint8[:,:,2]
 
-        rgb = self.label2rgb((r,g,b), lut).astype(np.uint8)
+        rgb = self.label2rgb(adjusted_uint8, lut).astype(np.uint8)
         # self.progress.emit(99, "converting to rgb")
         # convert to pixmap
         self.toPixmapItem(rgb)
@@ -260,11 +260,12 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def label2rgb(self, labels, lut):
 
-        if len(labels) == 1:
-            return cv2.LUT(cv2.merge((labels, labels, labels)), lut)
-        else:
+        if len(labels) == 3:
             r,g,b = labels
             return cv2.LUT(cv2.merge((r, g, b)), lut)
+        else:
+            return cv2.LUT(cv2.merge((labels, labels, labels)), lut) # gray to color
+
     
 
     def loadStardistLabels(self, stardist: ImageType):
@@ -440,7 +441,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.currentChannelNum = index
 
 
-
     def update_contrast(self, values):
 
         if self.pixmap is None:
@@ -453,11 +453,9 @@ class ImageGraphicsView(__BaseGraphicsView):
         # max_val = int((self.image.max()/65535) *255)
         # print(max_val)
 
-        # if self.contrast_worker is None:
-        #     self.contrast_worker = Worker(self.apply_contrast, min_val, max_val)
-        # self.contrast_worker.start()
-        # self.contrast_worker.signal.connect(self.contrast_complete)
-
+        self.contrast_worker = Worker(self.apply_contrast, min_val, max_val)
+        self.contrast_worker.start()
+        self.contrast_worker.signal.connect(self.contrast_complete)
 
         contrast_image = self.apply_contrast(min_val, max_val)
         
@@ -468,7 +466,7 @@ class ImageGraphicsView(__BaseGraphicsView):
     #     self.contrast_worker_running = False
     #     contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(data)))
     #     self.canvasUpdated.emit(contrastPix)
-    #     self.contrast_worker.finished.connect(self.contrast_worker.quit)
+    #     self.contrast_worker.finished.connect(self.contrast_worker.wait)
     #     self.contrast_worker.finished.connect(self.contrast_worker.deleteLater)
 
 

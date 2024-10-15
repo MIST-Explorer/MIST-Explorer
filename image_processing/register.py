@@ -238,7 +238,7 @@ class Register(QObject):
         # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
         self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
         # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
-        cell_image = aligned_protein_signal[self.params['cell_layer'], :, :]
+        cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
         self.registrationDone.emit(self.protein_signal_array) #->cell intensity table
         self.registrationDone.emit(cell_image) #-> stardist
 

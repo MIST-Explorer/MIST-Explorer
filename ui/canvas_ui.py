@@ -80,7 +80,8 @@ class ImageGraphicsViewUI(QGraphicsView):
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
             # self.__centerImage(self.pixmapItem)
-            
+            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+
     def saveImage(self):
         print("hello")
         
@@ -245,7 +246,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             # cropped.convertToFormat(QImage.Format.Format_Grayscale8)
             # print("type of cropped:", type(cropped))
             # cropped_images[channel_name] = cropped
-        cropped_arrays_cont = {key: np.ascontiguousarray(a, dtype="uint8") for key, a in cropped_arrays.items() if not a.data.contiguous}
+        cropped_arrays_cont = {key: np.ascontiguousarray(a, dtype="uint16") for key, a in cropped_arrays.items() if not a.data.contiguous}
         # print("debuggingggg")
         # print(cropped_arrays_cont['Channel 3'].shape)
         # import cv2

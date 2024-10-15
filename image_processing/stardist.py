@@ -90,7 +90,7 @@ class StarDist(QObject):
 
         if self.params['n_tiles'] == 0:
             guess_tiles= model._guess_n_tiles(cell_image)
-            total_tiles = int(guess_tiles[0] * guess_tiles[1])
+            # total_tiles = int(guess_tiles[0] * guess_tiles[1])
             # self.setNumberTiles(n_tiles)
             stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                             prob_thresh=self.params['prob_threshold'], 

@@ -14,6 +14,7 @@ from image_processing.register import Register
 
 class CellIntensity(QThread):
     errorSignal = pyqtSignal(str)
+    progress = pyqtSignal(int, str)
     def __init__(self, model_register: Register):
         super().__init__()
         self.params = {
@@ -121,7 +122,9 @@ class CellIntensity(QThread):
             self.__bead_bool_arr = np.invert(self.__background_bool_arr)
 
 
-            for bead in tqdm(data_modified):
+            for i, bead in enumerate(data_modified):
+                progress_update = int(((i+1)/len(data_modified))*100)
+                self.progress.emit(progress_update, f"Adjusting bead intensity {i}/{len(data_modified)}")
                 bead_x, bead_y = bead[0:2]
                 bead_x, bead_y = int(bead_x), int(bead_y)
                 cell_associated_id = self.stardist_labels[bead_y, bead_x]
@@ -149,7 +152,9 @@ class CellIntensity(QThread):
 
 
             print("Finding values for cells with incomplete protein profiles")
-            for cell_id in tqdm(cell_data_dict):
+            for i, cell_id in enumerate(cell_data_dict):
+                progress_update = int(((i+1)/len(cell_data_dict))*100)
+                self.progress.emit(progress_update, f"Finding values for cells with incomplete protein profiles {i}/{len(cell_data_dict)}")
                 # the number of beads for any given protein for any cell 
                 num_beads_each_protein_each_cell = [len(x) for x in cell_data_dict[cell_id]]
 
@@ -202,9 +207,12 @@ class CellIntensity(QThread):
             # lets us go from code -> protein i.e. 112 -> Fox3 or whatever
             color_code_translation_dict = {}
             for row in self.color_code:
-                protein_name = row[0] 
-                code = (int("".join([str(int(x)) for x in row[1:]])))
-                color_code_translation_dict[code] = protein_name
+                try:
+                    protein_name = row[0] 
+                    code = (int("".join([str(int(x)) for x in row[1:]])))
+                    color_code_translation_dict[code] = protein_name
+                except ValueError:
+                    code = None
 
 
             # then we use this to build the header string
@@ -224,7 +232,7 @@ class CellIntensity(QThread):
             save_this = np.hstack(([v for k,v in cell_centroids.items()], save_this))
             # and finally save everything
             self.df_cell_data = pd.DataFrame(save_this, columns=header) #--> use this to visualize
-
+            self.saveCellData()
 
     def saveCellData(self):
         file_name, _ = QFileDialog.getSaveFileName(None, "Save Cell Data File", "cell_data.csv", "*.csv;;*.xlsx;; All Files(*)")
