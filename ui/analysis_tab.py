@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QScrollArea, QVBoxLayout, QWidget, QLabel, QApplicat
 from PyQt6.QtCore import pyqtSignal
 import random
 
-import graphing.Test as test
+import ui.graphing.Test as test
 
 import sys
 import pandas as pd

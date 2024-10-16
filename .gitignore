@@ -1,3 +1,5 @@
 ui files/
 __pycache__/
 testing/
+.venv/
+env/
