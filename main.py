@@ -1,5 +1,6 @@
 import image_processing.cell_intensity
 import ui.app as app, controller, image_processing.canvas, image_processing.stardist, image_processing.register
+
 from PyQt6.QtWidgets import  QApplication
 
 if __name__ == "__main__":
