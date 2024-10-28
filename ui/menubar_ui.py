@@ -34,5 +34,10 @@ class MenuBarUI(QWidget):
         self.actionOpen.setText(_translate("MainWindow", "Open Image"))
         # self.actionOpenFiles.setText(_translate("MainWindow", "Open Files"))
         self.actionSaveAs.setText(_translate("MainWindow", "Save As..."))
+        
+        self.actionSaveAs.triggered.connect(self.print_hello)
+
+    def print_hello(self):
+        print('hello')
 
 
