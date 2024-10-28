@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QScrollArea, QVBoxLayout, QWidget, QLabel, QApplicat
 from PyQt6.QtCore import pyqtSignal
 import random
 
-import graphing.Test as test
+import ui.graphing.Test as test
 
 import sys
 import pandas as pd
@@ -20,7 +20,7 @@ class BoxPlotCanvas(FigureCanvas):
 
     def plot_boxplot(self):
         # Load your dataset from the Excel file
-        file_path = r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx"
+        file_path = r"C:\\Users\\jason\Multiplex Biotechnology Lab\\app\\protein_visualization_app\\ui\\graphing\\Grouped Cells Biopsy Data.xlsx"
         data = pd.read_excel(file_path)
 
         # Define the region of interest
@@ -90,7 +90,7 @@ class CellDensityPlot(QMainWindow):
     def plot_cell_density(self):
         sns.set_style('ticks')
         # Load your dataset
-        file_path = r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx"
+        file_path = r"C:\\Users\\jason\\Multiplex Biotechnology Lab\\app\\protein_visualization_app\\ui\\graphing\\Grouped Cells Biopsy Data.xlsx"
         data = pd.read_excel(file_path)
 
         # Define regions of interest using their coordinates (x_min, y_min, x_max, y_max)
