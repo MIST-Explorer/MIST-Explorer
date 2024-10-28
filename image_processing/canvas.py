@@ -453,9 +453,9 @@ class ImageGraphicsView(__BaseGraphicsView):
         # max_val = int((self.image.max()/65535) *255)
         # print(max_val)
 
-        self.contrast_worker = Worker(self.apply_contrast, min_val, max_val)
-        self.contrast_worker.start()
-        self.contrast_worker.signal.connect(self.contrast_complete)
+        # self.contrast_worker = Worker(self.apply_contrast, min_val, max_val)
+        # self.contrast_worker.start()
+        # self.contrast_worker.signal.connect(self.contrast_complete)
 
         contrast_image = self.apply_contrast(min_val, max_val)
         
