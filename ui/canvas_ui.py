@@ -75,7 +75,8 @@ class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
     imageCropped = pyqtSignal(dict)
-
+    imageChanged = pyqtSignal()
+    
     def __init__(self, parent=None, enc=None):
         super().__init__(parent)
         self.enc = enc
@@ -102,8 +103,9 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-            self.__centerImage(self.pixmapItem)
-            
+            # self.__centerImage(self.pixmapItem)
+            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+
     def saveImage(self):
         print("hello")
         
@@ -332,7 +334,8 @@ class ImageGraphicsViewUI(QGraphicsView):
             cropped_array = image_arr[top:bottom+1, left:right+1]
             cropped_arrays[channel_name] = cropped_array
 
-        cropped_arrays_cont = {key: np.ascontiguousarray(a, dtype="uint8") for key, a in cropped_arrays.items() if not a.data.contiguous}
+
+        cropped_arrays_cont = {key: np.ascontiguousarray(a, dtype="uint16") for key, a in cropped_arrays.items() if not a.data.contiguous}
 
         return cropped_arrays_cont
     

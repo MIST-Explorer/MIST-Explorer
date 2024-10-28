@@ -98,6 +98,9 @@ class StarDistUI(QWidget):
         self.stardist_components_vlayout.addWidget(self.stardist_run_button)
   
 
+        #cancel button
+        self.cancel_button = QPushButton(self.stardist_groupbox)
+        self.stardist_components_vlayout.addWidget(self.cancel_button)
         # save button
         self.save_button = QPushButton(self.stardist_groupbox)
         self.stardist_components_vlayout.addWidget(self.save_button)
@@ -128,3 +131,4 @@ class StarDistUI(QWidget):
         self.stardist_label7.setText(_translate("MainWindow", "Radius"))
         self.stardist_run_button.setText(_translate("MainWindow", "Run"))
         self.save_button.setText(_translate("MainWindow", "Save"))
+        self.cancel_button.setText(_translate("MainWindow", "Cancel"))

@@ -138,8 +138,11 @@ class CellIntensityUI(QWidget):
 
         # run button
         self.run_button = QPushButton(self.cell_intensity_groupbox)
-        self.run_button.setObjectName("run_button")
         self.cellintensity_components_vlayout.addWidget(self.run_button)
+
+        # cancel button
+        self.cancel_button = QPushButton(self.cell_intensity_groupbox)
+        self.cellintensity_components_vlayout.addWidget(self.cancel_button)
 
         # save button
         self.save_button = QPushButton(self.cell_intensity_groupbox)
@@ -170,6 +173,15 @@ class CellIntensityUI(QWidget):
                 self.color_code_label.setText(os.path.basename(file_name))
             except UnicodeDecodeError:
                 self.errorSignal.emit("Please select a valid file type")
+
+
+    def updateChannelSelector(self, channels:dict):
+        if self.alignment_layer.count() == 0 and self.protein_cell_layer.count() == 0 and self.intensity_layer.count() == 0:
+            self.alignment_layer.addItems(list(channels.keys()))
+            self.protein_cell_layer.addItems(list(channels.keys()))
+            self.intensity_layer.addItems(list(channels.keys()))
+
+
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
         self.cell_intensity_groupbox.setTitle(_translate("MainWindow", "Generate Protein Data of Cells"))
@@ -189,3 +201,4 @@ class CellIntensityUI(QWidget):
         self.num_layers_each_label.setText(_translate("MainWindow", "Number of decoding colors"))
         self.run_button.setText(_translate("MainWindow", "Run"))
         self.save_button.setText(_translate("MainWindow", "Save"))
+        self.cancel_button.setText(_translate("MainWindow", "Cancel"))

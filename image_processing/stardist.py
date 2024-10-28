@@ -90,7 +90,7 @@ class StarDist(QObject):
 
         if self.params['n_tiles'] == 0:
             guess_tiles= model._guess_n_tiles(cell_image)
-            total_tiles = int(guess_tiles[0] * guess_tiles[1])
+            # total_tiles = int(guess_tiles[0] * guess_tiles[1])
             # self.setNumberTiles(n_tiles)
             stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                             prob_thresh=self.params['prob_threshold'], 
@@ -124,9 +124,8 @@ class StarDist(QObject):
 
         # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='r', shape=stardist_labels.shape)
 
-        self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius)).astype(np.uint8)
-
-
+        self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius), dtype=np.uint16)
+        print("stardist type is", self.stardist_labels_grayscale.dtype)
 
         # print("generating lut...")
         # self.progress.emit(97, "generating LUT")
@@ -135,7 +134,7 @@ class StarDist(QObject):
 
         # print("converting label to rgb...")
         # stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
-        # self.progress.emit(99, "converting to rgb")
+        # self.progress.emit(99, "converting to rgb") 
         end_time = time.time()  
         print(start_time - end_time)
         # convert to pixmap
