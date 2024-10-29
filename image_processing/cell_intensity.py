@@ -295,26 +295,6 @@ class CellIntensity(QThread):
        if isinstance(color_code, pd.DataFrame):
           self.color_code = color_code
 
-
-
-    def setAlignmentLayer(self, channel):
-        self.params['alignment_layer'] = channel
-
-    def setCellLayer(self, model):
-        self.params['cell_layer'] = model
-
-    def setProteinDetectionLayer(self, value):
-        self.params['protein_detection_layer'] = value
-
-    def setMaxSize(self, value):
-        self.params['max_size'] = value
-
-    def setNumTiles(self, value):
-        self.params['num_tiles'] = value
-
-    def setOverlap(self, value):
-        self.params['overlap'] = value
-
     def setNumDecodingCycles(self, value):
         self.params['num_decoding_cycles'] = value
 

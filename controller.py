@@ -99,24 +99,29 @@ class Controller:
         self.model_stardist.progress.connect(self.view.updateProgressBar)
         # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
-        # generate cell data signals
-        # change params
-        self.view.cellIntensity_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
-        self.view.cellIntensity_groupbox.protein_cell_layer.currentTextChanged.connect(self.model_register.setCellLayer)
-        self.view.cellIntensity_groupbox.intensity_layer.currentTextChanged.connect(self.model_register.setProteinDetectionLayer)
-        self.view.cellIntensity_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
-        self.view.cellIntensity_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
-        self.view.cellIntensity_groupbox.num_cycles.valueChanged.connect(self.model_cellIntensity.setNumDecodingCycles)
-        self.view.cellIntensity_groupbox.num_layers_each.valueChanged.connect(self.model_cellIntensity.setNumDecodingColors)
-        self.view.cellIntensity_groupbox.num_tiles.valueChanged.connect(self.model_cellIntensity.setNumTiles)
-        self.view.cellIntensity_groupbox.radius_fg.valueChanged.connect(self.model_cellIntensity.setRadiusFG)
-        self.view.cellIntensity_groupbox.radius_bg.valueChanged.connect(self.model_cellIntensity.setRadiusBG)
 
+
+
+
+        # registration
+        # change params
+        self.view.register_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
+        self.view.register_groupbox.protein_cell_layer.currentTextChanged.connect(self.model_register.setCellLayer)
+        self.view.register_groupbox.intensity_layer.currentTextChanged.connect(self.model_register.setProteinDetectionLayer)
+        self.view.register_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
+        self.view.register_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
+        self.view.register_groupbox.num_tiles.valueChanged.connect(self.model_register.setNumTiles)
+
+
+        # generate cell data
         self.view.cellIntensity_groupbox.bead_data.clicked.connect(self.view.cellIntensity_groupbox.loadBeadData)
         self.view.cellIntensity_groupbox.color_code.clicked.connect(self.view.cellIntensity_groupbox.loadColorCode)
         self.view.cellIntensity_groupbox.emitBeadData.connect(self.model_cellIntensity.getBeadData)
         self.view.cellIntensity_groupbox.emitColorCode.connect(self.model_cellIntensity.getColorCode)
-
+        self.view.cellIntensity_groupbox.num_cycles.valueChanged.connect(self.model_cellIntensity.setNumDecodingCycles)
+        self.view.cellIntensity_groupbox.num_layers_each.valueChanged.connect(self.model_cellIntensity.setNumDecodingColors)
+        self.view.cellIntensity_groupbox.radius_fg.valueChanged.connect(self.model_cellIntensity.setRadiusFG)
+        self.view.cellIntensity_groupbox.radius_bg.valueChanged.connect(self.model_cellIntensity.setRadiusBG)
         self.view.cellIntensity_groupbox.run_button.clicked.connect(self.model_cellIntensity.generateCellIntensityTable)
 
         self.model_cellIntensity.errorSignal.connect(self.handleError)

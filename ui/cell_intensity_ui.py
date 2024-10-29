@@ -40,66 +40,6 @@ class CellIntensityUI(QWidget):
         self.color_code_layout.addWidget(self.color_code_label)
         self.cellintensity_components_vlayout.addLayout(self.color_code_layout)
 
-        # ALIGNMENT LAYER
-        self.alignment_layer_layout = QHBoxLayout()
-        self.alignment_layer = QComboBox(self.cell_intensity_groupbox)
-        self.alignment_layer_label = QLabel()
-        self.alignment_layer_layout.addWidget(self.alignment_layer_label)
-        self.alignment_layer_layout.addWidget(self.alignment_layer)
-        self.cellintensity_components_vlayout.addLayout(self.alignment_layer_layout)
-  
-
-        # cell layer
-        self.protein_cell_layer_layout = QHBoxLayout()
-        self.protein_cell_layer = QComboBox(self.cell_intensity_groupbox)
-        self.protein_cell_layer_label = QLabel()
-        self.protein_cell_layer_layout.addWidget(self.protein_cell_layer_label)
-        self.protein_cell_layer_layout.addWidget(self.protein_cell_layer)
-        self.cellintensity_components_vlayout.addLayout(self.protein_cell_layer_layout)
-
-        # intensity layer
-        self.intensity_layer_layout = QHBoxLayout()
-        self.intensity_layer = QComboBox(self.cell_intensity_groupbox)
-        self.intensity_layer_label = QLabel()
-        self.intensity_layer_layout.addWidget(self.intensity_layer_label)
-        self.intensity_layer_layout.addWidget(self.intensity_layer)
-        self.cellintensity_components_vlayout.addLayout(self.intensity_layer_layout)
-
-        # max size
-        self.max_size_layout = QHBoxLayout()
-        self.max_size_label =  QLabel(self.cell_intensity_groupbox)
-        self.max_size_layout.addWidget(self.max_size_label)
-        self.max_size = QSpinBox(self.cell_intensity_groupbox)
-        self.max_size.setMaximum(100000)
-        self.max_size.setSingleStep(100)
-        self.max_size.setProperty("value", 23000)
-        self.max_size_layout.addWidget(self.max_size)
-        self.cellintensity_components_vlayout.addLayout(self.max_size_layout)
-
-        # num tiles
-        self.num_tiles_layout = QHBoxLayout()
-        self.num_tiles_label =  QLabel(self.cell_intensity_groupbox)
-        self.num_tiles_layout.addWidget(self.num_tiles_label)
-        self.num_tiles = QSpinBox(self.cell_intensity_groupbox)
-        self.num_tiles.setMaximum(10)
-        self.num_tiles.setSingleStep(1)
-        self.num_tiles.setProperty("value", 5)
-        self.num_tiles_layout.addWidget(self.num_tiles)
-        self.cellintensity_components_vlayout.addLayout(self.num_tiles_layout)
-
-
-        # overlap
-        self.overlap_layout = QHBoxLayout()
-        self.overlap_label =  QLabel(self.cell_intensity_groupbox)
-        self.overlap_layout.addWidget(self.overlap_label)
-        self.overlap = QSpinBox(self.cell_intensity_groupbox)
-        self.overlap.setMaximum(1000)
-        self.overlap.setSingleStep(10)
-        self.overlap.setProperty("value", 500)
-        self.overlap_layout.addWidget(self.overlap)
-        self.cellintensity_components_vlayout.addLayout(self.overlap_layout)
-
-
         # num cycles
         self.num_cycles_layout = QHBoxLayout()
         self.num_cycles_label =  QLabel(self.cell_intensity_groupbox)
@@ -185,18 +125,13 @@ class CellIntensityUI(QWidget):
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
         self.cell_intensity_groupbox.setTitle(_translate("MainWindow", "Generate Protein Data of Cells"))
-        self.alignment_layer_label.setText(_translate("MainWindow", "Alignment Layer"))
-        self.protein_cell_layer_label.setText(_translate("MainWindow", "Cell Layer"))
-        self.intensity_layer_label.setText(_translate("MainWindow", "Protein Detection Layer"))
+
         self.color_code_label.setText(_translate("MainWindow", "none selected"))
         self.color_code.setText(_translate("MainWindow", "Open Color Code"))
         self.bead_data_label.setText(_translate("MainWindow", "none selected"))
         self.bead_data.setText(_translate("MainWindow", "Open Bead Data"))
         self.radius_fg_label.setText(_translate("MainWindow", "Radius fg"))
         self.radius_bg_label.setText(_translate("MainWindow", "Radius bg"))
-        self.max_size_label.setText(_translate("MainWindow", "Max Size"))
-        self.num_tiles_label.setText(_translate("MainWindow", "Number of Tiles"))
-        self.overlap_label.setText(_translate("MainWindow", "Overlap"))
         self.num_cycles_label.setText(_translate("MainWindow", "Number of decoding cycles"))
         self.num_layers_each_label.setText(_translate("MainWindow", "Number of decoding colors"))
         self.run_button.setText(_translate("MainWindow", "Run"))

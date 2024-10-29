@@ -5,6 +5,7 @@ import pandas as pd
 
 from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
+from ui.register_ui import RegisterUI
 from ui.view_tab import ImageOverlay
 from ui.analysis_tab import AnalysisTab
 
@@ -174,7 +175,7 @@ class Ui_MainWindow(QMainWindow):
         
         
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
-        
+        self.register_groupbox = RegisterUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
