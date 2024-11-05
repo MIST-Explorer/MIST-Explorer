@@ -111,8 +111,8 @@ def normalize_to_uint8(data: np.ndarray) -> np.ndarray:
 
 def adjustContrast(img, alpha=5, beta=15):  
     
-    # alpha = 5 # Contrast control
-    # beta = 15 # Brightness control
+    alpha = 5 # Contrast control
+    beta = 15 # Brightness control
     return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
 
 

@@ -13,7 +13,7 @@ if __name__ == "__main__":
     model_canvas = image_processing.canvas.ImageGraphicsView()
     model_stardist = image_processing.stardist.StarDist()
     model_register = image_processing.register.Register()
-    model_cellIntensity = image_processing.cell_intensity.CellIntensity(model_register)
+    model_cellIntensity = image_processing.cell_intensity.CellIntensity()
     _controller = controller.Controller(model_canvas, 
                                         model_stardist, 
                                         model_cellIntensity, 

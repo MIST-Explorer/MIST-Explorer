@@ -115,13 +115,6 @@ class CellIntensityUI(QWidget):
                 self.errorSignal.emit("Please select a valid file type")
 
 
-    def updateChannelSelector(self, channels:dict):
-        if self.alignment_layer.count() == 0 and self.protein_cell_layer.count() == 0 and self.intensity_layer.count() == 0:
-            self.alignment_layer.addItems(list(channels.keys()))
-            self.protein_cell_layer.addItems(list(channels.keys()))
-            self.intensity_layer.addItems(list(channels.keys()))
-
-
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
         self.cell_intensity_groupbox.setTitle(_translate("MainWindow", "Generate Protein Data of Cells"))

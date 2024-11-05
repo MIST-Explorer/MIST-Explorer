@@ -320,6 +320,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.crop_worker = Worker(self.cropImageTask, image_rect)
             self.crop_worker.signal.connect(self.onCropCompleted) 
             self.crop_worker.finished.connect(self.crop_worker.quit)
+            self.crop_worker.finished.connect(self.crop_worker.deleteLater)
             self.crop_worker.start()
         else:
             self.endCrop()
@@ -347,9 +348,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.endCrop()
 
         self.cropSignal.emit(cropped_images, False)
-        
-        print("emitting cropped images")
-        print("reached")
 
     def startCrop(self):
         self.begin_crop = True

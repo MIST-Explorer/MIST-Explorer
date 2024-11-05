@@ -14,10 +14,12 @@ from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot, QObject
 import re
 import tqdm
 
-class Register(QObject):
-    registrationDone = pyqtSignal(np.ndarray)
+class Register(QThread):
+    cell_image_signal = pyqtSignal(np.ndarray)
+    protein_signal_arr_signal = pyqtSignal(np.ndarray)
     imageReady = pyqtSignal(bool)
     progress = pyqtSignal(int, str)
+    error = pyqtSignal(str)
     def __init__(self):
         super().__init__()
         Image.MAX_IMAGE_PIXELS = 99999999999  
@@ -25,7 +27,7 @@ class Register(QObject):
         self.cycle_channels = None
         self.protein_signal_array = None
         self.params = { 
-            'alignment_layer': 0,
+            'alignment_layer': 0, 
             'cell_layer': 2, # 0 index
             'protein_detection_layer': 3, # 0 index
             'max_size': 23000,
@@ -33,14 +35,6 @@ class Register(QObject):
             'overlap': 500,
         }
         self.tifs = (
-            {
-                "image_dict": self.np_channels,
-                # "path": r"testing/test/cycle_1.ome.tif", 
-                # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
-                # "alignment_layer": 0,
-                "pystack_transforms" : [],
-                "sitk_transforms": []
-            },
             { 
                 "image_dict": self.cycle_channels,
                 # "path": r"testing/test/protein signal.ome.tif", 
@@ -49,23 +43,55 @@ class Register(QObject):
                 "pystack_transforms" : [],
                 "sitk_transforms": [] 
             },
-        )
 
+            {
+                "image_dict": self.np_channels,
+                # "path": r"testing/test/cycle_1.ome.tif", 
+                # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
+                # "alignment_layer": 0,
+                "pystack_transforms" : [],
+                "sitk_transforms": []
+            },
+        )
     def runRegister(self):
+        
+        import tensorflow as tf
+        gpu = len(tf.config.list_physical_devices('GPU')) > 0
+        if gpu:
+            device_name= tf.test.gpu_device_name()
+            print("gpu name: ", device_name)
+        else:
+            device_name = '/CPU:0'
+
+        with tf.device(device_name):
+            self.start()
+    
+            self.finished.connect(self.quit)
+            self.finished.connect(self.deleteLater)
+    def run(self):
+        # print(len(self.tifs[0]["image_dict"]))
+        # print(len(self.tifs[1]["image_dict"]))
+        # if len(self.tifs[0]["image_dict"]) < len(self.tifs[1]["image_dict"]):
+        #     self.error.emit("Incompatible layer counts for input images")
+        #     return
+        
+
 
         m = self.params["max_size"]
         self.OVERLAP = self.params["overlap"]
         self.NUM_TILES = self.params['num_tiles']
         basis = self.tifs[0]
         print("opening files!")
+        self.progress.emit(0, "preparing alignment")
         print(basis["image_dict"] is None)
         bf1_f = basis["image_dict"]
-        bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"] # 0 index so add 1 to avoid key error
+        bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer']  + 1}"] # 0 index so add 1 to avoid key error
         # bf1_f = Image.open(basis["path"])
         # bf1_f.seek(basis["alignment_layer"])
         # bf1 = np.array(bf1_f)
-        # bf1 = bf1[0:m, 0:m]
         bf1 = self.adjust_contrast(bf1,50, 99)
+        bf1 = bf1[0:m, 0:m]
+
         fixed_map = TileMap("fixed", bf1, self.OVERLAP, self.NUM_TILES)
 
         # generate tiles
@@ -74,10 +100,10 @@ class Register(QObject):
             # bf2_f = Image.open(self.tifs[tif_n]["path"])
             # # bf2_f.seek(tifs[tif_n]["brightfield"])
             # bf2 = np.array(bf2_f)
-            
-            # bf2 = bf2[0:m, 0:m]
             bf2_f = self.tifs[tif_n]["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"]
+
             bf2 = self.adjust_contrast(bf2_f, 50, 99)
+            bf2 = bf2[0:m, 0:m]
 
             print(bf1.shape, bf2.shape)
 
@@ -107,7 +133,7 @@ class Register(QObject):
                 try:
                     print(f"aligned a tile...{tile_n}")
                     progress_update = int(((tile_n+1)/len(inputs))*100)
-                    self.progress.emit(progress_update, f"aligning tile {tile_n+1}/{len(inputs)}")
+                    self.progress.emit(progress_update, str(f"aligning tile {tile_n+1}/{len(inputs)}"))
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
@@ -140,7 +166,8 @@ class Register(QObject):
             # print(tif["path"])
             # file = Image.open(tif["path"])
             file = tif["image_dict"]
-            n_frames = len(file) - 1
+            n_frames = len(file) # 4
+            print("n frames", n_frames)
             new_registered_tif = []
             
             for layer_number in range(n_frames):
@@ -154,7 +181,7 @@ class Register(QObject):
                 self.progress.emit(progress_update, f"Layer Number: {layer_number+1} for tif {i+1}")
                 
                 bf = file[f'Channel {layer_number + 1}'] # channels are index 1
-                bf1 = bf1_f[f'Channel {layer_number + 1}']  #channels are index 1
+                bf1 = bf1_f[f'Channel {layer_number + 1}']  #channels are index 1 # this is the basis
              
                 # bf1_f.seek(layer_number)
                 
@@ -235,12 +262,13 @@ class Register(QObject):
             aligned_protein_signal = new_registered_tif
             # skimage.io.imsave(f"C:\\Users\\Administrator\\Desktop\\Clark Fischer's Files\\test_{i}.tif", new_registered_tif)
 
-        # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
-        self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
-        # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
-        cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
-        self.registrationDone.emit(self.protein_signal_array) #->cell intensity table
-        self.registrationDone.emit(cell_image) #-> stardist
+        self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
+        # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
+        cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
+        # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
+        self.progress.emit(100, "Alignment Done")
+        self.protein_signal_arr_signal.emit(self.protein_signal_array) #->cell intensity table
+        self.cell_image_signal.emit(cell_image) #-> stardist
 
     def setAlignmentLayer(self, channel):
         match = re.search(r'\d+', channel)
@@ -391,19 +419,22 @@ class Register(QObject):
     def updateChannels(self, channels) -> None:
         print("debugging", channels)
         self.np_channels = channels
-        self.tifs[0]["image_dict"] = channels
+        self.tifs[1]["image_dict"] = channels
         # print("protein signal images sent to register", self.tifs[0]["image_dict"] is None)
         if not self.cycle_channels is None:
             self.imageReady.emit(True)
-            print("this is reached 1")
+            print("protein signal image updated")
 
     def updateCycleImage(self, cycle_channels:dict) -> None:
         self.cycle_channels = cycle_channels
-        self.tifs[1]["image_dict"] = cycle_channels
+        self.tifs[0]["image_dict"] = cycle_channels
         # print("cycle images sent to register", self.tifs[1]["image_dict"] is None)
         if not self.np_channels is None:
             self.imageReady.emit(True)
-            print("this is reached 2")
+            print("cycle image updated")
+    def cancel(self):
+        self.terminate()
+
 
 ############################
 class TileMap():

@@ -53,7 +53,7 @@ class Controller:
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
-        self.model_canvas.channelLoaded.connect(self.view.cellIntensity_groupbox.updateChannelSelector) #update stardist channel combobox
+        self.model_canvas.channelLoaded.connect(self.view.register_groupbox.updateChannelSelector) #update stardist channel combobox
 
         self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
         self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
@@ -97,7 +97,6 @@ class Controller:
         self.model_stardist.stardistDone.connect(self.model_cellIntensity.loadStardistLabels)
         self.model_stardist.errorSignal.connect(self.handleError)
         self.model_stardist.progress.connect(self.view.updateProgressBar)
-        # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
 
 
@@ -111,7 +110,9 @@ class Controller:
         self.view.register_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
         self.view.register_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
         self.view.register_groupbox.num_tiles.valueChanged.connect(self.model_register.setNumTiles)
-
+        self.view.register_groupbox.run_button.clicked.connect(self.model_register.runRegister)
+        self.model_register.cell_image_signal.connect(self.model_stardist.loadCellImage)
+        self.model_register.protein_signal_arr_signal.connect(self.model_cellIntensity.loadProteinSignalArray)
 
         # generate cell data
         self.view.cellIntensity_groupbox.bead_data.clicked.connect(self.view.cellIntensity_groupbox.loadBeadData)
@@ -127,19 +128,18 @@ class Controller:
         self.model_cellIntensity.errorSignal.connect(self.handleError)
         self.view.cellIntensity_groupbox.save_button.clicked.connect(self.model_cellIntensity.saveCellData)        
 
-        self.model_register.imageReady.connect(self.model_cellIntensity.isReady)
         self.model_register.progress.connect(self.view.updateProgressBar)
-        
-        # Display Butterfly
-        # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
-        
-        # Save photo
-        # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
+        self.model_cellIntensity.progress.connect(self.view.updateProgressBar)
         
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
         self.view.tabWidget.currentChanged.connect(self.view.onChange)
 
+
+        # cancel process
+        self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)
+        self.view.cellIntensity_groupbox.cancel_button.clicked.connect(self.model_cellIntensity.cancel)
+        self.view.stardist_groupbox.cancel_button.clicked.connect(self.model_stardist.cancel)
     def handleError(self, error_message):
         QMessageBox.critical(self.view,"Error", error_message)
 

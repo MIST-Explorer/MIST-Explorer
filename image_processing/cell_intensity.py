@@ -1,21 +1,16 @@
 
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import pyqtSignal, QObject, QThread
+from PyQt6.QtCore import pyqtSignal, QThread
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 import numpy as np, cv2 as cv, math, time, pandas as pd, itertools
 from image_processing.canvas import ImageGraphicsView, ImageType
-from image_processing.register import Register
-import ui.app
-from PIL import Image
 from tqdm import tqdm
-from image_processing.register import Register
 
 # import SimpleITK as sitk
 
 class CellIntensity(QThread):
     errorSignal = pyqtSignal(str)
     progress = pyqtSignal(int, str)
-    def __init__(self, model_register: Register):
+    def __init__(self):
         super().__init__()
         self.params = {
         'max_size': 23000,
@@ -25,46 +20,25 @@ class CellIntensity(QThread):
         'radius_bg': 6
         }
 
-        # self.bead_data = pd.read_csv("sample_data/bead_data.csv").to_numpy().astype("uint16")
-        # self.color_code = pd.read_csv("sample_data/ColorCode.csv")
         self.stardist_labels = None
-        self.ready = False
-        self.reg_task = model_register
         self.df_cell_data = None
 
-    def isReady(self, isReady:bool):
-        self.ready = isReady
-        print("debug is ready", self.ready)
-
+    def loadProteinSignalArray(self, arr):
+        self.protein_signal_array = arr
 
     def generateCellIntensityTable(self):
+        
         self.start()
-        # self.reg_task.registrationDone.connect(self.)
         self.finished.connect(self.quit)
+        self.finished.connect(self.deleteLater)
 
     def run(self):
         if (self.stardist_labels is None or self.bead_data is None or self.color_code is None):
             self.errorSignal.emit("Please select all necessary parameters")
             return
 
-        else: # don't need else statement i think?
-            # registration code
+        else: 
 
-            if self.ready:
-                print('images are ready to register...registering now')
-                self.reg_task.runRegister()        
-                self.protein_signal_array = self.reg_task.protein_signal_array
-
-                # self.reg_thread = QThread()
-                # self.reg_task.moveToThread(self.reg_thread)
-                # self.reg_thread.start()
-                # self.reg_thread.started.connect(self.reg_task.runRegister)
-                # self.reg_thread.finished.connect(self.registrationDone)
-                # self.reg_thread.wait()
-            else: 
-                print('not ready')
-                return
-            
             possible_value_of_layers = list(range(0, self.params['num_decoding_colors']))
             all_protein_permutations = [''.join([str(x) for x in p]) for p in itertools.product(possible_value_of_layers, repeat=self.params['num_decoding_cycles'])]
             color_code_to_index = {k: i for i, k in enumerate(all_protein_permutations)}
@@ -74,7 +48,6 @@ class CellIntensity(QThread):
 
             # and the inverse to go from array index -> protein
             index_to_color_code = {value: int(key) for key, value in color_code_to_index.items()}
-
 
 
             cell_data_dict = {}
@@ -124,7 +97,7 @@ class CellIntensity(QThread):
 
             for i, bead in enumerate(data_modified):
                 progress_update = int(((i+1)/len(data_modified))*100)
-                self.progress.emit(progress_update, f"Adjusting bead intensity {i}/{len(data_modified)}")
+                self.progress.emit(progress_update, f"Adjusting bead intensity {i+1}/{len(data_modified)}")
                 bead_x, bead_y = bead[0:2]
                 bead_x, bead_y = int(bead_x), int(bead_y)
                 cell_associated_id = self.stardist_labels[bead_y, bead_x]
@@ -146,7 +119,9 @@ class CellIntensity(QThread):
                 beads_split_by_protein[i] = data_modified[data_modified[:, 2] == key][:, 0:2]
 
             cell_centroids = {}
-            for cell_id in tqdm(cell_data_dict):
+            for i, cell_id in enumerate(cell_data_dict):
+                progress_update = int(((i+1)/len(cell_data_dict))*100)
+                self.progress.emit(progress_update, f"Finding center point of cell {i+1}/{len(cell_data_dict)}")
                 cell_centroids[cell_id] = self.find_centerpoint_of_cell(cell_id)
 
 
@@ -154,7 +129,7 @@ class CellIntensity(QThread):
             print("Finding values for cells with incomplete protein profiles")
             for i, cell_id in enumerate(cell_data_dict):
                 progress_update = int(((i+1)/len(cell_data_dict))*100)
-                self.progress.emit(progress_update, f"Finding values for cells with incomplete protein profiles {i}/{len(cell_data_dict)}")
+                self.progress.emit(progress_update, f"Finding values for cells with incomplete protein profiles {i+1}/{len(cell_data_dict)}")
                 # the number of beads for any given protein for any cell 
                 num_beads_each_protein_each_cell = [len(x) for x in cell_data_dict[cell_id]]
 
@@ -232,8 +207,11 @@ class CellIntensity(QThread):
             save_this = np.hstack(([v for k,v in cell_centroids.items()], save_this))
             # and finally save everything
             self.df_cell_data = pd.DataFrame(save_this, columns=header) #--> use this to visualize
+            self.progress.emit(100, "Cell Data is Generated")
             self.saveCellData()
 
+    def cancel(self):
+        self.terminate()
     def saveCellData(self):
         file_name, _ = QFileDialog.getSaveFileName(None, "Save Cell Data File", "cell_data.csv", "*.csv;;*.xlsx;; All Files(*)")
         if not self.df_cell_data is None:
