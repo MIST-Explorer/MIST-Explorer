@@ -712,6 +712,17 @@ class ImageOverlay(QWidget):
             layer_values.append((name, value))
         return layer_values
     
+    def get_layer_values_from_to(self, xstart, xend, ystart, yend):
+        if len(self.active_images) == 0:
+            return None
+
+        layer_values = []
+        for name, img in zip(self.active_images_names, self.active_images):
+            values = img[ystart:yend, xstart:xend]
+            layer_values.append((name, values))
+
+        return layer_values
+    
     def update_segmented_image(self, path):
         self.im_path = path
         

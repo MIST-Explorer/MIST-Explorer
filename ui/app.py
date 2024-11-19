@@ -50,7 +50,7 @@ class Ui_MainWindow(QMainWindow):
         self.main_layout = QHBoxLayout() # main layout to add align canvas and the tab
 
         # add a menubar
-        self.menubar = MenuBarUI(self)
+        self.menubar = MenuBarUI(self, enc=self)
 
         # add a toolbar
         self.toolBar = ToolBarUI(self)

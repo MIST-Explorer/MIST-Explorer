@@ -1,5 +1,7 @@
-from PyQt6.QtWidgets import QScrollArea, QVBoxLayout, QWidget, QLabel, QApplication, QPushButton, QHBoxLayout
+# from PyQt6.QtWidgets import QStyledItemDelegate, QComboBox, QScrollArea, QVBoxLayout, QWidget, QLabel, QApplication, QPushButton, QHBoxLayout
+from PyQt6.QtWidgets import *
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QColor
 import random
 
 import ui.graphing.Test as test
@@ -62,6 +64,122 @@ class MainWindow(QMainWindow):
         self.canvas = BoxPlotCanvas(self)
         layout.addWidget(self.canvas)
 
+class CheckableComboBox(QComboBox):
+
+    # Subclass Delegate to increase item height
+    class Delegate(QStyledItemDelegate):
+        def sizeHint(self, option, index):
+            size = super().sizeHint(option, index)
+            size.setHeight(20)
+            return size
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Make the combo editable to set a custom text, but readonly
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        # Make the lineedit the same color as QPushButton
+        palette = qApp.palette()
+        palette.setBrush(QPalette.Base, palette.button())
+        self.lineEdit().setPalette(palette)
+
+        # Use custom delegate
+        self.setItemDelegate(CheckableComboBox.Delegate())
+
+        # Update the text when an item is toggled
+        self.model().dataChanged.connect(self.updateText)
+
+        # Hide and show popup when clicking the line edit
+        self.lineEdit().installEventFilter(self)
+        self.closeOnLineEditClick = False
+
+        # Prevent popup from closing when clicking on an item
+        self.view().viewport().installEventFilter(self)
+
+    def resizeEvent(self, event):
+        # Recompute text to elide as needed
+        self.updateText()
+        super().resizeEvent(event)
+
+    def eventFilter(self, object, event):
+
+        if object == self.lineEdit():
+            if event.type() == QEvent.MouseButtonRelease:
+                if self.closeOnLineEditClick:
+                    self.hidePopup()
+                else:
+                    self.showPopup()
+                return True
+            return False
+
+        if object == self.view().viewport():
+            if event.type() == QEvent.MouseButtonRelease:
+                index = self.view().indexAt(event.pos())
+                item = self.model().item(index.row())
+
+                if item.checkState() == Qt.Checked:
+                    item.setCheckState(Qt.Unchecked)
+                else:
+                    item.setCheckState(Qt.Checked)
+                return True
+        return False
+
+    def showPopup(self):
+        super().showPopup()
+        # When the popup is displayed, a click on the lineedit should close it
+        self.closeOnLineEditClick = True
+
+    def hidePopup(self):
+        super().hidePopup()
+        # Used to prevent immediate reopening when clicking on the lineEdit
+        self.startTimer(100)
+        # Refresh the display text when closing
+        self.updateText()
+
+    def timerEvent(self, event):
+        # After timeout, kill timer, and reenable click on line edit
+        self.killTimer(event.timerId())
+        self.closeOnLineEditClick = False
+
+    def updateText(self):
+        texts = []
+        for i in range(self.model().rowCount()):
+            if self.model().item(i).checkState() == Qt.Checked:
+                texts.append(self.model().item(i).text())
+        text = ", ".join(texts)
+
+        # Compute elided text (with "...")
+        metrics = QFontMetrics(self.lineEdit().font())
+        elidedText = metrics.elidedText(text, Qt.ElideRight, self.lineEdit().width())
+        self.lineEdit().setText(elidedText)
+
+    def addItem(self, text, data=None):
+        item = QStandardItem()
+        item.setText(text)
+        if data is None:
+            item.setData(text)
+        else:
+            item.setData(data)
+        item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+        item.setData(Qt.Unchecked, Qt.CheckStateRole)
+        self.model().appendRow(item)
+
+    def addItems(self, texts, datalist=None):
+        for i, text in enumerate(texts):
+            try:
+                data = datalist[i]
+            except (TypeError, IndexError):
+                data = None
+            self.addItem(text, data)
+
+    def currentData(self):
+        # Return the list of selected items data
+        res = []
+        for i in range(self.model().rowCount()):
+            if self.model().item(i).checkState() == Qt.Checked:
+                res.append(self.model().item(i).data())
+        return res
 
 import sys
 import pandas as pd
@@ -191,6 +309,22 @@ class CellDensityPlot(QMainWindow):
         # plt.savefig('plot.png', dpi=300, bbox_inches='tight')
 
 
+# __init__(self, pixmap_label)
+# add_box_plot_canvas(self)
+# add_cell_density_plot(self)
+# initUI(self)
+# save_current_plot(self)
+# add_graph_to_new_view(self)
+# add_graph_to_current_view(self)
+# add_random_graph_to_new_view(self)
+# add_random_graph_to_current_view(self)
+# create_random_graph(self)
+# show_graph(self, index)
+# show_previous_graph(self)
+# show_next_graph(self)
+# add_stats(self, random_data)
+# get_random_color(self)​
+
 class AnalysisTab(QWidget):
     add_graph_signal = pyqtSignal()
 
@@ -202,6 +336,8 @@ class AnalysisTab(QWidget):
 
         self.initUI()
         self.add_graph_signal.connect(self.add_graph_to_new_view)
+
+        
 
         # Add CellDensityPlot as one of the plots
         self.add_cell_density_plot()
@@ -226,6 +362,11 @@ class AnalysisTab(QWidget):
         nav_layout = QHBoxLayout()
         self.back_button = QPushButton("< Back")
         self.next_button = QPushButton("Next >")
+
+        self.save_button = QPushButton("Save Plot")
+        self.save_button.clicked.connect(self.save_current_plot)
+        nav_layout.addWidget(self.save_button)
+        
         self.back_button.clicked.connect(self.show_previous_graph)
         self.next_button.clicked.connect(self.show_next_graph)
         nav_layout.addWidget(self.back_button)
@@ -254,6 +395,7 @@ class AnalysisTab(QWidget):
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
         self.scroll_area.setWidget(self.scroll_content)
+        self.rubberbands = []
 
         main_layout.addWidget(self.scroll_area)
 
@@ -262,8 +404,25 @@ class AnalysisTab(QWidget):
         # Add initial graph
         self.add_graph_to_new_view()
 
+    def save_current_plot(self):
+        if self.graphs:
+            current_graph = self.graphs[self.current_graph_index]
+            if isinstance(current_graph, FigureCanvas):
+                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
+                if file_path:
+                    current_graph.figure.savefig(file_path)
+            elif isinstance(current_graph, QMainWindow):
+                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
+                if file_path:
+                    current_graph.figure.savefig(file_path)
+
     def add_graph_to_new_view(self):
-        sc = test.Window()
+        sc = QWidget()
+        
+        # layout = QVBoxLayout(sc)
+        # layout.addWidget(label)
+        # sc.setLayout(layout)
+        # sc.addWidget()
         self.graphs.append(sc)
         self.current_graph_index = len(self.graphs) - 1
         self.show_graph(self.current_graph_index)
@@ -273,8 +432,8 @@ class AnalysisTab(QWidget):
         self.scroll_layout.addWidget(sc)
 
     def add_random_graph_to_new_view(self):
-        sc = self.create_random_graph()
-        self.graphs.append(sc)
+        # sc = self.create_random_graph()
+        # self.graphs.append(sc)
         self.current_graph_index = len(self.graphs) - 1
         self.show_graph(self.current_graph_index)
 
@@ -302,19 +461,87 @@ class AnalysisTab(QWidget):
         self.next_button.setEnabled(index < len(self.graphs) - 1)
 
     def show_previous_graph(self):
+        try:
+            self.rubberbands[self.current_graph_index-3].setFilled(False)
+        except Exception as e:
+            print(e)
+
         if self.current_graph_index > 0:
             self.current_graph_index -= 1
             self.show_graph(self.current_graph_index)
 
+            self.rubberbands[self.current_graph_index-3].setFilled(True)
+
     def show_next_graph(self):
+        try:
+            self.rubberbands[self.current_graph_index-3].setFilled(False)
+        except Exception as e:
+            print(e)
+
         if self.current_graph_index < len(self.graphs) - 1:
             self.current_graph_index += 1
             self.show_graph(self.current_graph_index)
 
-    def add_line_to_current_graph(self, color):
+            self.rubberbands[self.current_graph_index-3].setFilled(True)
+
+    def add_stats(self, random_data, pyqt_color, rubberband):
+        # Convert the PyQt color to RGB
+        pyqt_color_rgb = QColor(pyqt_color).getRgb()[:3]
+        self.rubberbands.append(rubberband)
+        rubberband.setFilled(True)
+
+        # Create a new widget to display the results
+        result_widget = QWidget()
+        result_layout = QVBoxLayout(result_widget)
+
+        # Create a horizontal layout for the result details
+        result_details_layout = QHBoxLayout()
+
+        # Add a label saying "Selection Results"
+        result_label = QLabel("Selection Results")
+        result_details_layout.addWidget(result_label)
+
+        # Add a delete button (not hooked up to anything yet)
+        delete_button = QPushButton("Delete")
+        result_details_layout.addWidget(delete_button)
+
+        # Add a rectangle with the color converted to RGB
+        color_label = QLabel()
+        color_label.setFixedSize(100, 50)
+        color_label.setStyleSheet(f"background-color: rgb({pyqt_color_rgb[0]}, {pyqt_color_rgb[1]}, {pyqt_color_rgb[2]});")
+        result_details_layout.addWidget(color_label)
+
+        # Add the horizontal layout to the main vertical layout
+        result_layout.addLayout(result_details_layout)
+
+        # Add the result widget to the scroll layout
+        self.scroll_layout.addWidget(result_widget)
+        self.add_graph_to_new_view()
+        self.show_next_graph()
+
         if self.graphs:
-            current_graph = self.graphs[self.current_graph_index]
-            current_graph.redraw(color)
+            # Create a new figure and axis
+            fig, ax = plt.subplots(figsize=(12, 8))
+
+            # Plot the boxplot with random data using matplotlib
+            ax.boxplot(random_data["Expression"],
+                   labels=random_data['Protein'].unique(), showfliers=False)
+
+            # Customize the plot
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+            ax.set_xlabel('Protein')
+            ax.set_ylabel('Expression Level')
+            ax.set_title('Random Protein Expression Box Plot')
+            plt.subplots_adjust(bottom=0.25)
+
+            # Add the new figure to the layout
+            result_layout.addWidget(FigureCanvas(fig))
+            self.scroll_layout.addWidget(result_widget)
+            self.graphs[-1] = result_widget
+            
+            
+        
+        
 
     def get_random_color(self):
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))
@@ -322,6 +549,7 @@ class AnalysisTab(QWidget):
 
 if __name__ == "__main__":
     import sys
+
     app = QApplication(sys.argv)
     pixmap_label = QLabel()
     analysis_tab = AnalysisTab(pixmap_label)

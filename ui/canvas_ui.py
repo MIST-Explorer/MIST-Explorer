@@ -6,6 +6,7 @@ from qt_threading import Worker
 import utils
 from PyQt6.QtGui import QColor
 import random
+import pandas as pd
 
 
 def getRandomColor():
@@ -18,6 +19,7 @@ class CustomRubberBand(QRubberBand):
         self.fill = getRandomColor()
         self.color = QColor(*self.fill[0:3])
         self.f = QColor(*self.fill)
+        self.filled = False
         
         
 
@@ -27,6 +29,16 @@ class CustomRubberBand(QRubberBand):
         pen.setWidth(3)  # Set pen width
         painter.setPen(pen)
         painter.drawRect(self.rect())
+
+        if self.filled:
+            color_trans = QColor(self.color)
+            color_trans.setAlpha(75)  
+            painter.fillRect(self.rect(), color_trans)
+            
+
+    def setFilled(self, fill):
+        self.filled = fill
+        self.update()  # Trigger a repaint to apply the change
         
         # brush = QBrush(QColor(255, 0, 0, 50))  # 50 is the alpha channel (transparency)
         # painter.setBrush(brush)
@@ -81,6 +93,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.enc = enc
         self.setupUI()
         self.pixmapItem = None
+        self.rubberBand = None
         self.rubberBands = []  # List to store multiple rubber bands
         self.rubberBandColors = []  # List to store colors of the rubber bands
         self.begin_crop = False
@@ -181,9 +194,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def mouseMoveEvent(self, event:QMouseEvent):
         
-        r = 1
-        g = 2
-        b = 3
+        combined_layers=""
         
         if self.pixmapItem:
             scene_pos = self.mapToScene(event.pos())
@@ -202,7 +213,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                     combined_layers = ''.join(layers)[:-1]
                     
                     
-                    
+                    # QToolTip.showText(global_pos, "not", self)
                     QToolTip.showText(global_pos, combined_layers, self)
                 else:
                     color = QColor(img.pixel(x, y))
@@ -210,6 +221,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                     
                     QToolTip.showText(global_pos, f"R: {r}, G: {g}, B: {b}", self)
 
+        
         
         if self.pixmapItem:
             scene_pos = self.mapToScene(event.pos())
@@ -223,7 +235,13 @@ class ImageGraphicsViewUI(QGraphicsView):
             if x <= self.pixmapItem.pixmap().width() and y <= self.pixmapItem.pixmap().height() and x >= 0 and y >= 0:
                 color = QColor(img.pixel(x, y))
                 r, g, b = color.red(), color.green(), color.blue()
-                self.enc.updateMousePositionLabel(f"Intensity: {(r, g, b)}; X: {x}, Y: {y}")
+                if combined_layers != "": 
+                    combined_layers = combined_layers.replace("\n", ", ")
+                    # print("combined_layers", combined_layers)
+                    combined_layers += ";"
+                    self.enc.updateMousePositionLabel(f"{combined_layers} X: {x}, Y: {y}")
+                else:
+                    self.enc.updateMousePositionLabel(f"R: {r}, G: {g}, B: {b} X: {x}, Y: {y}")
             else:
                 self.enc.updateMousePositionLabel(f"")
                 
@@ -231,48 +249,64 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
                 
         if self.select and self.rubberBands and self.origin != None:
-            # print("okay, all good to create band")
             self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
         else:
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        if not self.isEmpty() and self.begin_crop:
-            if event.button() == Qt.MouseButton.LeftButton:
-                self.rubberBand.hide()
-                selectedRect = self.rubberBand.geometry()
-                print(f"Selected rectangle: {selectedRect}")
+
+        if self.isEmpty(): # exit if there is no image
+            return
+        
+        if not self.begin_crop and not self.select:
+            return
+
+        if event.button() == Qt.MouseButton.LeftButton:  
+            rubberband = self.rubberBand if self.begin_crop else self.rubberBands[-1]
+            selectedRect = rubberband.geometry() 
+            if selectedRect.isEmpty():
+                return
+
+            view_rect = self.viewport().rect()            
+            x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
+            y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
+
+            left = int(selectedRect.left() * x_ratio)
+            top = int(selectedRect.top() * y_ratio)
+            right = int(selectedRect.right() * x_ratio)  
+            bottom = int(selectedRect.bottom() * y_ratio)  
+
+            height = int(selectedRect.height() * y_ratio)
+            width = int(selectedRect.width() * x_ratio)
+                        
+            image_rect = (left, top, right, bottom)
+            print(image_rect)
+
                 
-                if not selectedRect.isEmpty():
-                    view_rect = self.viewport().rect()
-                    print("view_rect:", view_rect)
-                    
-                    x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
-                    y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
-                    print(x_ratio, y_ratio)
+            if self.begin_crop:
+                rubberband.hide() 
+                self.__qt_image_rect = QRect(left, top, width, height)
+                self.showCroppedImage(image_rect)
 
-                    self.__qt_image_rect = QRect(
-                        int(selectedRect.left() * x_ratio),
-                        int(selectedRect.top() * y_ratio),
-                        int(selectedRect.width() * x_ratio),
-                        int(selectedRect.height() * y_ratio)
-                    )
+            if self.select:
+                self.select = False
+                self.origin = None
+                data = self.enc.view_tab.get_layer_values_from_to(*image_rect)
 
-                    left = int(selectedRect.left() * x_ratio)
-                    top = int(selectedRect.top() * y_ratio)
-                    right = int(selectedRect.right() * x_ratio)  
-                    bottom = int(selectedRect.bottom() * y_ratio)  
-                    image_rect = (left, top, right, bottom)
-                    print(image_rect)
-                    
-                    self.showCroppedImage(image_rect)
-                    
-        elif self.select:
-            self.select = False
-            self.origin = None
+                # this is stupid but i have to do this weird manipulation
+                # for the data to be displayed in the stats tab                
+                names = [i[0] for i in data]
+                expr = [i[1] for i in data]
+
+                random_data = pd.DataFrame({
+                'Protein': names,
+                'Expression': expr
+                })
+
+                self.enc.analysis_tab.add_stats(random_data, rubberband.color, rubberband)
+
+                return
             
-            print("HELLO??")
-            self.enc.analysis_tab.add_line_to_current_graph(self.rubberBandColors[-1].getRgb()[0:3])
         #     if not self.isEmpty():
                 
         #         selectedRect = self.rubberBands[-1].geometry()
