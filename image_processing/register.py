@@ -16,7 +16,7 @@ import tqdm
 
 class Register(QThread):
     cell_image_signal = pyqtSignal(np.ndarray)
-    protein_signal_arr_signal = pyqtSignal(np.ndarray)
+    protein_signal_arr_signal = pyqtSignal(np.ndarray)  
     imageReady = pyqtSignal(bool)
     progress = pyqtSignal(int, str)
     error = pyqtSignal(str)
@@ -26,6 +26,7 @@ class Register(QThread):
         self.np_channels = None 
         self.cycle_channels = None
         self.protein_signal_array = None
+        self.has_blue = True
         self.params = { 
             'alignment_layer': 0, 
             'cell_layer': 2, # 0 index
@@ -139,7 +140,7 @@ class Register(QThread):
                         continue
                         
                     t = time.time()
-                    result = self.f(tile_set)
+                    result = self.f(tile_set) # align
                     print(time.time() - t)
                     if result == None:
                         continue
@@ -220,7 +221,6 @@ class Register(QThread):
                         
                         transf = transforms[0]
                         x_translate, y_translate =  transforms[1]
-                        sr =  transforms[2]
                         
                         source = moving_map.get_tile_by_center(bf, x, y).astype(float)
                         target = moving_map.get_tile_by_center(bf1, x, y).astype(float)
@@ -233,7 +233,9 @@ class Register(QThread):
                         print("source", source.max())
                         print(registered.max())
                         
-                        registered = sr.transform(registered)
+                        if self.has_blue:
+                            sr =  transforms[2]
+                            registered = sr.transform(registered)
                     
                         corresponding_tile = registered[ymin: ymin + radius * 2, xmin: xmin + radius * 2]
 
@@ -270,6 +272,12 @@ class Register(QThread):
         self.protein_signal_arr_signal.emit(self.protein_signal_array) #->cell intensity table
         self.cell_image_signal.emit(cell_image) #-> stardist
 
+
+    def hasBlueColor(self, hasblue) -> bool:
+        if hasblue == "Yes":
+            self.has_blue = True
+        else: self.has_blue = False
+    
     def setAlignmentLayer(self, channel):
         match = re.search(r'\d+', channel)
         if match:
@@ -363,15 +371,21 @@ class Register(QThread):
         # registered = rgb2gray(registered)
         # target = rgb2gray(target)
 
-        sr = StackReg(StackReg.AFFINE)
-        sr.register(target, registered)
-        # registered = sr.transform(registered)
 
-        print()
-        
-        return (
-            (None, x, y, ([transf, (0, 0), sr], ymin, xmin, radius, x, y))
+        if not self.has_blue:
+            return (
+            (None, x, y, ([transf, (0, 0), registered], ymin, xmin, radius, x, y))
         )
+
+        else:
+            sr = StackReg(StackReg.AFFINE)
+            sr.register(target, registered)
+            # registered = sr.transform(registered)        
+            return (
+                (None, x, y, ([transf, (0, 0), sr], ymin, xmin, radius, x, y))
+            )
+        
+        
 
     def APPLY(self, transformation, fixed, moving):
         registered, footprint = aa.apply_transform(transformation, fixed, moving)

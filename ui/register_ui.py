@@ -21,6 +21,15 @@ class RegisterUI(QWidget):
         self.register_components_vlayout.setContentsMargins(0, 0, 0, 0)
 
         # ALIGNMENT LAYER
+        self.hasblue_layout = QHBoxLayout()
+        self.has_blue_color = QComboBox(self.register_groupbox)
+        self.has_blue_color.addItems(["Yes", "No"])
+        self.hasblue_label = QLabel()
+        self.hasblue_layout.addWidget(self.hasblue_label)
+        self.hasblue_layout.addWidget(self.has_blue_color)
+        self.register_components_vlayout.addLayout(self.hasblue_layout)
+        
+        # ALIGNMENT LAYER
         self.alignment_layer_layout = QHBoxLayout()
         self.alignment_layer = QComboBox(self.register_groupbox)
         self.alignment_layer_label = QLabel()
@@ -111,3 +120,4 @@ class RegisterUI(QWidget):
         self.overlap_label.setText(_translate("MainWindow", "Overlap"))
         self.run_button.setText(_translate("MainWindow", "Run"))
         self.cancel_button.setText(_translate("MainWindow", "Cancel"))
+        self.hasblue_label.setText(_translate("MainWindow", "Align with Blue Color"))

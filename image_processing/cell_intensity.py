@@ -97,7 +97,7 @@ class CellIntensity(QThread):
 
             for i, bead in enumerate(data_modified):
                 progress_update = int(((i+1)/len(data_modified))*100)
-                self.progress.emit(progress_update, f"Adjusting bead intensity {i+1}/{len(data_modified)}")
+                self.progress.emit(progress_update, f"Adjusting bead intensity {i+1}/{len(data_modified)}")      
                 bead_x, bead_y = bead[0:2]
                 bead_x, bead_y = int(bead_x), int(bead_y)
                 cell_associated_id = self.stardist_labels[bead_y, bead_x]

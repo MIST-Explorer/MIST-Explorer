@@ -30,7 +30,7 @@ class Controller:
         self.view.menubar.actionOpen.triggered.connect(self.on_actionOpen_triggered)
         
         # self.view.connect()
-
+        self.view.register_groupbox.has_blue_color.currentTextChanged.connect(self.model_register.hasBlueColor)
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
         # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
