@@ -298,27 +298,27 @@ class Handle(Element):
         qp.drawText(event.rect(), QtCore.Qt.AlignmentFlag.AlignLeft, str(self.main.start()))
         qp.drawText(event.rect(), QtCore.Qt.AlignmentFlag.AlignRight, str(self.main.end()))
 
-    def mouseMoveEvent(self, event):
-        event.accept()
-        mx = event.globalPosition().x()
-        _mx = getattr(self, '__mx', None)
-        if not _mx:
-            setattr(self, '__mx', mx)
-            dx = 0
-        else:
-            dx = mx - _mx
-        setattr(self, '__mx', mx)
-        if dx == 0:
-            event.ignore()
-            return
-        elif dx > 0:
-            dx = 1
-        elif dx < 0:
-            dx = -1
-        s = self.main.start() + dx
-        e = self.main.end() + dx
-        if s >= self.main.min() and e <= self.main.max():
-            self.main.setRange(s, e)
+    # def mouseMoveEvent(self, event):
+    #     event.accept()
+    #     mx = event.globalPosition().x()
+    #     _mx = getattr(self, '__mx', None)
+    #     if not _mx:
+    #         setattr(self, '__mx', mx)
+    #         dx = 0
+    #     else:
+    #         dx = mx - _mx
+    #     setattr(self, '__mx', mx)
+    #     if dx == 0:
+    #         event.ignore()
+    #         return
+    #     elif dx > 0:
+    #         dx = 1
+    #     elif dx < 0:
+    #         dx = -1
+    #     s = self.main.start() + dx
+    #     e = self.main.end() + dx
+    #     if s >= self.main.min() and e <= self.main.max():
+    #         self.main.setRange(s, e)
             
 import qtrangeslider
 
@@ -712,7 +712,7 @@ class ImageOverlay(QWidget):
             layer_values.append((name, value))
         return layer_values
     
-    def get_layer_values_from_to(self, xstart, xend, ystart, yend):
+    def get_layer_values_from_to(self, xstart, ystart, xend, yend):
         if len(self.active_images) == 0:
             return None
 

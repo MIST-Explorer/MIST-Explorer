@@ -309,104 +309,80 @@ class CellDensityPlot(QMainWindow):
         # plt.savefig('plot.png', dpi=300, bbox_inches='tight')
 
 
-# __init__(self, pixmap_label)
-# add_box_plot_canvas(self)
-# add_cell_density_plot(self)
-# initUI(self)
-# save_current_plot(self)
-# add_graph_to_new_view(self)
-# add_graph_to_current_view(self)
-# add_random_graph_to_new_view(self)
-# add_random_graph_to_current_view(self)
-# create_random_graph(self)
-# show_graph(self, index)
-# show_previous_graph(self)
-# show_next_graph(self)
-# add_stats(self, random_data)
-# get_random_color(self)​
 
 class AnalysisTab(QWidget):
-    add_graph_signal = pyqtSignal()
 
     def __init__(self, pixmap_label):
         super().__init__()
 
+        self.views = []
+        self.view_index = 0
+
+        self.rubberbands = []
+
         self.graphs = []
-        self.current_graph_index = 0
 
         self.initUI()
-        self.add_graph_signal.connect(self.add_graph_to_new_view)
 
-        
+        # self.graph_views = []
+        # self.current_view_index = 0
+        # self.view_index = 0
 
-        # Add CellDensityPlot as one of the plots
-        self.add_cell_density_plot()
-        self.add_box_plot_canvas()
-        
-    def add_box_plot_canvas(self):
-        box_plot_canvas = BoxPlotCanvas()
-        self.graphs.append(box_plot_canvas)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
+        # # Add navigation buttons for views
+        # view_nav_layout = QHBoxLayout()
+        # self.view_back_button = QPushButton("< View Back")
+        # self.view_next_button = QPushButton("Next View >")
 
-    def add_cell_density_plot(self):
-        cell_density_plot = CellDensityPlot()
-        self.graphs.append(cell_density_plot)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
+        # self.view_back_button.clicked.connect(self.show_previous_view)
+        # self.view_next_button.clicked.connect(self.show_next_view)
+        # view_nav_layout.addWidget(self.view_back_button)
+        # view_nav_layout.addWidget(self.view_next_button)
+
+        # main_layout.addLayout(view_nav_layout)
+
+        # Add initial view
+        # self.add_graph_view()
+
+
 
     def initUI(self):
         main_layout = QVBoxLayout()
 
         # Add navigation buttons
         nav_layout = QHBoxLayout()
+
+        # view based nav
+        self.save_button = QPushButton("Save Plot")
         self.back_button = QPushButton("< Back")
         self.next_button = QPushButton("Next >")
 
-        self.save_button = QPushButton("Save Plot")
         self.save_button.clicked.connect(self.save_current_plot)
+        self.back_button.clicked.connect(self.prev_view)
+        self.next_button.clicked.connect(self.next_view)
+
         nav_layout.addWidget(self.save_button)
-        
-        self.back_button.clicked.connect(self.show_previous_graph)
-        self.next_button.clicked.connect(self.show_next_graph)
         nav_layout.addWidget(self.back_button)
         nav_layout.addWidget(self.next_button)
 
         main_layout.addLayout(nav_layout)
-
-        # Add buttons for adding random graphs
-        add_graph_layout = QHBoxLayout()
-        # self.add_random_graph_new_view_button = QPushButton("Add Random Graph to New View")
-        # self.add_random_graph_current_view_button = QPushButton("Add Random Graph to Current View")
-        # self.add_random_graph_new_view_button.clicked.connect(self.add_random_graph_to_new_view)
-        # self.add_random_graph_current_view_button.clicked.connect(self.add_random_graph_to_current_view)
-        # add_graph_layout.addWidget(self.add_random_graph_new_view_button)
-        # add_graph_layout.addWidget(self.add_random_graph_current_view_button)
-
-        main_layout.addLayout(add_graph_layout)
-
-        # Add button for adding a new line to the current graph
-        # self.add_line_button = QPushButton("Add Line to Current Graph")
-        # self.add_line_button.clicked.connect(self.add_line_to_current_graph)
-        # main_layout.addWidget(self.add_line_button)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
         self.scroll_area.setWidget(self.scroll_content)
-        self.rubberbands = []
+        
 
         main_layout.addWidget(self.scroll_area)
 
         self.setLayout(main_layout)
 
         # Add initial graph
-        self.add_graph_to_new_view()
+        # self.add_new_view()
 
     def save_current_plot(self):
-        if self.graphs:
-            current_graph = self.graphs[self.current_graph_index]
+        if self.views:
+            current_graph = self.views[self.view_index]
             if isinstance(current_graph, FigureCanvas):
                 file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
                 if file_path:
@@ -416,37 +392,8 @@ class AnalysisTab(QWidget):
                 if file_path:
                     current_graph.figure.savefig(file_path)
 
-    def add_graph_to_new_view(self):
-        sc = QWidget()
-        
-        # layout = QVBoxLayout(sc)
-        # layout.addWidget(label)
-        # sc.setLayout(layout)
-        # sc.addWidget()
-        self.graphs.append(sc)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
 
-    def add_graph_to_current_view(self):
-        sc = test.Window()
-        self.scroll_layout.addWidget(sc)
-
-    def add_random_graph_to_new_view(self):
-        # sc = self.create_random_graph()
-        # self.graphs.append(sc)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
-
-    def add_random_graph_to_current_view(self):
-        sc = self.create_random_graph()
-        self.scroll_layout.addWidget(sc)
-
-    def create_random_graph(self):
-        # This function should create and return a random graph
-        # For demonstration purposes, we'll just return a new test.Window()
-        return test.Window()
-
-    def show_graph(self, index):
+    def set_view(self, index):
         # Clear the current layout
         for i in reversed(range(self.scroll_layout.count())):
             widget = self.scroll_layout.itemAt(i).widget()
@@ -454,42 +401,70 @@ class AnalysisTab(QWidget):
                 widget.setParent(None)
 
         # Add the new graph
-        self.scroll_layout.addWidget(self.graphs[index])
+        self.scroll_layout.addWidget(self.views[index])
 
         # Update button states
         self.back_button.setEnabled(index > 0)
-        self.next_button.setEnabled(index < len(self.graphs) - 1)
+        self.next_button.setEnabled(index < len(self.views) - 1)
 
-    def show_previous_graph(self):
+    def add_new_view(self):
+        sc = QWidget()
+
+        self.views.append(sc)
+        self.view_index = len(self.views) - 1
+        self.set_view(self.view_index)
+
+    def delete_view(self):
+        if self.views:
+            self.views.pop(self.view_index)
+            self.rubberbands[self.view_index].hide()
+            self.rubberbands.pop(self.view_index)
+            if len(self.views) == 0:
+                for i in reversed(range(self.scroll_layout.count())):
+                    widget = self.scroll_layout.itemAt(i).widget()
+                    if widget is not None:
+                        widget.setParent(None)
+            else:
+                self.prev_view()
+
+    def prev_view(self):
         try:
-            self.rubberbands[self.current_graph_index-3].setFilled(False)
+            self.rubberbands[self.view_index].setFilled(False)
         except Exception as e:
             print(e)
 
-        if self.current_graph_index > 0:
-            self.current_graph_index -= 1
-            self.show_graph(self.current_graph_index)
+        if self.view_index > 0:
+            self.view_index -= 1
+            self.set_view(self.view_index)
 
-            self.rubberbands[self.current_graph_index-3].setFilled(True)
+            self.rubberbands[self.view_index].setFilled(True)
+            
 
-    def show_next_graph(self):
+    def next_view(self):
         try:
-            self.rubberbands[self.current_graph_index-3].setFilled(False)
+            self.rubberbands[self.view_index].setFilled(False)
         except Exception as e:
             print(e)
 
-        if self.current_graph_index < len(self.graphs) - 1:
-            self.current_graph_index += 1
-            self.show_graph(self.current_graph_index)
+        if self.view_index < len(self.views) - 1:
+            self.view_index += 1
+            self.set_view(self.view_index)
 
-            self.rubberbands[self.current_graph_index-3].setFilled(True)
+            self.rubberbands[self.view_index].setFilled(True)
 
     def add_stats(self, random_data, pyqt_color, rubberband):
+
+        print(len(self.rubberbands))
+        print(self.view_index)
+        if len(self.rubberbands) != 0:
+            self.rubberbands[self.view_index].setFilled(False)
+        # except Exception as e:
+        #     print(e)
+
         # Convert the PyQt color to RGB
         pyqt_color_rgb = QColor(pyqt_color).getRgb()[:3]
-        self.rubberbands.append(rubberband)
-        rubberband.setFilled(True)
-
+        
+        
         # Create a new widget to display the results
         result_widget = QWidget()
         result_layout = QVBoxLayout(result_widget)
@@ -503,6 +478,7 @@ class AnalysisTab(QWidget):
 
         # Add a delete button (not hooked up to anything yet)
         delete_button = QPushButton("Delete")
+        delete_button.clicked.connect(self.delete_view)
         result_details_layout.addWidget(delete_button)
 
         # Add a rectangle with the color converted to RGB
@@ -516,10 +492,10 @@ class AnalysisTab(QWidget):
 
         # Add the result widget to the scroll layout
         self.scroll_layout.addWidget(result_widget)
-        self.add_graph_to_new_view()
-        self.show_next_graph()
+        self.add_new_view()
+        self.next_view()
 
-        if self.graphs:
+        if self.views:
             # Create a new figure and axis
             fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -536,12 +512,24 @@ class AnalysisTab(QWidget):
 
             # Add the new figure to the layout
             result_layout.addWidget(FigureCanvas(fig))
+            
+            self.views[-1] = result_widget
+
+            self.back_plot = QPushButton("< Back")
+            self.next_plot = QPushButton("Next >")
+            
+            result_layout.addWidget(self.back_plot)
+            result_layout.addWidget(self.next_plot)
+
+            self.rubberbands.append(rubberband)
+            rubberband.setFilled(True)
+
             self.scroll_layout.addWidget(result_widget)
-            self.graphs[-1] = result_widget
-            
-            
-        
-        
+            # self.rubberbands[self.view_index].setFilled(True)
+
+
+            # self.prev_view()
+            # self.next_view()
 
     def get_random_color(self):
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))

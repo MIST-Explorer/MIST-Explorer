@@ -20,6 +20,11 @@ class CustomRubberBand(QRubberBand):
         self.color = QColor(*self.fill[0:3])
         self.f = QColor(*self.fill)
         self.filled = False
+        self.draggable = True
+        self.dragging_threshold = 5
+        self.mousePressPos = None
+        self.mouseMovePos = None
+        self.hello = False
         
         
 
@@ -42,6 +47,58 @@ class CustomRubberBand(QRubberBand):
         
         # brush = QBrush(QColor(255, 0, 0, 50))  # 50 is the alpha channel (transparency)
         # painter.setBrush(brush)
+
+    # def zoom(self, scale_factor):
+    #     self.scale(scale_factor, scale_factor)
+
+    def mousePressEvent(self, event):
+        # if self.mousePressPos is not None:
+            # print("from  customrubberband mouse press event")
+            self.mousePressPos = event.pos()                # global
+            self.mouseMovePos = event.pos() - self.pos()    # local
+            # super(CustomRubberBand, self).mousePressEvent(event)
+            self.hello = True
+
+    def mouseMoveEvent(self, event):
+        if self.mousePressPos is not None and self.hello:
+            # print("from  customrubberband mouseMoveEvent")
+            pos = event.pos()
+            moved = pos - self.mousePressPos
+            if moved.manhattanLength() > self.dragging_threshold:
+                # Move when user drag window more than dragging_threshold
+                diff = pos - self.mouseMovePos
+                self.move(diff)
+                self.mouseMovePos = pos - self.pos()
+            super(CustomRubberBand, self).mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        # print("from  customrubberband mouseReleaseEvent")
+        self.hello = False
+        if self.mousePressPos is not None:
+            moved = event.pos() - self.mousePressPos
+            if moved.manhattanLength() > self.dragging_threshold:
+                # Do not call click event or so on
+                event.ignore()
+            self.mousePressPos = None
+            self.mouseMovePos = None
+        # super(CustomRubberBand, self).mouseReleaseEvent(event)
+
+    def wheelEvent(self, event):
+        zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
+        current_rect = self.geometry()
+        
+        # Calculate new size
+        new_width = current_rect.width() * zoom_factor
+        new_height = current_rect.height() * zoom_factor
+        
+        # Calculate new position to keep it centered
+        new_x = current_rect.x() - (new_width - current_rect.width()) / 2
+        new_y = current_rect.y() - (new_height - current_rect.height()) / 2
+        
+        # Set new geometry
+        self.setGeometry(int(new_x), int(new_y), int(new_width), int(new_height))
+        self.update()
+
 
 class ReferenceGraphicsViewUI(QGraphicsView):
     
@@ -115,7 +172,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-            self.__centerImage(self.pixmapItem)
+            # self.__centerImage(self.pixmapItem)
             
     def saveImage(self):
         print("hello")
@@ -165,10 +222,30 @@ class ImageGraphicsViewUI(QGraphicsView):
             event.acceptProposedAction()
 
     def wheelEvent(self, event):
-        if event.angleDelta().y() > 0:
-            self.scale(self.scale_factor, self.scale_factor)
-        else:
-            self.scale(1/self.scale_factor, 1/self.scale_factor)
+        # Determine the zoom factor
+        zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
+
+        # Store the scene positions of all rubber bands
+        rubber_band_positions = []
+        for rubber_band in self.rubberBands:  # Assuming self.rubber_bands is your list of QRubberBand objects
+            rubber_band_geometry = rubber_band.geometry()
+            top_left_scene = self.mapToScene(rubber_band_geometry.topLeft())
+            bottom_right_scene = self.mapToScene(rubber_band_geometry.bottomRight())
+            rubber_band_positions.append((rubber_band, top_left_scene, bottom_right_scene))
+
+        # Perform the zoom
+        self.scale(zoom_factor, zoom_factor)
+
+        # Update the geometry of each rubber band
+        for rubber_band, top_left_scene, bottom_right_scene in rubber_band_positions:
+            new_top_left_view = self.mapFromScene(top_left_scene)
+            new_bottom_right_view = self.mapFromScene(bottom_right_scene)
+            new_rect = QRect(new_top_left_view, new_bottom_right_view)
+            rubber_band.setGeometry(new_rect)
+
+
+        
+
 
     def mousePressEvent(self, event: QMouseEvent):
         print("mousePressEvent: entered", self.isEmpty(), self.begin_crop, self.select)
@@ -179,8 +256,16 @@ class ImageGraphicsViewUI(QGraphicsView):
                     self.rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self)
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
+            return
                 
         elif self.select:
+
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
+            self.starting_x = int(image_pos.x())
+            self.starting_y = int(image_pos.y())
+
             print("mousePressEvent: with select mouse click detected")
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
@@ -189,8 +274,22 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.rubberBandColors.append(rubberBand.color)  # Store the color of the rubber band
                 rubberBand.setGeometry(QRect(self.origin, QSize()))
                 rubberBand.show()
+            return
         
-        else: super().mousePressEvent(event)
+        else: 
+            
+            super().mousePressEvent(event)
+
+        if self.pixmapItem:
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
+            self.starting_x = int(image_pos.x())
+            self.starting_y = int(image_pos.y())
+
+        if not self.select:
+            for r in self.rubberBands:
+                r.mousePressEvent(event)
 
     def mouseMoveEvent(self, event:QMouseEvent):
         
@@ -204,37 +303,26 @@ class ImageGraphicsViewUI(QGraphicsView):
             y = int(image_pos.y())
             # Get the image pixel RGB value
             img = self.pixmapItem.pixmap().toImage()
+
+            # mouse tool tip 
             if 0 <= x < img.width() and 0 <= y < img.height():
+
+                color = QColor(img.pixel(x, y))
+                r, g, b = color.red(), color.green(), color.blue()
+
                 global_pos = self.mapToGlobal(event.pos())
                 QToolTip.showText(global_pos, f"", self)
                 layers = self.enc.view_tab.get_layer_values_at(x, y)
+                
+                # controls mouse tool tip
                 if layers:
                     layers = [f"{layer}: {value[0]}\n" for layer, value in layers]
                     combined_layers = ''.join(layers)[:-1]
-                    
-                    
-                    # QToolTip.showText(global_pos, "not", self)
                     QToolTip.showText(global_pos, combined_layers, self)
-                else:
-                    color = QColor(img.pixel(x, y))
-                    r, g, b = color.red(), color.green(), color.blue()
-                    
+                else:                    
                     QToolTip.showText(global_pos, f"R: {r}, G: {g}, B: {b}", self)
 
-        
-        
-        if self.pixmapItem:
-            scene_pos = self.mapToScene(event.pos())
-            image_pos = self.pixmapItem.mapFromScene(scene_pos)
-            
-            x = int(image_pos.x())
-            y = int(image_pos.y())
-            
-            img = self.pixmapItem.pixmap().toImage()
-                
-            if x <= self.pixmapItem.pixmap().width() and y <= self.pixmapItem.pixmap().height() and x >= 0 and y >= 0:
-                color = QColor(img.pixel(x, y))
-                r, g, b = color.red(), color.green(), color.blue()
+                # controls upper xy label
                 if combined_layers != "": 
                     combined_layers = combined_layers.replace("\n", ", ")
                     # print("combined_layers", combined_layers)
@@ -244,7 +332,8 @@ class ImageGraphicsViewUI(QGraphicsView):
                     self.enc.updateMousePositionLabel(f"R: {r}, G: {g}, B: {b} X: {x}, Y: {y}")
             else:
                 self.enc.updateMousePositionLabel(f"")
-                
+
+
         if not self.isEmpty() and self.begin_crop and self.rubberBand:
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
                 
@@ -253,13 +342,28 @@ class ImageGraphicsViewUI(QGraphicsView):
         else:
             super().mouseMoveEvent(event)
 
+        if not self.select:
+            for r in self.rubberBands:
+                r.mouseMoveEvent(event)
+
+        # else: 
+        #     for r in self.rubberBands:
+        #         r.mousePressEvent(event)
+
     def mouseReleaseEvent(self, event: QMouseEvent):
+
+        for r in self.rubberBands:
+            # print("try to relesa")
+            r.mouseReleaseEvent(event)
+            # print("w is this not worin")
 
         if self.isEmpty(): # exit if there is no image
             return
         
         if not self.begin_crop and not self.select:
             return
+        
+        
 
         if event.button() == Qt.MouseButton.LeftButton:  
             rubberband = self.rubberBand if self.begin_crop else self.rubberBands[-1]
@@ -267,19 +371,11 @@ class ImageGraphicsViewUI(QGraphicsView):
             if selectedRect.isEmpty():
                 return
 
-            view_rect = self.viewport().rect()            
-            x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
-            y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
-
-            left = int(selectedRect.left() * x_ratio)
-            top = int(selectedRect.top() * y_ratio)
-            right = int(selectedRect.right() * x_ratio)  
-            bottom = int(selectedRect.bottom() * y_ratio)  
-
-            height = int(selectedRect.height() * y_ratio)
-            width = int(selectedRect.width() * x_ratio)
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
                         
-            image_rect = (left, top, right, bottom)
+            image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
             print(image_rect)
 
                 
@@ -291,12 +387,17 @@ class ImageGraphicsViewUI(QGraphicsView):
             if self.select:
                 self.select = False
                 self.origin = None
+
+            
                 data = self.enc.view_tab.get_layer_values_from_to(*image_rect)
+                print(image_rect)
 
                 # this is stupid but i have to do this weird manipulation
                 # for the data to be displayed in the stats tab                
                 names = [i[0] for i in data]
-                expr = [i[1] for i in data]
+                expr = [i[1][i[1] != 0]  for i in data]
+
+                # list(filter(lambda x: x != 0, arr))
 
                 random_data = pd.DataFrame({
                 'Protein': names,
@@ -307,6 +408,17 @@ class ImageGraphicsViewUI(QGraphicsView):
 
                 return
             
+            if self.pixmapItem:
+                scene_pos = self.mapToScene(event.pos())
+                image_pos = self.pixmapItem.mapFromScene(scene_pos)
+                
+                print(self.starting_x - int(image_pos.x()))
+                print(self.starting_y - int(image_pos.y()))
+
+    
+        
+
+        
         #     if not self.isEmpty():
                 
         #         selectedRect = self.rubberBands[-1].geometry()
