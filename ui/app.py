@@ -91,7 +91,7 @@ class Ui_MainWindow(QMainWindow):
         
         ####### analysis tab #######################################
 
-        self.analysis_tab = AnalysisTab(self.canvas)
+        self.analysis_tab = AnalysisTab(self.canvas, self)
         self.analysis_tab.resize(200, 100)
         self.analysis_tab.setObjectName("analysis_tab")
         self.tabWidget.addTab(self.analysis_tab, "")

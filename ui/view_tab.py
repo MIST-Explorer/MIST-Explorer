@@ -590,6 +590,8 @@ class ImageOverlay(QWidget):
         
         self.df_path =  "/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
         self.im_path = "/Users/clark/Downloads/new_sd.png"
+
+        self.loaded_df = None
         
         self.initUI()
         
@@ -614,6 +616,10 @@ class ImageOverlay(QWidget):
         if self.df_path == None:
             return None
         
+        if self.loaded_df is not None:
+            return self.loaded_df
+    
+        
         print("df path", self.df_path)
         if self.df_path.endswith("csv"):
             df = pd.read_csv(self.df_path)
@@ -622,6 +628,8 @@ class ImageOverlay(QWidget):
 
         print("df raw", df)
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
+
+        self.loaded_df = df
         return df
     
     
@@ -717,6 +725,7 @@ class ImageOverlay(QWidget):
             return None
 
         layer_values = []
+
         for name, img in zip(self.active_images_names, self.active_images):
             values = img[ystart:yend, xstart:xend]
             layer_values.append((name, values))

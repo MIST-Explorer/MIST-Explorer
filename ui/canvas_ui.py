@@ -137,8 +137,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
         item_rect = pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
-        self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
-        self.centerOn(pixmapItem)
+        # self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
+        # self.centerOn(pixmapItem)
 
 class ImageGraphicsViewUI(QGraphicsView):
     
@@ -173,6 +173,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
             # self.__centerImage(self.pixmapItem)
+            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
             
     def saveImage(self):
         print("hello")
@@ -277,7 +278,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             return
         
         else: 
-            
+            # pass
             super().mousePressEvent(event)
 
         if self.pixmapItem:
@@ -340,6 +341,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.select and self.rubberBands and self.origin != None:
             self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
         else:
+            # pass
             super().mouseMoveEvent(event)
 
         if not self.select:
@@ -367,20 +369,23 @@ class ImageGraphicsViewUI(QGraphicsView):
 
         if event.button() == Qt.MouseButton.LeftButton:  
             rubberband = self.rubberBand if self.begin_crop else self.rubberBands[-1]
-            selectedRect = rubberband.geometry() 
-            if selectedRect.isEmpty():
-                return
-
-            scene_pos = self.mapToScene(event.pos())
-            image_pos = self.pixmapItem.mapFromScene(scene_pos)
-            
-                        
-            image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
-            print(image_rect)
-
-                
+             
             if self.begin_crop:
                 rubberband.hide() 
+
+                selectedRect = rubberband.geometry() 
+                if selectedRect.isEmpty():
+                    return
+
+                view_rect = self.viewport().rect()            
+                x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
+                y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
+
+                left = int(selectedRect.left() * x_ratio)
+                top = int(selectedRect.top() * y_ratio)
+
+                height = int(selectedRect.height() * y_ratio)
+                width = int(selectedRect.width() * x_ratio)
                 self.__qt_image_rect = QRect(left, top, width, height)
                 self.showCroppedImage(image_rect)
 
@@ -388,6 +393,9 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.select = False
                 self.origin = None
 
+                scene_pos = self.mapToScene(event.pos())
+                image_pos = self.pixmapItem.mapFromScene(scene_pos)
+                image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
             
                 data = self.enc.view_tab.get_layer_values_from_to(*image_rect)
                 print(image_rect)
@@ -404,7 +412,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 'Expression': expr
                 })
 
-                self.enc.analysis_tab.add_stats(random_data, rubberband.color, rubberband)
+                self.enc.analysis_tab.analyze_region(random_data, rubberband, image_rect)
 
                 return
             
@@ -416,49 +424,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                 print(self.starting_y - int(image_pos.y()))
 
     
-        
-
-        
-        #     if not self.isEmpty():
-                
-        #         selectedRect = self.rubberBands[-1].geometry()
-        #         print(f"Selected rectangle: {selectedRect}")
-                
-        #         if not selectedRect.isEmpty():
-        #             view_rect = self.viewport().rect()
-        #             print("view_rect:", view_rect)
-                    
-        #             x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
-        #             y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
-        #             print(x_ratio, y_ratio)
-
-        #             self.__qt_image_rect = QRect(
-        #                 int(selectedRect.left() * x_ratio),
-        #                 int(selectedRect.top() * y_ratio),
-        #                 int(selectedRect.width() * x_ratio),
-        #                 int(selectedRect.height() * y_ratio)
-        #             )
-
-        #             left = int(selectedRect.left() * x_ratio)
-        #             top = int(selectedRect.top() * y_ratio)
-        #             right = int(selectedRect.right() * x_ratio)  
-        #             bottom = int(selectedRect.bottom() * y_ratio)  
-        #             image_rect = (left, top, right, bottom)
-                    
-        #             print(image_rect)
-                    
-        #             if self.pixmapItem and 0 <= left < self.pixmapItem.pixmap().width() and 0 <= top < self.pixmapItem.pixmap().height():
-        #                 self.rubberBands[-1].setGeometry(QRect(
-        #                     self.mapFromScene(self.pixmapItem.mapToScene(QPointF(left, top))),
-        #                     self.mapFromScene(self.pixmapItem.mapToScene(QPointF(right, bottom)))
-        #                 ).normalized())
-        #             else:
-        #                 print("Invalid coordinates or pixmapItem is None")
-                    
-        #             # Call the method with the color of the rubber band
-        #             # self.parent.analysis_tab.add_line_to_current_graph(self.rubberBandColors[-1])
-        # else: 
-        #     super().mouseReleaseEvent(event)
 
     def showCroppedImage(self, image_rect):
         print("in view.canvas: ", self.currentChannelNum)
