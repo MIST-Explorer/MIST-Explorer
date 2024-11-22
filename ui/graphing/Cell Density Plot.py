@@ -3,8 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
+# this seems to be just a style of plot, not exactly a concrete plot.
 
 class CellDensityPlot(QMainWindow):
     def __init__(self):
@@ -129,4 +131,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     main = CellDensityPlot()
     main.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

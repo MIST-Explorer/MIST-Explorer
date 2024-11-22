@@ -14,14 +14,34 @@ class Ui_MainWindow(QMainWindow):
         QImageReader.setAllocationLimit(0)
         super().__init__()
         
-        self.shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
-        self.shortcut.activated.connect(self.select)
+        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        self.analysis_shortcut.activated.connect(self.select)
+        
+        self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.save_shortcut.activated.connect(self.save)
         
         self.setupUI()
 
     def select(self):
         print("selecting")
         self.canvas.select = True
+    
+    def save(self):
+        from PIL import Image
+        from PyQt6.QtWidgets import QFileDialog
+        import numpy as np
+        
+        file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
+        
+        if file_name:
+            pixmap = self.canvas.grab().toImage()
+            buffer = pixmap.bits().asstring(pixmap.width() * pixmap.height() * pixmap.depth() // 8)
+            image = np.frombuffer(buffer, dtype=np.uint8).reshape((pixmap.height(), pixmap.width(), pixmap.depth() // 8))
+            if image.shape[2] == 4:  # If the image has an alpha channel
+                image = image[:, :, :3]  # Remove the alpha channel
+            image = image[:, :, ::-1]  # Convert BGR to RGB
+            Image.fromarray(image).save(file_name)
+        
     
     def setupUI(self):
         self.resize(1280, 800)
@@ -31,7 +51,7 @@ class Ui_MainWindow(QMainWindow):
         self.main_layout = QHBoxLayout() # main layout to add align canvas and the tab
 
         # add a menubar
-        self.menubar = MenuBarUI(self)
+        self.menubar = MenuBarUI(self, enc=self)
 
         # add a toolbar
         self.toolBar = ToolBarUI(self)
@@ -72,7 +92,7 @@ class Ui_MainWindow(QMainWindow):
         
         ####### analysis tab #######################################
 
-        self.analysis_tab = AnalysisTab(self.canvas)
+        self.analysis_tab = AnalysisTab(self.canvas, self)
         self.analysis_tab.resize(200, 100)
         self.analysis_tab.setObjectName("analysis_tab")
         self.tabWidget.addTab(self.analysis_tab, "")

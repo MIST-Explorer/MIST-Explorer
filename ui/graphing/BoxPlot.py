@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
 class BoxPlotCanvas(FigureCanvas):
     def __init__(self, parent=None):
         fig, self.ax = plt.subplots(figsize=(12, 8))
@@ -55,9 +54,3 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         self.canvas = BoxPlotCanvas(self)
         layout.addWidget(self.canvas)
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    main_window = MainWindow()
-    main_window.show()
-    sys.exit(app.exec())

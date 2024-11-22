@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import itertools
 
+# in all odds, not going to work!
 
 def plot():
     # Load your dataset from the Excel file
@@ -230,4 +231,4 @@ def plot():
 
 
 if __name__ == '__main__':
-    Neighbor()
+    plot()

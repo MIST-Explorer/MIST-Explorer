@@ -1,67 +1,10 @@
-from PyQt6.QtWidgets import QScrollArea, QVBoxLayout, QWidget, QLabel, QApplication, QPushButton, QHBoxLayout
+
+
+
+# from PyQt6.QtWidgets import QStyledItemDelegate, QComboBox, QScrollArea, QVBoxLayout, QWidget, QLabel, QApplication, QPushButton, QHBoxLayout
+from PyQt6.QtWidgets import *
 from PyQt6.QtCore import pyqtSignal
-import random
-
-import ui.graphing.Test as test
-
-import sys
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
-class BoxPlotCanvas(FigureCanvas):
-    def __init__(self, parent=None):
-        fig, self.ax = plt.subplots(figsize=(12, 8))
-        super().__init__(fig)
-        self.setParent(parent)
-        self.plot_boxplot()
-
-    def plot_boxplot(self):
-        # Load your dataset from the Excel file
-        file_path = r"C:\\Users\\jason\Multiplex Biotechnology Lab\\app\\protein_visualization_app\\ui\\graphing\\Grouped Cells Biopsy Data.xlsx"
-        data = pd.read_excel(file_path)
-
-        # Define the region of interest
-        x_min, y_min = 0, 0  # Adjust these coordinates as needed
-        x_max, y_max = 12000, 12000
-
-        # Filter the dataset to include only cells within the specified region
-        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
-                             (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
-
-        # Extract the list of all proteins dynamically based on the column range
-        protein_columns = filtered_data.columns[13:15]  # Assuming proteins start at the 4th column
-
-        # Filter data to include only the protein expression columns
-        protein_data = filtered_data[protein_columns]
-
-        # Reshape the data for seaborn boxplot (melt to "long" format)
-        protein_data_melted = protein_data.melt(var_name='Protein', value_name='Expression')
-
-        # Plot the boxplot
-        sns.boxplot(x='Protein', y='Expression', data=protein_data_melted, palette='Set2', showfliers=False, ax=self.ax)
-
-        # Customize the plot
-        self.ax.set_xticklabels(self.ax.get_xticklabels(), rotation=90, )
-        self.ax.set_yticklabels(self.ax.get_yticklabels(), )
-        self.ax.set_xlabel('Protein', )
-        self.ax.set_ylabel('Expression Level', )
-        self.ax.set_title(f'Prot. Exp. Box Plot', )
-        plt.subplots_adjust(bottom=0.25)
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Protein Expression Box Plot")
-        self.setGeometry(100, 100, 1280, 720)
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-        self.canvas = BoxPlotCanvas(self)
-        layout.addWidget(self.canvas)
-
+from PyQt6.QtGui import QColor
 
 import sys
 import pandas as pd
@@ -71,184 +14,59 @@ import seaborn as sns
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-class CellDensityPlot(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle('Cell Density Plot')
-        self.setGeometry(100, 100, 800, 600)
-        self.main_widget = QWidget(self)
-        self.setCentralWidget(self.main_widget)
-        layout = QVBoxLayout(self.main_widget)
-        
-        # Create the plot
-        self.figure, self.ax = plt.subplots(2, 1, figsize=(30, 40), constrained_layout=True)
-        self.canvas = FigureCanvas(self.figure)
-        layout.addWidget(self.canvas)
-        
-        self.plot_cell_density()
-
-    def plot_cell_density(self):
-        sns.set_style('ticks')
-        # Load your dataset
-        file_path = r"C:\\Users\\jason\\Multiplex Biotechnology Lab\\app\\protein_visualization_app\\ui\\graphing\\Grouped Cells Biopsy Data.xlsx"
-        data = pd.read_excel(file_path)
-
-        # Define regions of interest using their coordinates (x_min, y_min, x_max, y_max)
-        regions = {
-            "T Cell Enriched": (7400, 6800, 10800, 7800),
-            "B Cell Enriched": (4200, 2900, 6200, 3200),
-            "Injured Area": (6000, 4400, 9500, 6200),
-            "Glomerular": (0, 0, 3600, 3600),
-        }
-
-        # Markers of interest (e.g., CD3, CD20)
-        markers = ['CD3', 'CD20', 'CD163']
-
-        # Store the results
-        region_data = []
-
-        # Loop over each region and each marker to calculate the total number of cells expressing each marker
-        for region_name, (x_min, y_min, x_max, y_max) in regions.items():
-            # Filter cells within the region, correcting for y_min as top and y_max as bottom
-            cells_in_region = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
-                                (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
-
-            # Calculate the total number of cells
-            total_cells = len(cells_in_region)
-
-            # Store results for each marker in the current region
-            region_marker_data = {'Region': region_name, 'Total Cells': total_cells}
-
-            for marker in markers:
-                # Count cells expressing the marker above the threshold (e.g., > 2000)
-                marker_positive_cells = len(cells_in_region[cells_in_region[marker] > 2000])
-
-                # Calculate percentage of cells expressing the marker
-                if total_cells > 0:
-                    marker_percentage = (marker_positive_cells / total_cells) * 100
-                else:
-                    marker_percentage = 0
-
-                # Store the results for the marker
-                region_marker_data[f'{marker} Positive Cells'] = marker_positive_cells
-                region_marker_data[f'{marker} %'] = marker_percentage
-
-            # Add the result for the current region
-            region_data.append(region_marker_data)
-
-        # Convert results to a DataFrame for easy plotting
-        region_df = pd.DataFrame(region_data)
-
-        # Plotting the results: Stacked bar plot
-        ax = self.ax
-
-        # Define a color palette for the markers
-        colors = plt.get_cmap('Set1')(np.linspace(0, 1, len(markers)))
-
-        # Plot the percentages with improved styling
-        bottom = np.zeros(len(region_df))
-        for i, marker in enumerate(markers):
-            ax[0].bar(region_df['Region'], region_df[f'{marker} %'], bottom=bottom, label=marker, color=colors[i])
-            bottom += region_df[f'{marker} %'].values  # Update the bottom for stacking
-
-        # Label the percentage plot
-        ax[0].set_ylabel('Percentage of Marker+ Cells',)
-        ax[0].set_title('Marker Density Percentage Across Regions')
-        ax[0].legend(title='Markers', )
-        ax[0].tick_params(axis='x', rotation=45, )
-        ax[0].tick_params(axis='y', )
-        ax[0].spines['top'].set_visible(False)
-        ax[0].spines['right'].set_visible(False)
-
-        # Plot the total counts with improved styling
-        width = 0.1  # Bar width for better spacing
-        x = np.arange(len(region_df))
-
-        for i, marker in enumerate(markers):
-            ax[1].bar(x + i * width, region_df[f'{marker} Positive Cells'], width=width, label=marker, color=colors[i])
-
-        # Label the total counts plot
-        ax[1].set_ylabel('Number of Marker+ Cells',)
-        ax[1].set_title('Total Marker+ Cells Across Regions', )
-        ax[1].legend(title='Markers',)
-        ax[1].set_xticks(x + width / 2 * (len(markers) - 1))
-        ax[1].set_xticklabels(region_df['Region'], rotation=45)
-        ax[1].tick_params(axis='y', labelsize=12)
-        ax[1].spines['top'].set_visible(False)
-        ax[1].spines['right'].set_visible(False)
-
-        # Fine-tune the layout and add gridlines
-        plt.grid(visible=True, which='both', axis='y', linestyle='--', linewidth=0.5)
-
-        # Adjust margins for better spacing
-        plt.subplots_adjust(left=0.15, bottom=0.15)
-
-        # Draw the canvas
-        self.canvas.draw()
-
-        # Print the results in table format for inspection
-        print(region_df)
-        # plt.savefig('plot.png', dpi=300, bbox_inches='tight')
-
+from ui.graphing.ZScoreHeatmapWindow import ZScoreHeatmapWindow 
+from ui.graphing.SpatialHeatmapUpdated import HeatmapWindow
 
 class AnalysisTab(QWidget):
-    add_graph_signal = pyqtSignal()
 
-    def __init__(self, pixmap_label):
+    def __init__(self, pixmap_label, enc):
         super().__init__()
 
-        self.graphs = []
-        self.current_graph_index = 0
+        self.views = []  # List to hold views
+        self.view_index = 0  # Current view index
+
+        self.enc = enc
+
+        self.graphs = []  # List of lists to hold graphs for each view
+        self.graph_index = 0  # Current graph index for the active view
+
+        self.rubberbands = []
 
         self.initUI()
-        self.add_graph_signal.connect(self.add_graph_to_new_view)
-
-        # Add CellDensityPlot as one of the plots
-        self.add_cell_density_plot()
-        self.add_box_plot_canvas()
-        
-    def add_box_plot_canvas(self):
-        box_plot_canvas = BoxPlotCanvas()
-        self.graphs.append(box_plot_canvas)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
-
-    def add_cell_density_plot(self):
-        cell_density_plot = CellDensityPlot()
-        self.graphs.append(cell_density_plot)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
 
     def initUI(self):
         main_layout = QVBoxLayout()
 
-        # Add navigation buttons
+        # Navigation buttons for views
         nav_layout = QHBoxLayout()
+
+        self.save_button = QPushButton("Save Plot")
         self.back_button = QPushButton("< Back")
         self.next_button = QPushButton("Next >")
-        self.back_button.clicked.connect(self.show_previous_graph)
-        self.next_button.clicked.connect(self.show_next_graph)
+
+        self.save_button.clicked.connect(self.save_current_plot)
+        self.back_button.clicked.connect(self.prev_view)
+        self.next_button.clicked.connect(self.next_view)
+
+        nav_layout.addWidget(self.save_button)
         nav_layout.addWidget(self.back_button)
         nav_layout.addWidget(self.next_button)
 
         main_layout.addLayout(nav_layout)
 
-        # Add buttons for adding random graphs
-        add_graph_layout = QHBoxLayout()
-        # self.add_random_graph_new_view_button = QPushButton("Add Random Graph to New View")
-        # self.add_random_graph_current_view_button = QPushButton("Add Random Graph to Current View")
-        # self.add_random_graph_new_view_button.clicked.connect(self.add_random_graph_to_new_view)
-        # self.add_random_graph_current_view_button.clicked.connect(self.add_random_graph_to_current_view)
-        # add_graph_layout.addWidget(self.add_random_graph_new_view_button)
-        # add_graph_layout.addWidget(self.add_random_graph_current_view_button)
+        # Graph navigation buttons
+        self.graph_nav_layout = QHBoxLayout()
 
-        main_layout.addLayout(add_graph_layout)
+        self.back_plot_button = QPushButton("< Previous Graph")
+        self.next_plot_button = QPushButton("Next Graph >")
 
-        # Add button for adding a new line to the current graph
-        # self.add_line_button = QPushButton("Add Line to Current Graph")
-        # self.add_line_button.clicked.connect(self.add_line_to_current_graph)
-        # main_layout.addWidget(self.add_line_button)
+        self.back_plot_button.clicked.connect(self.prev_graph)
+        self.next_plot_button.clicked.connect(self.next_graph)
 
+        self.graph_nav_layout.addWidget(self.back_plot_button)
+        self.graph_nav_layout.addWidget(self.next_plot_button)
+
+        # Scrollable area for the current view
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_content = QWidget()
@@ -256,74 +74,260 @@ class AnalysisTab(QWidget):
         self.scroll_area.setWidget(self.scroll_content)
 
         main_layout.addWidget(self.scroll_area)
+        main_layout.addLayout(self.graph_nav_layout)
 
         self.setLayout(main_layout)
 
-        # Add initial graph
-        self.add_graph_to_new_view()
+    def delete_view(self):
+        if self.views:
+            self.graphs.pop(self.view_index)
+            self.views.pop(self.view_index) 
 
-    def add_graph_to_new_view(self):
-        sc = test.Window()
-        self.graphs.append(sc)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
+            self.rubberbands[self.view_index].hide()
+            self.rubberbands.pop(self.view_index)
+            if len(self.views) == 0:
+                for i in reversed(range(self.scroll_layout.count())):
+                    widget = self.scroll_layout.itemAt(i).widget()
+                    if widget is not None:
+                        widget.setParent(None)
+            else:
+                self.set_view(self.view_index - 1)
+                self.view_index -= 1
+                self.graph_index -= 1
+                self.rubberbands[self.view_index].setFilled(True)
 
-    def add_graph_to_current_view(self):
-        sc = test.Window()
-        self.scroll_layout.addWidget(sc)
+            # self.update_graph_navigation()
 
-    def add_random_graph_to_new_view(self):
-        sc = self.create_random_graph()
-        self.graphs.append(sc)
-        self.current_graph_index = len(self.graphs) - 1
-        self.show_graph(self.current_graph_index)
-
-    def add_random_graph_to_current_view(self):
-        sc = self.create_random_graph()
-        self.scroll_layout.addWidget(sc)
-
-    def create_random_graph(self):
-        # This function should create and return a random graph
-        # For demonstration purposes, we'll just return a new test.Window()
-        return test.Window()
-
-    def show_graph(self, index):
-        # Clear the current layout
+    def set_view(self, index):
+        """Sets the current view by index."""
         for i in reversed(range(self.scroll_layout.count())):
             widget = self.scroll_layout.itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
 
-        # Add the new graph
-        self.scroll_layout.addWidget(self.graphs[index])
+        # Add the first graph of the selected view
+        if self.graphs and self.graphs[index]:
+            self.scroll_layout.addWidget(self.graphs[index][0])
+            self.scroll_layout.addWidget(self.views[index])
 
-        # Update button states
+        # Update navigation button states
         self.back_button.setEnabled(index > 0)
-        self.next_button.setEnabled(index < len(self.graphs) - 1)
+        self.next_button.setEnabled(index < len(self.views) - 1)
 
-    def show_previous_graph(self):
-        if self.current_graph_index > 0:
-            self.current_graph_index -= 1
-            self.show_graph(self.current_graph_index)
+        self.update_graph_navigation()
 
-    def show_next_graph(self):
-        if self.current_graph_index < len(self.graphs) - 1:
-            self.current_graph_index += 1
-            self.show_graph(self.current_graph_index)
+    def update_graph_navigation(self):
+        """Updates the graph navigation buttons."""
+        self.back_plot_button.setEnabled(self.graph_index > 0)
+        self.next_plot_button.setEnabled(self.graph_index < len(self.graphs[self.view_index]) - 1)
 
-    def add_line_to_current_graph(self, color):
-        if self.graphs:
-            current_graph = self.graphs[self.current_graph_index]
-            current_graph.redraw(color)
+    def add_new_view(self):
+        """Adds a new view."""
+        sc = QWidget()
+        self.views.append(sc)
+        self.graphs.append([])  # Add a new list for graphs in this view
+        self.view_index = len(self.views) - 1
+        self.graph_index = 0
+        self.set_view(self.view_index)
 
-    def get_random_color(self):
-        return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+    def next_view(self):
+        """Navigate to the next view."""
+        self.unfill_rubberband()
+        if self.view_index < len(self.views) - 1:
+            self.view_index += 1
+            self.set_view(self.view_index)
+            self.fill_rubberband()
+
+    def prev_view(self):
+        """Navigate to the previous view."""
+        self.unfill_rubberband()
+        if self.view_index > 0:
+            self.view_index -= 1
+            self.set_view(self.view_index)
+            self.fill_rubberband()
+
+    def add_graph_to_view(self, graph_widget):
+        """Adds a new graph to the current view."""
+        if self.views:
+            self.graphs[self.view_index].append(graph_widget)
+            self.graph_index = len(self.graphs[self.view_index]) - 1
+            self.set_view(self.view_index)
+
+    def next_graph(self):
+        """Navigate to the next graph in the current view."""
+        if self.graph_index < len(self.graphs[self.view_index]) - 1:
+            self.graph_index += 1
+            self.display_current_graph()
+
+    def prev_graph(self):
+        """Navigate to the previous graph in the current view."""
+        if self.graph_index > 0:
+            self.graph_index -= 1
+            self.display_current_graph()
+
+    def display_current_graph(self):
+        """Displays the current graph in the current view."""
+        for i in reversed(range(self.scroll_layout.count())):
+            widget = self.scroll_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+
+        current_graph = self.graphs[self.view_index][self.graph_index]
+        self.scroll_layout.addWidget(current_graph)
+        self.scroll_layout.addWidget(self.views[self.view_index])
+        self.update_graph_navigation()
 
 
-if __name__ == "__main__":
-    import sys
-    app = QApplication(sys.argv)
-    pixmap_label = QLabel()
-    analysis_tab = AnalysisTab(pixmap_label)
-    analysis_tab.show()
-    sys.exit(app.exec())
+    # if len(self.rubberbands) != 0:
+    #     self.rubberbands[self.view_index].setFilled(False) 
+
+    # self.rubberbands.append(rubberband)
+    # self.add_new_view()
+    # self.fill_rubberband()
+
+    def analyze_region(self, random_data, rubberband, region):
+        """Analyzes a selected region and adds corresponding graphs."""
+        if len(self.rubberbands) != 0:
+            self.rubberbands[self.view_index].setFilled(False) 
+
+        self.rubberbands.append(rubberband)
+
+        file_path = r"/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
+        data = pd.read_excel(file_path)
+        # data = self.enc.view_tab.load_df()
+        print(data)
+        print()
+    
+        # Create a new widget to display the results
+        result_widget = QWidget()
+        result_layout = QVBoxLayout(result_widget)
+        result_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create a horizontal layout for the result details
+        result_details_layout = QHBoxLayout()
+
+        # Add a label saying "Selection Results"
+        multiComboBox = MultiComboBox()
+        multiComboBox.addItems(data.columns)
+        result_details_layout.addWidget(multiComboBox)
+
+        # Add a delete button (not hooked up to anything yet)
+        delete_button = QPushButton("Delete")
+        delete_button.clicked.connect(self.delete_view)
+        result_details_layout.addWidget(delete_button)
+
+        # Add a rectangle with the color converted to RGB
+        pyqt_color_rgb = QColor(rubberband.color).getRgb()[:3]
+        color_label = QLabel()
+        color_label.setFixedSize(100, 50)
+        color_label.setStyleSheet(f"background-color: rgb({pyqt_color_rgb[0]}, {pyqt_color_rgb[1]}, {pyqt_color_rgb[2]});")
+        result_details_layout.addWidget(color_label)
+
+        # Add the horizontal layout to the main vertical layout
+        result_layout.addLayout(result_details_layout)
+
+        self.scroll_layout.addWidget(result_widget)
+        self.add_new_view()
+        self.next_view()
+
+        
+
+        # Example: Adding graphs to the current view
+        box_plot_graph = self.box_plot(random_data)
+        zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in region])
+
+        self.add_graph_to_view(box_plot_graph)
+        self.add_graph_to_view(zscore_heatmap_graph)
+
+        self.views[-1] = result_widget
+        self.scroll_layout.addWidget(result_widget)
+
+        self.rubberbands[-1].setFilled(True)
+
+    def box_plot(self, data):
+        """Creates a box plot."""
+        result_widget = QWidget()
+        result_layout = QVBoxLayout(result_widget)
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+        ax.boxplot(data["Expression"], labels=data['Protein'].unique(), showfliers=False)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+        ax.set_xlabel('Protein')
+        ax.set_ylabel('Expression Level')
+        ax.set_title('Random Protein Expression Box Plot')
+        plt.subplots_adjust(bottom=0.25)
+
+        result_layout.addWidget(FigureCanvas(fig))
+        return result_widget
+
+    def save_current_plot(self):
+        if self.views:
+            current_graph = self.views[self.view_index]
+            if isinstance(current_graph, FigureCanvas):
+                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
+                if file_path:
+                    current_graph.figure.savefig(file_path)
+            elif isinstance(current_graph, QMainWindow):
+                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
+                if file_path:
+                    current_graph.figure.savefig(file_path)
+
+    def unfill_rubberband(self):
+        try:
+            self.rubberbands[self.view_index].setFilled(False)
+        except Exception as e:
+            print(e)
+
+    def fill_rubberband(self):
+        self.rubberbands[self.view_index].setFilled(True)
+
+from PyQt6.QtGui import QStandardItemModel, QStandardItem
+from PyQt6.QtWidgets import QComboBox
+from PyQt6.QtCore import Qt
+
+class MultiComboBox(QComboBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        self.setModel(QStandardItemModel(self))
+
+        # Connect to the dataChanged signal to update the text
+        self.model().dataChanged.connect(self.updateText)
+
+    def addItem(self, text: str, data=None):
+        item = QStandardItem()
+        item.setText(text)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+        item.setData(Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
+        self.model().appendRow(item)
+
+    def addItems(self, items_list: list):
+        for text in items_list:
+            self.addItem(text)
+
+    def updateText(self):
+        selected_items = [self.model().item(i).text() for i in range(self.model().rowCount())
+                          if self.model().item(i).checkState() == Qt.CheckState.Checked]
+        self.lineEdit().setText(", ".join(selected_items))
+
+    def showPopup(self):
+        super().showPopup()
+        # Set the state of each item in the dropdown
+        for i in range(self.model().rowCount()):
+            item = self.model().item(i)
+            combo_box_view = self.view()
+            combo_box_view.setRowHidden(i, False)
+            check_box = combo_box_view.indexWidget(item.index())
+            if check_box:
+                check_box.setChecked(item.checkState() == Qt.CheckState.Checked)
+
+    def hidePopup(self):
+        # Update the check state of each item based on the checkbox state
+        for i in range(self.model().rowCount()):
+            item = self.model().item(i)
+            combo_box_view = self.view()
+            check_box = combo_box_view.indexWidget(item.index())
+            if check_box:
+                item.setCheckState(Qt.CheckState.Checked if check_box.isChecked() else Qt.CheckState.Unchecked)
+        super().hidePopup()

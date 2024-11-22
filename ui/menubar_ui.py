@@ -3,7 +3,9 @@ from PyQt6.QtCore import QRect, QCoreApplication
 from ui.tool import Action
 
 class MenuBarUI(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, enc=None):
+        self.enc = enc
+
         super().__init__()
         self.menubar = QMenuBar(parent)
         self.menubar.setGeometry(QRect(0, 0, 1061, 22))
@@ -29,6 +31,7 @@ class MenuBarUI(QWidget):
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
         self.menuFile.setTitle(_translate("MainWindow", "File"))
+        
         self.actionOpenReference.setText(_translate("MainWindow", "Open Reference"))
         self.menuOpen.setTitle(_translate("MainWindow", "Open"))
         self.actionOpen.setText(_translate("MainWindow", "Open Image"))
@@ -38,6 +41,6 @@ class MenuBarUI(QWidget):
         self.actionSaveAs.triggered.connect(self.print_hello)
 
     def print_hello(self):
-        print('hello')
+        self.enc.save()
 
 
