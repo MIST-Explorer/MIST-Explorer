@@ -28,14 +28,18 @@ class StarDist(QObject):
         self.params = {
         'channel': 'Channel 1',
         'model': '2D_versatile_fluo',
-        'percentile_low' : 1.00,
+        'percentile_low' : 3,
         'percentile_high': 99.80,
         'prob_threshold': 0.48,
         'nms_threshold': 0.3,
-        'n_tiles': 10,
+        'n_tiles': 0,
         'radius': 5,
         }
-    
+        self.aligned = False
+
+    def loadCellImage(self, arr):
+        self.cell_image = arr
+        self.aligned = True
 
     def runStarDist(self):
         print(self.np_channels, self.np_image)
@@ -61,36 +65,38 @@ class StarDist(QObject):
             self.stardist_worker.start()
             
             self.stardist_worker.signal.connect(self.onStarDistCompleted)
-        
-    def stardistTask(self):
-
+    def getCellImage(self):
+        if self.aligned:
+            return self.cell_image
         # case: image has one channel
-        if self.np_channels is None and self.np_image:
-            arr = self.np_image
+        elif self.np_channels is None and self.np_image:
+            return self.np_image
         #
         elif self.np_channels and self.np_image is None:
-            arr = self.np_channels[self.params['channel']] 
+            return self.np_channels[self.params['channel']] 
+        
+    def stardistTask(self):
+        cell_image = self.getCellImage()
 
+        adjusted = cv.convertScaleAbs(cell_image, alpha=(255.0/65535.0))
+    
+        alpha = 5 # Contrast control
+        beta = 15 # Brightness control
+        adjusted = cv.convertScaleAbs(adjusted, alpha=alpha, beta=beta)
+        cv.imshow('Image Window',adjusted)
+
+        cv.waitKey(0)
+
+        cv.destroyAllWindows()
+        
         self.progress.emit(0, "Starting StarDist")
         model = StarDist2D.from_pretrained(str(self.params['model']))
-
-        # # scale down image if it's a large image
-        # scaleDown = arr.shape[0] > 10000
-
-        # if scaleDown:
-        #     scale_factor = 1
-        #     cell_image = cv.resize(arr, (0, 0), fx = 1 / scale_factor , fy = 1 / scale_factor)
-
-        # else:
-        #     cell_image = arr
                         
         self.progress.emit(25, "Training model")
 
-        cell_image = arr
-
         if self.params['n_tiles'] == 0:
             guess_tiles= model._guess_n_tiles(cell_image)
-            total_tiles = int(guess_tiles[0] * guess_tiles[1])
+            # total_tiles = int(guess_tiles[0] * guess_tiles[1])
             # self.setNumberTiles(n_tiles)
             stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                             prob_thresh=self.params['prob_threshold'], 
@@ -103,13 +109,6 @@ class StarDist(QObject):
                                                             nms_thresh=self.params['nms_threshold'], 
                                                             n_tiles =(self.params['n_tiles'], (self.params['n_tiles'])))
             
-
-        # # size it back to original
-        # if scaleDown:
-        #     # cv resize takes uint8 or uint16, can't do uint32
-        #     normalized_image = cv.normalize(stardist_labels, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX).astype(np.uint8)
-        #     stardist_labels = cv.resize(normalized_image, (0, 0), fx = scale_factor , fy = scale_factor, interpolation=cv.INTER_NEAREST)
-
         # dilate
         radius = self.params['radius']
 
@@ -118,31 +117,20 @@ class StarDist(QObject):
         print("dilating...")
         self.progress.emit(95, "Dilating")
 
-        # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='w+', shape=stardist_labels.shape)
-        # data[:] = stardist_labels[:]
-        # data.flush()
 
-        # data = np.memmap('filename', dtype=stardist_labels.dtype, mode='r', shape=stardist_labels.shape)
-
-        self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius)).astype(np.uint8)
+        self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius), dtype=np.uint16)
+        print("stardist type is", self.stardist_labels_grayscale.dtype)
 
 
-
-        # print("generating lut...")
-        # self.progress.emit(97, "generating LUT")
-
-        # lut = self.generate_lut("viridis")
-
-        # print("converting label to rgb...")
-        # stardist_labels_rgb = self.label2rgb(stardist_labels_grayscale, lut).astype(np.uint8)
-        # self.progress.emit(99, "converting to rgb")
         end_time = time.time()  
         print(start_time - end_time)
-        # convert to pixmap
-        # stardist_qimage = numpy_to_qimage(stardist_labels_rgb)
-        # stardist_pixmap = QPixmap(stardist_qimage)
-        self.progress.emit(100, "Done")
+
+        self.progress.emit(100, "Stardist Done")
         return ImageType("stardist", self.stardist_labels_grayscale)
+    
+    def cancel(self):
+        self.stardist_worker.terminate()
+
 
     def saveImage(self):
         from PIL import Image

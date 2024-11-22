@@ -30,7 +30,7 @@ class Controller:
         self.view.menubar.actionOpen.triggered.connect(self.on_actionOpen_triggered)
         
         # self.view.connect()
-
+        self.view.register_groupbox.has_blue_color.currentTextChanged.connect(self.model_register.hasBlueColor)
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
         # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
@@ -39,7 +39,8 @@ class Controller:
         self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
-
+        # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
+        self.model_canvas.changeSlider.connect(self.view.toolBar.updateContrastSlider)
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
         self.view.small_view.imageDropped.connect(self._small_view.addImage)
@@ -52,6 +53,8 @@ class Controller:
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
+        self.model_canvas.channelLoaded.connect(self.view.register_groupbox.updateChannelSelector) #update stardist channel combobox
+
         self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
         self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
         self.model_canvas.channelLoaded.connect(self.model_register.updateChannels)
@@ -59,7 +62,7 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
-
+        self.model_canvas.errorSignal.connect(self.handleError)
         self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.channels for further image_processing   
         
         # crop signals
@@ -94,44 +97,49 @@ class Controller:
         self.model_stardist.stardistDone.connect(self.model_cellIntensity.loadStardistLabels)
         self.model_stardist.errorSignal.connect(self.handleError)
         self.model_stardist.progress.connect(self.view.updateProgressBar)
-        # self.model_stardist.stardistDone.connect(self.view.view_tab.loadStarDistLabels)
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
-        # generate cell data signals
-        # change params
-        self.view.cellIntensity_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
-        self.view.cellIntensity_groupbox.protein_cell_layer.currentTextChanged.connect(self.model_register.setCellLayer)
-        self.view.cellIntensity_groupbox.intensity_layer.currentTextChanged.connect(self.model_register.setProteinDetectionLayer)
-        self.view.cellIntensity_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
-        self.view.cellIntensity_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
-        self.view.cellIntensity_groupbox.num_cycles.valueChanged.connect(self.model_cellIntensity.setNumDecodingCycles)
-        self.view.cellIntensity_groupbox.num_layers_each.valueChanged.connect(self.model_cellIntensity.setNumDecodingColors)
-        self.view.cellIntensity_groupbox.num_tiles.valueChanged.connect(self.model_cellIntensity.setNumTiles)
-        self.view.cellIntensity_groupbox.radius_fg.valueChanged.connect(self.model_cellIntensity.setRadiusFG)
-        self.view.cellIntensity_groupbox.radius_bg.valueChanged.connect(self.model_cellIntensity.setRadiusBG)
 
+
+
+
+        # registration
+        # change params
+        self.view.register_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
+        self.view.register_groupbox.protein_cell_layer.currentTextChanged.connect(self.model_register.setCellLayer)
+        self.view.register_groupbox.intensity_layer.currentTextChanged.connect(self.model_register.setProteinDetectionLayer)
+        self.view.register_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
+        self.view.register_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
+        self.view.register_groupbox.num_tiles.valueChanged.connect(self.model_register.setNumTiles)
+        self.view.register_groupbox.run_button.clicked.connect(self.model_register.runRegister)
+        self.model_register.cell_image_signal.connect(self.model_stardist.loadCellImage)
+        self.model_register.protein_signal_arr_signal.connect(self.model_cellIntensity.loadProteinSignalArray)
+
+        # generate cell data
         self.view.cellIntensity_groupbox.bead_data.clicked.connect(self.view.cellIntensity_groupbox.loadBeadData)
         self.view.cellIntensity_groupbox.color_code.clicked.connect(self.view.cellIntensity_groupbox.loadColorCode)
         self.view.cellIntensity_groupbox.emitBeadData.connect(self.model_cellIntensity.getBeadData)
         self.view.cellIntensity_groupbox.emitColorCode.connect(self.model_cellIntensity.getColorCode)
-
+        self.view.cellIntensity_groupbox.num_cycles.valueChanged.connect(self.model_cellIntensity.setNumDecodingCycles)
+        self.view.cellIntensity_groupbox.num_layers_each.valueChanged.connect(self.model_cellIntensity.setNumDecodingColors)
+        self.view.cellIntensity_groupbox.radius_fg.valueChanged.connect(self.model_cellIntensity.setRadiusFG)
+        self.view.cellIntensity_groupbox.radius_bg.valueChanged.connect(self.model_cellIntensity.setRadiusBG)
         self.view.cellIntensity_groupbox.run_button.clicked.connect(self.model_cellIntensity.generateCellIntensityTable)
 
         self.model_cellIntensity.errorSignal.connect(self.handleError)
         self.view.cellIntensity_groupbox.save_button.clicked.connect(self.model_cellIntensity.saveCellData)        
 
-        self.model_register.imageReady.connect(self.model_cellIntensity.isReady)
         self.model_register.progress.connect(self.view.updateProgressBar)
-        
-        # Display Butterfly
-        # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
-        
-        # Save photo
-        # self.model_stardist.stardistDone.connect(self.model_canvas.toPixmapItem)
+        self.model_cellIntensity.progress.connect(self.view.updateProgressBar)
         
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
         self.view.tabWidget.currentChanged.connect(self.view.onChange)
 
+
+        # cancel process
+        self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)
+        self.view.cellIntensity_groupbox.cancel_button.clicked.connect(self.model_cellIntensity.cancel)
+        self.view.stardist_groupbox.cancel_button.clicked.connect(self.model_stardist.cancel)
     def handleError(self, error_message):
         QMessageBox.critical(self.view,"Error", error_message)
 

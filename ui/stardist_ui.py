@@ -42,7 +42,7 @@ class StarDistUI(QWidget):
         self.stardist_label2 = QLabel(self.stardist_groupbox)
         self.stardist_hlayout2.addWidget(self.stardist_label2)
         self.percentile_low = QDoubleSpinBox(self.stardist_groupbox)
-        self.percentile_low.setProperty("value", 1.0)
+        self.percentile_low.setProperty("value", 3.0)
         self.stardist_hlayout2.addWidget(self.percentile_low)
         self.stardist_components_vlayout.addLayout(self.stardist_hlayout2)
 
@@ -78,7 +78,7 @@ class StarDistUI(QWidget):
         self.stardist_label6 = QLabel(self.stardist_groupbox)
         self.stardist_hlayout6.addWidget(self.stardist_label6)
         self.n_tiles = QSpinBox(self.stardist_groupbox)
-        self.n_tiles.setProperty("value", 10)
+        self.n_tiles.setProperty("value", 0)
         self.stardist_hlayout6.addWidget(self.n_tiles)
         self.stardist_components_vlayout.addLayout(self.stardist_hlayout6)
 
@@ -98,6 +98,9 @@ class StarDistUI(QWidget):
         self.stardist_components_vlayout.addWidget(self.stardist_run_button)
   
 
+        #cancel button
+        self.cancel_button = QPushButton(self.stardist_groupbox)
+        self.stardist_components_vlayout.addWidget(self.cancel_button)
         # save button
         self.save_button = QPushButton(self.stardist_groupbox)
         self.stardist_components_vlayout.addWidget(self.save_button)
@@ -128,3 +131,4 @@ class StarDistUI(QWidget):
         self.stardist_label7.setText(_translate("MainWindow", "Radius"))
         self.stardist_run_button.setText(_translate("MainWindow", "Run"))
         self.save_button.setText(_translate("MainWindow", "Save"))
+        self.cancel_button.setText(_translate("MainWindow", "Cancel"))
