@@ -16,6 +16,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from ui.graphing.ZScoreHeatmapWindow import ZScoreHeatmapWindow 
 from ui.graphing.SpatialHeatmapUpdated import HeatmapWindow
+from ui.graphing.CellDensityPlot import CellDensityPlot
+from ui.graphing.DistributionViewer import DistributionViewer
 
 class AnalysisTab(QWidget):
 
@@ -192,12 +194,10 @@ class AnalysisTab(QWidget):
 
         self.rubberbands.append(rubberband)
 
-        file_path = r"/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
-        data = pd.read_excel(file_path)
-        # data = self.enc.view_tab.load_df()
-        print(data)
-        print()
-    
+        # file_path = r"/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
+        # data = pd.read_excel(file_path)
+        data = self.enc.view_tab.load_df()
+
         # Create a new widget to display the results
         result_widget = QWidget()
         result_layout = QVBoxLayout(result_widget)
@@ -207,9 +207,9 @@ class AnalysisTab(QWidget):
         result_details_layout = QHBoxLayout()
 
         # Add a label saying "Selection Results"
-        multiComboBox = MultiComboBox()
-        multiComboBox.addItems(data.columns)
-        result_details_layout.addWidget(multiComboBox)
+        self.multiComboBox = MultiComboBox()
+        self.multiComboBox.addItems(data.columns[3:])
+        result_details_layout.addWidget(self.multiComboBox)
 
         # Add a delete button (not hooked up to anything yet)
         delete_button = QPushButton("Delete")
@@ -230,15 +230,21 @@ class AnalysisTab(QWidget):
         self.add_new_view()
         self.next_view()
 
-        
-
         # Example: Adding graphs to the current view
+        print("multi", self.multiComboBox.lineEdit().text())
+
         box_plot_graph = self.box_plot(random_data)
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in region])
+        zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in region])
+        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region], [self.multiComboBox.lineEdit().text()])
+        zDistributionViewer = DistributionViewer(data)
 
         self.add_graph_to_view(box_plot_graph)
         self.add_graph_to_view(zscore_heatmap_graph)
-
+        self.add_graph_to_view(zscore_HeatmapWindow)
+        self.add_graph_to_view(zscore_cellDens)
+        self.add_graph_to_view(zDistributionViewer)
+        
         self.views[-1] = result_widget
         self.scroll_layout.addWidget(result_widget)
 

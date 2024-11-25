@@ -9,7 +9,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 # this seems to be just a style of plot, not exactly a concrete plot.
 
 class CellDensityPlot(QMainWindow):
-    def __init__(self):
+    def __init__(self, data, region, markers):
         super().__init__()
         self.setWindowTitle('Cell Density Plot')
         self.setGeometry(100, 100, 800, 600)
@@ -22,24 +22,20 @@ class CellDensityPlot(QMainWindow):
         self.canvas = FigureCanvas(self.figure)
         layout.addWidget(self.canvas)
         
-        self.plot_cell_density()
+        self.plot_cell_density(data, region, markers)
 
-    def plot_cell_density(self):
+    def plot_cell_density(self, data, region, markers):
         sns.set_style('ticks')
         # Load your dataset
-        file_path = r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx"
-        data = pd.read_excel(file_path)
+        
 
         # Define regions of interest using their coordinates (x_min, y_min, x_max, y_max)
         regions = {
-            "T Cell Enriched": (7400, 6800, 10800, 7800),
-            "B Cell Enriched": (4200, 2900, 6200, 3200),
-            "Injured Area": (6000, 4400, 9500, 6200),
-            "Glomerular": (0, 0, 3600, 3600),
+            "region": region,
         }
 
         # Markers of interest (e.g., CD3, CD20)
-        markers = ['CD3', 'CD20', 'CD163']
+        # markers = ['CD3', 'CD20', 'CD163']
 
         # Store the results
         region_data = []

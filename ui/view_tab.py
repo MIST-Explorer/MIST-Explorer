@@ -620,13 +620,13 @@ class ImageOverlay(QWidget):
             return self.loaded_df
     
         
-        print("df path", self.df_path)
+        # print("df path", self.df_path)
         if self.df_path.endswith("csv"):
             df = pd.read_csv(self.df_path)
         if self.df_path.endswith("xlsx"):
             df = pd.read_excel(self.df_path)
 
-        print("df raw", df)
+        # print("df raw", df)
         df = df[df.columns.drop(list(df.filter(regex='N/A')))]
 
         self.loaded_df = df

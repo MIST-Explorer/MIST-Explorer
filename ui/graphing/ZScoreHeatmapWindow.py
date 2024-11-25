@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
@@ -13,6 +14,12 @@ from itertools import combinations
 class ZScoreHeatmapWindow(QMainWindow):
     def __init__(self, data, region, parent=None):
         super().__init__(parent)
+
+        font = {
+        
+        'size'   : 10}
+
+        matplotlib.rc('font', **font)
 
                 # Define region of interest and filter dataset
         x_min, y_min, x_max, y_max = region
@@ -134,7 +141,7 @@ class ZScoreHeatmapWindow(QMainWindow):
         )
 
         # Set the title
-        g.fig.suptitle("Clustered Z-Score Heatmap of Protein Spatial Proximity", fontsize=16)
+        g.fig.suptitle("Clustered Z-Score Heatmap of Protein Spatial Proximity")
 
         # Transfer the clustermap figure to our main figure to embed in PyQt
         self.figure = g.fig
