@@ -54,10 +54,10 @@ class Controller:
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
         self.model_canvas.channelLoaded.connect(self.view.register_groupbox.updateChannelSelector) #update stardist channel combobox
-
         self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
         self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
         self.model_canvas.channelLoaded.connect(self.model_register.updateChannels)
+        self.model_canvas.channelLoaded.connect(self.view.gaussian_blur.updateChannelSelector)
         self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
@@ -75,6 +75,9 @@ class Controller:
 
         self.view.rotate_groupbox.rotate_confirm.pressed.connect(lambda: self.model_canvas.rotateImage(self.view.rotate_groupbox.rotate_line_edit.text()))
 
+        self.view.gaussian_blur.combo_box.currentIndexChanged.connect(self.model_canvas.set_blur_layer)
+        self.view.gaussian_blur.spin_box.valueChanged.connect(self.model_canvas.set_blur_percentage)
+        self.view.gaussian_blur.confirm.clicked.connect(self.model_canvas.blur_layer)
 
         #stardist signals
         #change params

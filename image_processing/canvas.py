@@ -303,9 +303,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         print("rotation channel dtype", list(channels.values())[0].dtype)
 
         for channel in channels.values():
-            print(channel.dtype)
-            print(channel.shape)
-            print(channel.data.contiguous)
             try:
                 if not channel.data.contiguous:
                     print("converting to contiguous array")
@@ -313,12 +310,26 @@ class ImageGraphicsView(__BaseGraphicsView):
             except Exception as e:
                 print("error: ", str(e))
                 
-            height, width = channel.shape
-            center = (int(width/2), int(height/2))
-            rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
-            rotated_arr= cv2.warpAffine(channel, rotation_matrix, (width, height))
-            rotated_arrays.append(rotated_arr)
+            # height, width = channel.shape
+            # center = (int(width/2), int(height/2))
+            # rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
+            # rotated_arr= cv2.warpAffine(channel, rotation_matrix, (width, height))
 
+            # rotate image
+            h,w = channel.shape
+            center = (w/2, h/2)
+            rotation_matrix = cv2.getRotationMatrix2D(center, -angle, 1)
+            cos = np.abs(rotation_matrix[0,0])
+            sin = np.abs(rotation_matrix[0,1])
+            updated_w = int((h*sin) + (w*cos))
+            updated_h = int((h*cos) + (w*sin))
+            rotation_matrix[0,2] += (updated_w/2) - w/2
+            rotation_matrix[1,2] += (updated_h/2) - h/2
+            rotated_arr = cv2.warpAffine(channel, rotation_matrix, (updated_h, updated_h))
+
+            #append to rotated array list
+            rotated_arrays.append(rotated_arr)
+        # convert to qimage
         rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
         return dict(zip(channels.keys(), rotated_images)), dict(zip(channels.keys(), rotated_arrays))
@@ -436,5 +447,29 @@ class ImageGraphicsView(__BaseGraphicsView):
         lut[new_max+1:] = 255
 
         return lut
-
     
+
+    def set_blur_layer(self, layer):
+        self._blur_layer = layer
+
+    def set_blur_percentage(self, blur_percentage):
+        self._blur_percentage = blur_percentage
+
+    def blur_layer(self):
+        """
+        Applies Gaussian blur to the 4th layer (index 3) of the image stack and subtracts
+        the specified percentage of the blurred image from the original.
+        """
+        self.updateProgress.emit(0, "Starting to blur layer")
+        blur_percentage = self._blur_percentage
+        layer = self._blur_layer
+        layer_key = f'Channel {layer}'
+        layer_4 = self.np_channels[layer_key]
+        self.updateProgress.emit(50, "blurring layer")
+        blurred_mask = cv2.GaussianBlur(layer_4, (101, 101), 0)
+        blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
+        corrected_layer_4 = cv2.subtract(layer_4, blurred_mask_adjusted)
+        corrected_layer_4 = np.clip(corrected_layer_4, 0, 65535).astype(np.uint16)
+        self.np_channels[layer_key] = corrected_layer_4 # Replace the 4th layer with the corrected version
+        self.channelLoaded.emit(self.np_channels, False)
+        self.updateProgress.emit(100, "Done")

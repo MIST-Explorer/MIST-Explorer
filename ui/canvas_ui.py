@@ -367,7 +367,6 @@ class ImageGraphicsViewUI(QGraphicsView):
             return
         
         
-
         if event.button() == Qt.MouseButton.LeftButton:  
             rubberband = self.rubberBand if self.begin_crop else self.rubberBands[-1]
              
