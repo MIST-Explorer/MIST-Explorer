@@ -1,0 +1,18 @@
+numpy == 1.26.4
+matplotlib
+astroalign 
+opencv-python
+pillow
+scikit-image
+PyQt6
+SimpleITK
+pystackreg
+diplib 
+tensorflow
+pandas
+QtRangeSlider
+stardist
+seaborn
+pyclesperanto-prototype
+sep
+scikit-image
