@@ -86,7 +86,7 @@ class Ui_MainWindow(QMainWindow):
         
         ####### view tab #######################################
 
-        self.view_tab = ImageOverlay(self.canvas)
+        self.view_tab = ImageOverlay(self.canvas, enc=self)
         self.view_tab.setObjectName("view_tab")
         self.tabWidget.addTab(self.view_tab, "")
         

@@ -9,6 +9,7 @@ import cv2
 import os
 from numba import njit
 from tqdm import tqdm
+from qt_threading import Worker
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -581,9 +582,12 @@ from PyQt6.QtWidgets import QGraphicsView, QRubberBand, QGraphicsScene, QGraphic
 
 class ImageOverlay(QWidget):
     changePix = pyqtSignal(QGraphicsPixmapItem)
+    progress = pyqtSignal(int, str)
     
-    def __init__(self, pixmap_label):
+    def __init__(self, pixmap_label, enc):
         super().__init__()
+
+        self.enc = enc
         
         self.pixmap_label = pixmap_label
         self.active_images = []
@@ -633,9 +637,15 @@ class ImageOverlay(QWidget):
         return df
     
     
+    
+
     def build_all(self):
         
         import time 
+
+        
+
+        
         
         if not hasattr(self, 'im_path'):
 
@@ -651,19 +661,26 @@ class ImageOverlay(QWidget):
         
         print('buidling all')
         reduced_cell_img = (self.load_stardist_image()).astype(np.uint16)
+        self.progress.emit(15, "Loaded Stardist image")
         df = self.load_df()
         self.df = df
         print(" df loaded")
+        self.progress.emit(35, "Loaded Dataframe")
         
         start = time.time()
+
+        
         
         ims = [write_protein(np.array(df[protein_name]), np.array(reduced_cell_img)) for protein_name in df.columns[3:]]
+        self.progress.emit(70, "Images generated")
         print("ims write", time.time() - start)
         ims = [adjust_contrast(im) for im in ims]  
         print("contrast adjusted") 
         ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
         print("tinted")
         layer_names = list(df.columns[3:]) 
+
+        self.progress.emit(96, "Almost complete...")
         
         print("df", df)
         
@@ -689,7 +706,7 @@ class ImageOverlay(QWidget):
         
         # print(self.layers)
         
-        print("done")
+        self.progress.emit(100, "Done")
         
         self.scroll_area.setVisible(True)
         
@@ -836,7 +853,7 @@ class ImageOverlay(QWidget):
         ### scale slider
         
         self.apply_button = QPushButton('Apply')
-        self.apply_button.clicked.connect(self.build_all)
+        self.apply_button.clicked.connect(self.start_build_all_worker)
         main_layout.addWidget(self.apply_button)
         # main_layout.addStretch()
         # main_layout.setDirection(QVBoxLayout.BottomToTop)
@@ -848,6 +865,13 @@ class ImageOverlay(QWidget):
         
         self.setLayout(main_layout)
         self.update_image()
+
+    def start_build_all_worker(self):
+        self.build_all_worker = Worker(self.build_all)
+        self.build_all_worker.start()
+        self.build_all_worker.finished.connect(self.build_all_worker.quit)
+        self.build_all_worker.finished.connect(self.build_all_worker.deleteLater)
+        # self.threadpool.start(self.build_all_worker)
     
     def scale_slider_update(self, value):
         if value == 1:

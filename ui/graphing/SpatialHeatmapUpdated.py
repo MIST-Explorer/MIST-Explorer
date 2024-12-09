@@ -86,10 +86,10 @@ class HeatmapWindow(QMainWindow):
                     )
 
         # Set the title
-        self.ax.set_title(
-            f"Protein Correlation Heatmap for Region ({x_min},{y_min}) to ({x_max},{y_max})",
-            fontsize=16,
-        )
+        # self.ax.set_title(
+        #     f"Protein Correlation Heatmap",
+        #     fontsize=16,
+        # )
 
 
 

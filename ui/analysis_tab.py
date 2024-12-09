@@ -210,6 +210,7 @@ class AnalysisTab(QWidget):
         self.multiComboBox = MultiComboBox()
         self.multiComboBox.addItems(data.columns[3:])
         result_details_layout.addWidget(self.multiComboBox)
+        self.multiComboBox.itemsCheckedChanged.connect(self.handleComboBoxChanged)
 
         # Add a delete button (not hooked up to anything yet)
         delete_button = QPushButton("Delete")
@@ -244,11 +245,20 @@ class AnalysisTab(QWidget):
         self.add_graph_to_view(zscore_HeatmapWindow)
         self.add_graph_to_view(zscore_cellDens)
         self.add_graph_to_view(zDistributionViewer)
+        self.graph_index = 0
+        self.update_graph_navigation()
+        # self.back_plot_button.click()
+
+        # self.next_plot_button.click()
+        # self.display_current_graph()
         
         self.views[-1] = result_widget
         self.scroll_layout.addWidget(result_widget)
 
         self.rubberbands[-1].setFilled(True)
+
+    def handleComboBoxChanged(self, checked_items):
+        print("checked items:", checked_items)
 
     def box_plot(self, data):
         """Creates a box plot."""
@@ -267,16 +277,12 @@ class AnalysisTab(QWidget):
         return result_widget
 
     def save_current_plot(self):
-        if self.views:
-            current_graph = self.views[self.view_index]
-            if isinstance(current_graph, FigureCanvas):
-                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
-                if file_path:
-                    current_graph.figure.savefig(file_path)
-            elif isinstance(current_graph, QMainWindow):
-                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
-                if file_path:
-                    current_graph.figure.savefig(file_path)
+        print("plot save cliked")
+        
+        current_graph = self.graphs[self.view_index][self.graph_index]
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
+        if file_path:
+            current_graph.figure.savefig(file_path)
 
     def unfill_rubberband(self):
         try:
@@ -292,14 +298,16 @@ from PyQt6.QtWidgets import QComboBox
 from PyQt6.QtCore import Qt
 
 class MultiComboBox(QComboBox):
+    itemsCheckedChanged = pyqtSignal(list)  # Signal to emit the list of checked items
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
         self.lineEdit().setReadOnly(True)
         self.setModel(QStandardItemModel(self))
 
-        # Connect to the dataChanged signal to update the text
-        self.model().dataChanged.connect(self.updateText)
+        # Connect to the dataChanged signal to update the text and emit our signal
+        self.model().dataChanged.connect(self.onItemStateChanged)
 
     def addItem(self, text: str, data=None):
         item = QStandardItem()
@@ -317,23 +325,11 @@ class MultiComboBox(QComboBox):
                           if self.model().item(i).checkState() == Qt.CheckState.Checked]
         self.lineEdit().setText(", ".join(selected_items))
 
-    def showPopup(self):
-        super().showPopup()
-        # Set the state of each item in the dropdown
-        for i in range(self.model().rowCount()):
-            item = self.model().item(i)
-            combo_box_view = self.view()
-            combo_box_view.setRowHidden(i, False)
-            check_box = combo_box_view.indexWidget(item.index())
-            if check_box:
-                check_box.setChecked(item.checkState() == Qt.CheckState.Checked)
+    def onItemStateChanged(self):
+        # Update the displayed text
+        self.updateText()
 
-    def hidePopup(self):
-        # Update the check state of each item based on the checkbox state
-        for i in range(self.model().rowCount()):
-            item = self.model().item(i)
-            combo_box_view = self.view()
-            check_box = combo_box_view.indexWidget(item.index())
-            if check_box:
-                item.setCheckState(Qt.CheckState.Checked if check_box.isChecked() else Qt.CheckState.Unchecked)
-        super().hidePopup()
+        # Emit the custom signal with the list of checked items
+        checked_items = [self.model().item(i).text() for i in range(self.model().rowCount())
+                         if self.model().item(i).checkState() == Qt.CheckState.Checked]
+        self.itemsCheckedChanged.emit(checked_items)
