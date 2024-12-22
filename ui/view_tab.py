@@ -47,6 +47,15 @@ color_dict = {
 }
 
 
+class ControlsBox():
+    def __init__(self):
+        self.current_opacity = 1.0
+        self.current_contrast = 1.0
+        self.current_visibility = True
+        self.current_tint = QColor(255, 255, 255)
+
+
+
 def rescale_array(arr, old_min, old_max, new_min, new_max):
     arr = np.array(arr)
     scale = (new_max - new_min) / (old_max - old_min)
@@ -610,9 +619,9 @@ class ImageOverlay(QWidget):
         
         # reduced_cell_img = cv2.resize(stardist_labels.astype("float32"), (3000, 3000), interpolation = cv2.INTER_NEAREST_EXACT)
         
-        scale_down_factor = 1 / self.scale_down.value()
+        self.scale_down_factor = 1 / self.scale_down.value()
         
-        reduced_cell_img = cv2.resize(stardist_labels, (0,0), fx=scale_down_factor, fy=scale_down_factor, interpolation = cv2.INTER_NEAREST_EXACT) 
+        reduced_cell_img = cv2.resize(stardist_labels, (0,0), fx=self.scale_down_factor , fy=self.scale_down_factor , interpolation = cv2.INTER_NEAREST_EXACT) 
         return  reduced_cell_img
     
     
@@ -695,6 +704,8 @@ class ImageOverlay(QWidget):
         self.color_labels = []
         self.group_box_array = []
         self.current_opacities = [1.0] * len(ims)
+        self.controls = []
+
         self.current_contrasts = [1.0] * len(ims)
         self.current_visibilities = [True] * len(ims)
         self.current_tints = [QColor(255, 255, 255)] * len(ims)  # Default to no tint
@@ -743,7 +754,10 @@ class ImageOverlay(QWidget):
 
         layer_values = []
 
-        for name, img in zip(self.active_images_names, self.active_images):
+        # new_img = self.layers[index]['image']
+        # new_name = self.layers[index]['name']
+
+        for name, img in self.layers:
             values = img[ystart:yend, xstart:xend]
             layer_values.append((name, values))
 
@@ -770,7 +784,8 @@ class ImageOverlay(QWidget):
             
             self.apply_button.setVisible(True)
             
-            #
+            self.scale_down_label.setVisible(True)
+            self.scale_down.setVisible(True)
             
             self.add_layer_button.setVisible(False)
             self.cancel_reset.setVisible(False)
@@ -809,6 +824,11 @@ class ImageOverlay(QWidget):
         self.add_layer_button.clicked.connect(self.show_layer_dialog)
         main_layout.addWidget(self.add_layer_button)
         self.add_layer_button.setVisible(False)
+
+        self.add_other_image_button = QPushButton('Add Other Image')
+        self.add_other_image_button.clicked.connect(self.open_other_image)
+        main_layout.addWidget(self.add_other_image_button)
+        self.add_other_image_button.setVisible(False)
         
         self.cancel_reset = QPushButton('Cancel And Upload New')
         self.cancel_reset.clicked.connect(self.cancel_reset_first)
@@ -837,6 +857,8 @@ class ImageOverlay(QWidget):
         self.open_df_label = QLabel("Path: ")
         self.open_df_label.setVisible(False)
         main_layout.addWidget(self.open_df_label)
+
+        
         
         ### scale slider
         self.scale_down_label = QLabel("Scale Down Factor: ")
@@ -865,6 +887,17 @@ class ImageOverlay(QWidget):
         
         self.setLayout(main_layout)
         self.update_image()
+
+    def open_other_image(self):
+
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
+        if file_name:
+            stardist_labels = Image.open(self.im_path)
+            stardist_labels = np.array(stardist_labels)            
+
+            reduced_cell_img = cv2.resize(stardist_labels, (0,0), fx=self.scale_down_factor , fy=self.scale_down_factor , interpolation = cv2.INTER_NEAREST_EXACT) 
+
+            
 
     def start_build_all_worker(self):
         self.build_all_worker = Worker(self.build_all)
@@ -953,8 +986,13 @@ class ImageOverlay(QWidget):
                 self.update_image()
     
     def add_layer(self, index):
+
         new_img = self.layers[index]['image']
         new_name = self.layers[index]['name']
+
+        c = ControlsBox()
+
+        self.controls.append(c)
         
         # print(new_name)
         self.active_images_names.append(new_name)
@@ -1013,10 +1051,6 @@ class ImageOverlay(QWidget):
         self.opacity_sliders.append(opacity_slider)
         group_layout.addRow("Opacity:", opacity_slider)
         
-        # contrast_slider = QSlider(Qt.Orientation.Horizontal)
-        # 
-        # contrast_slider.setValue(100)
-        # 
         contrast_slider = qtrangeslider.QLabeledDoubleRangeSlider(Qt.Orientation.Horizontal)
         contrast_slider.valueChanged.connect(lambda value: self.update_contrast(value, idx))
         contrast_slider.setMaximum(255)

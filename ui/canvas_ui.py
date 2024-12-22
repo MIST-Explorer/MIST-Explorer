@@ -14,9 +14,13 @@ def getRandomColor():
         
         
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, parent=None):
+    def __init__(self, shape, starting_x, starting_y, parent=None):
         super(CustomRubberBand, self).__init__(shape, parent)
         self.fill = getRandomColor()
+
+        self.starting_x = starting_x
+        self.starting_y = starting_y
+
         self.color = QColor(*self.fill[0:3])
         self.f = QColor(*self.fill)
         self.filled = False
@@ -25,6 +29,18 @@ class CustomRubberBand(QRubberBand):
         self.mousePressPos = None
         self.mouseMovePos = None
         self.hello = False
+        
+
+
+    def getRubberBandSizeRelativeToScene(self):
+        rect = self.geometry()  # QRect of the rubberband
+        top_left_scene = self.mapToScene(rect.topLeft())
+        bottom_right_scene = self.mapToScene(rect.bottomRight())
+        
+        width = bottom_right_scene.x() - top_left_scene.x()
+        height = bottom_right_scene.y() - top_left_scene.y()
+        
+        return width, height
         
         
 
@@ -92,11 +108,14 @@ class CustomRubberBand(QRubberBand):
         new_height = current_rect.height() * zoom_factor
         
         # Calculate new position to keep it centered
-        new_x = current_rect.x() - (new_width - current_rect.width()) / 2
-        new_y = current_rect.y() - (new_height - current_rect.height()) / 2
+        new_x = self.starting_x - (new_width - current_rect.width()) / 2
+        new_y = self.starting_y - (new_height - current_rect.height()) / 2
         
         # Set new geometry
-        self.setGeometry(int(new_x), int(new_y), int(new_width), int(new_height))
+        self.setGeometry((self.starting_x) - 1, (self.starting_y) - 1, int(new_width) + 1, int(new_height) + 1)
+
+        # diff = (, self.starting_y) - (int(new_x), int(new_y))
+        # self.move()
         self.update()
 
 
@@ -159,6 +178,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
         self.scale_factor = 1.25
         self.select = False
+        self.zoom = 0
 
     def setupUI(self):
         self.setMinimumSize(QSize(600, 600))
@@ -225,6 +245,9 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def wheelEvent(self, event):
         # Determine the zoom factor
+        # if self.zoom == 0:
+        #     self.zoom = 1
+
         zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
 
         # Store the scene positions of all rubber bands
@@ -271,7 +294,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             print("mousePressEvent: with select mouse click detected")
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
-                rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self)
+                rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
                 self.rubberBands.append(rubberBand)
                 self.rubberBandColors.append(rubberBand.color)  # Store the color of the rubber band
                 rubberBand.setGeometry(QRect(self.origin, QSize()))
@@ -293,7 +316,28 @@ class ImageGraphicsViewUI(QGraphicsView):
             for r in self.rubberBands:
                 r.mousePressEvent(event)
 
+    def getCoordsRelativeToImage(self, event: QMouseEvent):
+        scene_pos = self.mapToScene(event.pos())
+        image_pos = self.pixmapItem.mapFromScene(scene_pos)
+        
+        return int(image_pos.x()), int(image_pos.y())
+    
+    def getCoordsRelativeToScene(self, event: QMouseEvent):
+        scene_pos = self.mapToScene(event.pos())
+        
+        return int(scene_pos.x()), int(scene_pos.y())
+    
+    def convertSceneCoordsToImageCoords(self, scene_pos: QPointF):
+        image_pos = self.pixmapItem.mapFromScene(scene_pos)
+        
+        return int(image_pos.x()), int(image_pos.y())
+    
+    def convertImageCoordsToSceneCoords(self, image_coords: QPointF):
+        scene_pos = self.pixmapItem.mapToScene(image_coords)
+        return int(scene_pos.x()), int(scene_pos.y())
+
     def mouseMoveEvent(self, event:QMouseEvent):
+        super().mouseMoveEvent(event)
         
         combined_layers=""
         
@@ -398,22 +442,8 @@ class ImageGraphicsViewUI(QGraphicsView):
                 image_pos = self.pixmapItem.mapFromScene(scene_pos)
                 image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
             
-                data = self.enc.view_tab.get_layer_values_from_to(*image_rect)
-                print(image_rect)
 
-                # this is stupid but i have to do this weird manipulation
-                # for the data to be displayed in the stats tab                
-                names = [i[0] for i in data]
-                expr = [i[1][i[1] != 0]  for i in data]
-
-                # list(filter(lambda x: x != 0, arr))
-
-                random_data = pd.DataFrame({
-                'Protein': names,
-                'Expression': expr
-                })
-
-                self.enc.analysis_tab.analyze_region(random_data, rubberband, image_rect)
+                self.enc.analysis_tab.analyze_region(rubberband, image_rect)
 
                 return
             

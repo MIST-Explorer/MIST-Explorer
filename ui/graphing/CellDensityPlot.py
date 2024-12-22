@@ -9,7 +9,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 # this seems to be just a style of plot, not exactly a concrete plot.
 
 class CellDensityPlot(QMainWindow):
-    def __init__(self, data, region, markers):
+    def __init__(self, data, region):
         super().__init__()
         self.setWindowTitle('Cell Density Plot')
         self.setGeometry(100, 100, 800, 600)
@@ -22,7 +22,7 @@ class CellDensityPlot(QMainWindow):
         self.canvas = FigureCanvas(self.figure)
         layout.addWidget(self.canvas)
         
-        self.plot_cell_density(data, region, markers)
+        self.plot_cell_density(data, region, data.columns[3:])
 
     def plot_cell_density(self, data, region, markers):
         sns.set_style('ticks')
