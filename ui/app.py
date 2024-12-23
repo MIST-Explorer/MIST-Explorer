@@ -8,6 +8,7 @@ from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canv
 from ui.register_ui import RegisterUI
 from ui.view_tab import ImageOverlay
 from ui.analysis_tab import AnalysisTab
+from ui.gaussian_blur import GaussianBlur
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -185,14 +186,15 @@ class Ui_MainWindow(QMainWindow):
         # rotate
         self.rotate_groupbox = RotateUI(self.preprocessing_tab)
         
-        
+        self.gaussian_blur = GaussianBlur(self.preprocessing_tab)
         
         # layout crop and rotate next to each other
         self.rotate_crop_hlayout = QHBoxLayout()
         
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
-        
+        self.rotate_crop_hlayout.addWidget(self.gaussian_blur.gaussian_blur)
+        self.rotate_crop_hlayout.setSpacing(3)
         
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
         self.register_groupbox = RegisterUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
