@@ -29,8 +29,6 @@ class CustomRubberBand(QRubberBand):
         self.mousePressPos = None
         self.mouseMovePos = None
         self.hello = False
-        
-
 
     def getRubberBandSizeRelativeToScene(self):
         rect = self.geometry()  # QRect of the rubberband
@@ -41,8 +39,6 @@ class CustomRubberBand(QRubberBand):
         height = bottom_right_scene.y() - top_left_scene.y()
         
         return width, height
-        
-        
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -362,7 +358,8 @@ class ImageGraphicsViewUI(QGraphicsView):
                 
                 # controls mouse tool tip
                 if layers:
-                    layers = [f"{layer}: {value[0]}\n" for layer, value in layers]
+
+                    layers = [f"{layer}: [{value[0]]}\n" for layer, value in layers]
                     combined_layers = ''.join(layers)[:-1]
                     QToolTip.showText(global_pos, combined_layers, self)
                 else:                    

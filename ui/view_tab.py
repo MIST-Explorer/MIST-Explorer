@@ -49,10 +49,26 @@ color_dict = {
 
 class ControlsBox():
     def __init__(self):
+        self.name = None
+        self.image = None
+        self.q_image = None
+
         self.current_opacity = 1.0
         self.current_contrast = 1.0
         self.current_visibility = True
         self.current_tint = QColor(255, 255, 255)
+
+        # actual components that we just want to keep track of
+        self.tint_label = None
+        self.opacity_slider = None
+        self.contrast_slider = None
+        self.visbility_button = None
+
+        # entire component layout
+        self.layout = None
+
+        # self.tint_yn
+        self.tint_yn = True
 
 
 
@@ -173,6 +189,13 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QColor
 
 def scale_image_to_255(image_array):
+
+    try: 
+        if image_array.dtype == np.uint8:
+            return image_array
+    except:
+        pass
+
     scaled_image = 255 * (image_array - image_array.min()) / (image_array.max() - image_array.min())
     return scaled_image.astype(np.uint8)
 
@@ -599,10 +622,15 @@ class ImageOverlay(QWidget):
         self.enc = enc
         
         self.pixmap_label = pixmap_label
-        self.active_images = []
-        
-        self.df_path =  "/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
-        self.im_path = "/Users/clark/Downloads/new_sd.png"
+
+        # self.df_path =  "/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
+        # self.im_path = "/Users/clark/Downloads/new_sd.png"
+
+        self.df_path = "/Users/clark/Downloads/df1.csv"
+        self.im_path = "/Users/clark/Downloads/sd1.png"
+        self.overlay_path = "/Users/clark/Downloads/sd1.png"
+
+        self.controls = []
 
         self.loaded_df = None
         
@@ -693,23 +721,16 @@ class ImageOverlay(QWidget):
         
         print("df", df)
         
-        self.active_images_names = []
+
         self.ims = ims # List of images as np.arrays
         self.layer_names = layer_names  # List of layer names
         self.color_dict = color_dict  # Dictionary of color names to RGB values
-        self.opacity_sliders = []
-        self.contrast_sliders = []
-        self.visibility_buttons = []
-        self.color_tints = []
-        self.color_labels = []
-        self.group_box_array = []
-        self.current_opacities = [1.0] * len(ims)
-        self.controls = []
+     
 
-        self.current_contrasts = [1.0] * len(ims)
-        self.current_visibilities = [True] * len(ims)
-        self.current_tints = [QColor(255, 255, 255)] * len(ims)  # Default to no tint
         
+        # len(
+
+   
         self.layers = [
             {'name': layer_names[i], 'image': ims[i]} 
             for i in range(len(ims))
@@ -722,6 +743,7 @@ class ImageOverlay(QWidget):
         self.scroll_area.setVisible(True)
         
         self.add_layer_button.setVisible(True)
+        self.add_other_image_button.setVisible(True)
         self.open_image.setVisible(False)
         self.open_image_label.setVisible(False)
         self.open_df.setVisible(False)
@@ -738,14 +760,14 @@ class ImageOverlay(QWidget):
         return (ims, layer_names)
          
     def get_layer_values_at(self, x, y):
-        if len(self.active_images) == 0:
+        if len(self.controls) == 0:
             return None
         
         layer_values = []
-        for name, img in zip(self.active_images_names, self.active_images):
-            
-            value = img[y, x]
-            layer_values.append((name, value))
+        for c in self.controls:
+            value = c.image[y, x]
+            layer_values.append((c.name, value))
+
         return layer_values
     
     def get_layer_values_from_to(self, xstart, ystart, xend, yend):
@@ -794,10 +816,8 @@ class ImageOverlay(QWidget):
     def initUI(self):
         main_layout = QVBoxLayout()
         
-        # print(self.image_label, "im label is")
         self.image_label = self.pixmap_label
-        # print(self.image_label, "im label is")
-        # main_layout.addWidget(self.image_label)
+
         
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -891,11 +911,23 @@ class ImageOverlay(QWidget):
     def open_other_image(self):
 
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp *.gif *.tif);;All Files (*)")
+
+        # file_name = self.overlay_path
+
         if file_name:
-            stardist_labels = Image.open(self.im_path)
+            stardist_labels = Image.open(file_name)
             stardist_labels = np.array(stardist_labels)            
 
             reduced_cell_img = cv2.resize(stardist_labels, (0,0), fx=self.scale_down_factor , fy=self.scale_down_factor , interpolation = cv2.INTER_NEAREST_EXACT) 
+
+            c = ControlsBox()
+            
+            if len(reduced_cell_img.shape) == 2:
+                reduced_cell_img = np.stack((reduced_cell_img,)*3, axis=-1 )
+            c.image = reduced_cell_img
+            c.name = os.path.basename(file_name)
+            c.tint_yn = False
+            self.add_layer(c)
 
             
 
@@ -930,10 +962,7 @@ class ImageOverlay(QWidget):
             self.open_image_label.setVisible(True)
             self.im_path = file_name
 
-            # height, width, _ = combined_image.shape
-
-            # q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGBA8888)
-            # self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
+            
         
     def get_df_path(self):
 
@@ -971,7 +1000,10 @@ class ImageOverlay(QWidget):
             selected_index = dialog.get_selected_layer_index()
             print("selected indexxxx is ", selected_index)
             if selected_index is not None:
-                self.add_layer(selected_index)
+                c = ControlsBox()
+                c.image = self.layers[selected_index]['image']
+                c.name = self.layers[selected_index]['name']
+                self.add_layer(c)
     
     def show_color_dialog(self, idx):
         print(idx)
@@ -981,51 +1013,26 @@ class ImageOverlay(QWidget):
             if selected_color_name:
                 selected_color = self.color_dict[selected_color_name]
                 print(f"Selected color: {selected_color_name} - {selected_color}")
-                self.current_tints[idx] = QColor(*selected_color)
-                self.color_labels[idx].setText(selected_color_name)
+                self.controls[idx].current_tint = QColor(*selected_color)
+                self.controls[idx].tint_label.setText(selected_color_name)
                 self.update_image()
     
-    def add_layer(self, index):
-
-        new_img = self.layers[index]['image']
-        new_name = self.layers[index]['name']
-
-        c = ControlsBox()
-
-        self.controls.append(c)
-        
-        # print(new_name)
-        self.active_images_names.append(new_name)
-        self.active_images.append(new_img)
-        self.layer_names.append(new_name)
-        self.current_opacities.append(1.0)
-        self.current_contrasts.append(1.0)
-        self.current_visibilities.append(True)
-        self.current_tints.append(QColor(255, 255, 255))
-        self.add_layer_controls(index)
+    def add_layer(self, c):
+        self.controls.append(c)            
+        self.add_layer_controls(c)
         self.update_image()
         
     def delete_layer(self, index):
-        print(index)
+        c = self.controls.pop(index)
         
-        print("before", len(self.active_images))
-        self.active_images_names.pop(index)
-        self.active_images.pop(index)
-        print(len(self.active_images))
-        self.current_opacities.pop(index)
-        self.current_contrasts.pop(index)
-        self.current_visibilities.pop(index)
-        self.current_tints.pop(index)
-        
-        layer = self.group_box_array[index]
+        layer = c.layout
         self.scroll_layout.removeWidget(layer)
         layer.deleteLater()
         layer = None
         
-        self.group_box_array.pop(index)
         self.update_image()
         
-        if len(self.active_images) == 0:
+        if len(self.controls) == 0:
             combined_image = np.zeros((10,10,10))
         
             height, width, _ = combined_image.shape
@@ -1035,11 +1042,10 @@ class ImageOverlay(QWidget):
             
             self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
         
-    def add_layer_controls(self, idx):
-        layer_id = idx
-        idx = len(self.active_images) - 1
-        print("add alyers controls", idx)
-        group_box = QGroupBox(f"Layer {idx + 1}: {self.layer_names[layer_id]}")
+    def add_layer_controls(self, c):
+        idx = len(self.controls) - 1
+        
+        group_box = QGroupBox(f"Layer {idx + 1}: {c.name}")
         
         group_layout = QFormLayout()
         
@@ -1048,7 +1054,7 @@ class ImageOverlay(QWidget):
         opacity_slider.setMaximum(100)
         opacity_slider.setValue(100)
         opacity_slider.valueChanged.connect(lambda value: self.update_opacity(value, idx))
-        self.opacity_sliders.append(opacity_slider)
+        
         group_layout.addRow("Opacity:", opacity_slider)
         
         contrast_slider = qtrangeslider.QLabeledDoubleRangeSlider(Qt.Orientation.Horizontal)
@@ -1057,58 +1063,62 @@ class ImageOverlay(QWidget):
         contrast_slider.setValue((0, 255))
         contrast_slider.setDecimals(0)
 
-        self.contrast_sliders.append(contrast_slider)
+        # self.contrast_sliders.append(contrast_slider)
         group_layout.addRow("Contrast:", contrast_slider)
         
         visibility_button = QPushButton("Toggle Visibility")
         visibility_button.setCheckable(True)
         visibility_button.setChecked(True)
         visibility_button.toggled.connect(lambda checked: self.update_visibility(checked, idx))
-        self.visibility_buttons.append(visibility_button)
+        # self.visibility_buttons.append(visibility_button)
         group_layout.addRow("Visibility:", visibility_button)
         
         color_button = QPushButton("Select Tint Color")
         color_button.clicked.connect(lambda : self.show_color_dialog(idx))
-        self.color_tints.append(color_button)
+        # self.color_tints.append(color_button)
         color_label = QLabel("None")
-        self.color_labels.append(color_label)
+
+        
         color_layout = QHBoxLayout()
         color_layout.addWidget(color_button)
         color_layout.addWidget(color_label)
         group_layout.addRow("Tint Color:", color_layout)
         
-        # delete_button = QPushButton("Show Stats")
-        # delete_button.clicked.connect(lambda: self.show_stats(self.layer_names[layer_id]))
-        # # self.visibility_buttons.append(delete_button)
-        # group_layout.addRow("Stats:", delete_button)
+
         
         delete_button = QPushButton("Delete Layer")
-        delete_button.clicked.connect(lambda: self.delete_layer(len(self.active_images) - 1))
+        delete_button.clicked.connect(lambda: self.delete_layer(len(self.controls) - 1))
         # self.visibility_buttons.append(delete_button)
         group_layout.addRow("", delete_button)
+
+        # self.opacity_sliders.append(opacity_slider)
+        self.controls[idx].opacity_slider = opacity_slider
+        self.controls[idx].tint_label = color_label
         
         group_box.setLayout(group_layout)
-        self.group_box_array.append(group_box)
+        self.controls[idx].layout = group_box
         self.scroll_layout.addWidget(group_box)
     
     
     def update_opacity(self, value, idx):
-        self.current_opacities[idx] = value / 100.0
+        self.controls[idx].current_opacity = value / 100.0
+
+        # self.current_opacities[idx] = value / 100.0
+
         self.update_image()
     
     def update_contrast(self, value, idx):
         value = [int(value[0]), int(value[1])]
-        print("contrast updated value", value, idx)
-        self.current_contrasts[idx] = value
+        self.controls[idx].current_contrast = value
         self.update_image()
     
     def update_visibility(self, checked, idx):
-        self.current_visibilities[idx] = checked
+
+        self.controls[idx].current_visibility = checked
         self.update_image()
     
     def apply_tint(self, img, color):
-        # print("trying to dye it ", color)
-        # print(self.current_tints)
+
         tint_img = np.zeros_like(img)
         for c in range(3):
             tint_img[:, :, c] = img[:, :, c] * (color.getRgb()[c] / 255.0)
@@ -1127,37 +1137,66 @@ class ImageOverlay(QWidget):
         # # min, max = range
         # winsorized_arr = np.clip(img, min, max)
         # return winsorized_arr
-        return adjust_contrast(img)
+        # return adjust_contrast
+        return (img)
         
     def update_image(self):
-        if len(self.active_images) == 0:
+        if len(self.controls) == 0:
             return 
 
-        combined_image = np.zeros_like(self.active_images[0], dtype=np.float32)
+        combined_image = np.zeros_like(self.controls[0].image, dtype=np.float32)
         
-        for img, opacity, contrast, visible, tint in zip(self.active_images, self.current_opacities, self.current_contrasts, self.current_visibilities, self.current_tints):
+        for c in self.controls:
+            visible = c.current_visibility
             if visible:
-                print("dollar eighty", contrast)    
-                 
+                img = c.image
+
+                opacity = c.current_opacity
+                contrast = c.current_contrast
+                tint = c.current_tint
+                              
                 adjusted_img = img * 1.0
                 # adjusted_img = winsorize_array(adjusted_img, 0, 255)
-                if type(contrast) == type([]):
-                    adjusted_img = np.clip(adjusted_img, contrast[0], contrast[1])  
+                if c.tint_yn:
+                    if type(contrast) == type([]):
+                        adjusted_img = np.clip(adjusted_img, contrast[0], contrast[1])  
+                        adjusted_img = scale_image_to_255(adjusted_img)
+                        adjusted_img = self.apply_tint(adjusted_img, tint)
+                        adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to stay in the valid range                    
+
+                if not c.tint_yn:
                     adjusted_img = scale_image_to_255(adjusted_img)
-                # Clip values to
-                adjusted_img = self.apply_tint(adjusted_img, tint)
-                adjusted_img = np.clip(adjusted_img, 0, 255)  # Clip values to stay in the valid range
+
                 combined_image += adjusted_img * opacity
         
         combined_image = np.clip(combined_image, 0, 255).astype(np.uint8)
         
         height, width, _ = combined_image.shape
         bytes_per_line = 3
+        
+        # Image.fromarray(combined_image).save("result.png")
 
-        q_image = QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888)
+        q_image = numpy_to_qimage(combined_image)
+        
+        # QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888)
         
         self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
 
+def numpy_to_qimage(array):
+    if len(array.shape) == 2:  # Grayscale image
+        height, width = array.shape
+        qimage = QImage(array.data, width, height, width, QImage.Format.Format_Grayscale8)
+    elif len(array.shape) == 3 and array.shape[2] == 3:  # RGB image
+        height, width, channels = array.shape
+        bytes_per_line = channels * width
+        qimage = QImage(array.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+    elif len(array.shape) == 3 and array.shape[2] == 4:  # RGBA image
+        height, width, channels = array.shape
+        bytes_per_line = channels * width
+        qimage = QImage(array.data, width, height, bytes_per_line, QImage.Format.Format_RGBA8888)
+    else:
+        raise ValueError("Unsupported array shape: {}".format(array.shape))
+    return qimage
 
 colors_dict = {
     "red": [255, 0, 0],
