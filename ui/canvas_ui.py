@@ -73,7 +73,6 @@ class CustomRubberBand(QRubberBand):
 
     def mouseMoveEvent(self, event):
         if self.mousePressPos is not None and self.hello:
-            # print("from  customrubberband mouseMoveEvent")
             pos = event.pos()
             moved = pos - self.mousePressPos
             if moved.manhattanLength() > self.dragging_threshold:
@@ -359,7 +358,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 # controls mouse tool tip
                 if layers:
 
-                    layers = [f"{layer}: [{value[0]]}\n" for layer, value in layers]
+                    layers = [f"{layer}: [{value[0]}\n" for layer, value in layers]
                     combined_layers = ''.join(layers)[:-1]
                     QToolTip.showText(global_pos, combined_layers, self)
                 else:                    
@@ -394,12 +393,17 @@ class ImageGraphicsViewUI(QGraphicsView):
         #     for r in self.rubberBands:
         #         r.mousePressEvent(event)
 
+    # THE RESET BUG IS HERE!
     def mouseReleaseEvent(self, event: QMouseEvent):
 
+        super().mouseReleaseEvent(event)
+
         for r in self.rubberBands:
-            # print("try to relesa")
             r.mouseReleaseEvent(event)
-            # print("w is this not worin")
+
+
+        # return
+
 
         if self.isEmpty(): # exit if there is no image
             return
