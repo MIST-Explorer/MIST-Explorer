@@ -95,6 +95,8 @@ class CustomRubberBand(QRubberBand):
         # super(CustomRubberBand, self).mouseReleaseEvent(event)
 
     def wheelEvent(self, event):
+
+        return 
         zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
         current_rect = self.geometry()
         
@@ -175,6 +177,8 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.select = False
         self.zoom = 0
 
+        self.rubber_band_positions = []
+
     def setupUI(self):
         self.setMinimumSize(QSize(600, 600))
         self.setObjectName("canvas")
@@ -246,18 +250,21 @@ class ImageGraphicsViewUI(QGraphicsView):
         zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
 
         # Store the scene positions of all rubber bands
-        rubber_band_positions = []
-        for rubber_band in self.rubberBands:  # Assuming self.rubber_bands is your list of QRubberBand objects
-            rubber_band_geometry = rubber_band.geometry()
-            top_left_scene = self.mapToScene(rubber_band_geometry.topLeft())
-            bottom_right_scene = self.mapToScene(rubber_band_geometry.bottomRight())
-            rubber_band_positions.append((rubber_band, top_left_scene, bottom_right_scene))
+        
+
+        if len(self.rubber_band_positions) == 0:
+            self.rubber_band_positions = []
+            for rubber_band in self.rubberBands:  # Assuming self.rubber_bands is your list of QRubberBand objects
+                rubber_band_geometry = rubber_band.geometry()
+                top_left_scene = self.mapToScene(rubber_band_geometry.topLeft())
+                bottom_right_scene = self.mapToScene(rubber_band_geometry.bottomRight())
+                self.rubber_band_positions.append((rubber_band, top_left_scene, bottom_right_scene))
 
         # Perform the zoom
         self.scale(zoom_factor, zoom_factor)
 
         # Update the geometry of each rubber band
-        for rubber_band, top_left_scene, bottom_right_scene in rubber_band_positions:
+        for rubber_band, top_left_scene, bottom_right_scene in self.rubber_band_positions:
             new_top_left_view = self.mapFromScene(top_left_scene)
             new_bottom_right_view = self.mapFromScene(bottom_right_scene)
             new_rect = QRect(new_top_left_view, new_bottom_right_view)
@@ -335,6 +342,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         super().mouseMoveEvent(event)
         
         combined_layers=""
+        self.rubber_band_positions = []
         
         if self.pixmapItem:
             scene_pos = self.mapToScene(event.pos())
@@ -393,17 +401,13 @@ class ImageGraphicsViewUI(QGraphicsView):
         #     for r in self.rubberBands:
         #         r.mousePressEvent(event)
 
-    # THE RESET BUG IS HERE!
     def mouseReleaseEvent(self, event: QMouseEvent):
-
         super().mouseReleaseEvent(event)
+
+        self.rubber_band_positions = []
 
         for r in self.rubberBands:
             r.mouseReleaseEvent(event)
-
-
-        # return
-
 
         if self.isEmpty(): # exit if there is no image
             return
