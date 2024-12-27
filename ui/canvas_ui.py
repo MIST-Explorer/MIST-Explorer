@@ -175,7 +175,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
         self.scale_factor = 1.25
         self.select = False
-        self.zoom = 0
+        self.zoom = 1
 
         self.rubber_band_positions = []
 
@@ -243,16 +243,23 @@ class ImageGraphicsViewUI(QGraphicsView):
             event.acceptProposedAction()
 
     def wheelEvent(self, event):
-        # Determine the zoom factor
-        # if self.zoom == 0:
-        #     self.zoom = 1
-
-        zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
-
-        # Store the scene positions of all rubber bands
         
+        zooming_out = event.angleDelta().y() > 0
 
-        if len(self.rubber_band_positions) == 0:
+        # this is to prevent zooming in too much or zooming out too much
+        if self.zoom > 1.1**90 and zooming_out: # if max zoomed out, and not zooming in, quit. not as nessecary
+            return
+        
+        if self.zoom < 1/(1.1**2) and not zooming_out: # if max zoomed in, and not zooming out, quit.
+            return
+
+        zoom_factor = 1.1 if zooming_out else 0.9
+
+        self.zoom *= zoom_factor
+
+
+        # part a) storing values -- i forget why this has to be this way, but I dont think im going to change it
+        if len(self.rubber_band_positions) == 0: # this is important though, to only store the values once per zoom operation
             self.rubber_band_positions = []
             for rubber_band in self.rubberBands:  # Assuming self.rubber_bands is your list of QRubberBand objects
                 rubber_band_geometry = rubber_band.geometry()
@@ -263,15 +270,12 @@ class ImageGraphicsViewUI(QGraphicsView):
         # Perform the zoom
         self.scale(zoom_factor, zoom_factor)
 
-        # Update the geometry of each rubber band
+        # part b) updating values
         for rubber_band, top_left_scene, bottom_right_scene in self.rubber_band_positions:
             new_top_left_view = self.mapFromScene(top_left_scene)
             new_bottom_right_view = self.mapFromScene(bottom_right_scene)
             new_rect = QRect(new_top_left_view, new_bottom_right_view)
             rubber_band.setGeometry(new_rect)
-
-
-        
 
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -366,7 +370,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 # controls mouse tool tip
                 if layers:
 
-                    layers = [f"{layer}: [{value[0]}\n" for layer, value in layers]
+                    layers = [f"{layer}: { value[0]}\n" for layer, value in layers]
                     combined_layers = ''.join(layers)[:-1]
                     QToolTip.showText(global_pos, combined_layers, self)
                 else:                    
