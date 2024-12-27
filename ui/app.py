@@ -7,7 +7,7 @@ from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from u
 from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
 from ui.register_ui import RegisterUI
 from ui.view_tab import ImageOverlay
-from ui.analysis_tab import AnalysisTab
+from ui.AnalysisTab import AnalysisTab
 from ui.gaussian_blur import GaussianBlur
 
 class Ui_MainWindow(QMainWindow):
@@ -207,8 +207,6 @@ class Ui_MainWindow(QMainWindow):
 
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
-        
-
         
 
     def updateProgressBar(self, value, str):

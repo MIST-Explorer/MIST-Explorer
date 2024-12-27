@@ -1,7 +1,9 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF
-import Dialogs, numpy as np, matplotlib as mpl, cv2
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QPainter, QColor, QPen
+from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal, pyqtSlot, QPointF
+import Dialogs
+import numpy as np
+import cv2
 from qt_threading import Worker
 import utils
 from PyQt6.QtGui import QColor
@@ -12,19 +14,16 @@ import pandas as pd
 def getRandomColor():
         return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
         
-        
-class CustomRubberBand(QRubberBand):
+class AnalysisRubberBand(QRubberBand):
     def __init__(self, shape, starting_x, starting_y, parent=None):
-        super(CustomRubberBand, self).__init__(shape, parent)
+        super(AnalysisRubberBand, self).__init__(shape, parent)
         self.fill = getRandomColor()
 
         self.starting_x = starting_x
         self.starting_y = starting_y
-
         self.color = QColor(*self.fill[0:3])
         self.f = QColor(*self.fill)
         self.filled = False
-        self.draggable = True
         self.dragging_threshold = 5
         self.mousePressPos = None
         self.mouseMovePos = None
@@ -65,10 +64,10 @@ class CustomRubberBand(QRubberBand):
 
     def mousePressEvent(self, event):
         # if self.mousePressPos is not None:
-            # print("from  customrubberband mouse press event")
+            # print("from  AnalysisRubberBand mouse press event")
             self.mousePressPos = event.pos()                # global
             self.mouseMovePos = event.pos() - self.pos()    # local
-            # super(CustomRubberBand, self).mousePressEvent(event)
+            # super(AnalysisRubberBand, self).mousePressEvent(event)
             self.hello = True
 
     def mouseMoveEvent(self, event):
@@ -80,10 +79,10 @@ class CustomRubberBand(QRubberBand):
                 diff = pos - self.mouseMovePos
                 self.move(diff)
                 self.mouseMovePos = pos - self.pos()
-            super(CustomRubberBand, self).mouseMoveEvent(event)
+            super(AnalysisRubberBand, self).mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        # print("from  customrubberband mouseReleaseEvent")
+        # print("from  AnalysisRubberBand mouseReleaseEvent")
         self.hello = False
         if self.mousePressPos is not None:
             moved = event.pos() - self.mousePressPos
@@ -92,28 +91,7 @@ class CustomRubberBand(QRubberBand):
                 event.ignore()
             self.mousePressPos = None
             self.mouseMovePos = None
-        # super(CustomRubberBand, self).mouseReleaseEvent(event)
 
-    def wheelEvent(self, event):
-
-        return 
-        zoom_factor = 1.1 if event.angleDelta().y() > 0 else 0.9
-        current_rect = self.geometry()
-        
-        # Calculate new size
-        new_width = current_rect.width() * zoom_factor
-        new_height = current_rect.height() * zoom_factor
-        
-        # Calculate new position to keep it centered
-        new_x = self.starting_x - (new_width - current_rect.width()) / 2
-        new_y = self.starting_y - (new_height - current_rect.height()) / 2
-        
-        # Set new geometry
-        self.setGeometry((self.starting_x) - 1, (self.starting_y) - 1, int(new_width) + 1, int(new_height) + 1)
-
-        # diff = (, self.starting_y) - (int(new_x), int(new_y))
-        # self.move()
-        self.update()
 
 
 class ReferenceGraphicsViewUI(QGraphicsView):
@@ -159,8 +137,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
-    imageCropped = pyqtSignal(dict)
-    imageChanged = pyqtSignal()
+
     
     def __init__(self, parent=None, enc=None):
         super().__init__(parent)
@@ -284,7 +261,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
                 if not self.rubberBand:
-                    self.rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self)
+                    self.rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, self)
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
             return
@@ -300,7 +277,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             print("mousePressEvent: with select mouse click detected")
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
-                rubberBand = CustomRubberBand(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
+                rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
                 self.rubberBands.append(rubberBand)
                 self.rubberBandColors.append(rubberBand.color)  # Store the color of the rubber band
                 rubberBand.setGeometry(QRect(self.origin, QSize()))
