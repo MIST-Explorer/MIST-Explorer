@@ -2,13 +2,11 @@ import pandas as pd
 import numpy as np
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-from stardist.models import StarDist2D
 from PIL import Image
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 import cv2
 import os
 from numba import njit
-from tqdm import tqdm
 from qt_threading import Worker
 
 Image.MAX_IMAGE_PIXELS = None
@@ -62,7 +60,6 @@ class ControlsBox():
         self.tint_label = None
         self.opacity_slider = None
         self.contrast_slider = None
-        self.visbility_button = None
 
         # entire component layout
         self.layout = None
@@ -71,40 +68,6 @@ class ControlsBox():
         self.tint_yn = True
 
 
-
-def rescale_array(arr, old_min, old_max, new_min, new_max):
-    arr = np.array(arr)
-    scale = (new_max - new_min) / (old_max - old_min)
-    offset = new_min - old_min * scale
-    rescaled_arr = arr * scale + offset
-
-    return rescaled_arr
-
-def winsorize_array(arr, lower_percentile, upper_percentile):
-    arr = np.array(arr)
-    lower_threshold = np.percentile(arr, lower_percentile * 100)
-    upper_threshold = np.percentile(arr, upper_percentile * 100)
-    winsorized_arr = np.clip(arr, lower_threshold, upper_threshold)
-    
-    return winsorized_arr
-
-
-# def write_protein_sub(protein_data, reduced_cell_img):
-#     cnv = reduced_cell_img.copy()
-    
-#     protein_1 = np.array(protein_data)
-#     protein_1 = winsorize_array(protein_1, 0, .98)
-#     protein_1 = rescale_array(protein_1, np.min(protein_1), np.max(protein_1), 60, 255)
-    
-#     print("prot written")
-
-#     from tqdm import tqdm
-#     for id, color in tqdm(enumerate(protein_1)):
-#         # print("     one layer writte")
-#         id += 1
-#         cnv[reduced_cell_img == id] = color
-        
-#     return cnv 
 
 import time
 def write_protein(protein_data, reduced_cell_img):
@@ -136,21 +99,6 @@ def write_protein_sub(protein_data=np.array([]), reduced_cell_img=np.array([[]])
     return cnv
 
 
-def superimpose_image(base_shape, image, color):
-
-    # Create a base array of zeros
-    base = np.zeros(base_shape, dtype=np.uint8)
-    
-    # Ensure the image can be superimposed onto the base array
-    if base_shape[:2] != image.shape:
-        raise ValueError("Image shape must match the height and width of the base array.")
-    
-    # Set the color channels
-    for i in range(3):
-        base[:, :, i] = image * color[i]
-    
-    return base
-
 def tint_grayscale_image(grayscale_image, color):
     """
     Tint a grayscale image with an arbitrary color.
@@ -179,9 +127,11 @@ def tint_grayscale_image(grayscale_image, color):
     return tinted_image
 
 
-import sys
+import os
 import numpy as np
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QSlider, QHBoxLayout, 
+
+import qtrangeslider
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QSlider, QHBoxLayout, 
                              QGroupBox, QFormLayout, QScrollArea, QSizePolicy, QPushButton, 
                              QListWidget, QListWidgetItem, QDialog, QDialogButtonBox)
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -199,15 +149,11 @@ def scale_image_to_255(image_array):
     return scaled_image.astype(np.uint8)
 
 
-import sys, os
-from PyQt6 import QtCore, QtGui, QtWidgets
-
 
 def scale(val, src, dst):
     return int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
 
 
-import qtrangeslider
 
 class LayerDialog(QDialog):
     
@@ -444,24 +390,6 @@ class ImageOverlay(QWidget):
             layer_values.append((c.name, value))
 
         return layer_values
-    
-    def get_layer_values_from_to(self, xstart, ystart, xend, yend):
-        if len(self.active_images) == 0:
-            return None
-
-        layer_values = []
-
-        # new_img = self.layers[index]['image']
-        # new_name = self.layers[index]['name']
-
-        for name, img in self.layers:
-            values = img[ystart:yend, xstart:xend]
-            layer_values.append((name, values))
-
-        return layer_values
-    
-    def update_segmented_image(self, path):
-        self.im_path = path
         
         
     def cancel_reset_first(self):
@@ -491,8 +419,6 @@ class ImageOverlay(QWidget):
     def initUI(self):
         main_layout = QVBoxLayout()
         
-        self.image_label = self.pixmap_label
-
         
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -650,17 +576,7 @@ class ImageOverlay(QWidget):
             self.open_df_label.setVisible(True)
             self.df_path = file_name
 
-            
-    def addImage(self, pixmap):
-        '''add a new image'''
-
-        self.channels = None
-        self.resetTransform()
         
-        self.reset_pixmap=pixmap
-        self.reset_pixmapItem = QGraphicsPixmapItem(pixmap)
-        self.pixmap = pixmap
-        self.pixmapItem = (pixmap)
         
     def show_layer_dialog(self):
         if not hasattr(self, 'layers'):
@@ -806,14 +722,6 @@ class ImageOverlay(QWidget):
             img = np.clip(img, minval, maxval)
             img = ((img - minval) / (maxval - minval)) * 255
             return (img.astype(np.uint8))
-    
-    def slider_adjust_contrast(self, img, range):
-        # print("slider_adjust_contrast", img.dtype, range)
-        # # min, max = range
-        # winsorized_arr = np.clip(img, min, max)
-        # return winsorized_arr
-        # return adjust_contrast
-        return (img)
         
     def update_image(self):
         if len(self.controls) == 0:
