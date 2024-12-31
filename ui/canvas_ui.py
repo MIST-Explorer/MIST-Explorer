@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
+from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF
 import Dialogs, numpy as np, matplotlib as mpl, cv2
@@ -490,3 +490,144 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def _confirmCrop(self, confirmed:bool):
         self.confirmCrop = confirmed
+########################################
+
+class ResizableRect(QGraphicsRectItem):
+    selected_edge = None
+    def __init__(self, x, y, width, height, onCenter=False):
+        if onCenter:
+            super().__init__(-width / 2, -height / 2, width, height)
+        else:
+            super().__init__(0, 0, width, height)
+        self.setPos(x, y)
+        self.setFlags(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+        self.setAcceptHoverEvents(True)
+        self.setPen(QPen(QBrush(Qt.GlobalColor.blue), 3,  Qt.PenStyle.DotLine))
+
+        # a child item that shows the current position; note that this is only
+        # provided for explanation purposes, a *proper* implementation should
+        # use the ItemSendsGeometryChanges flag for *this* item and then
+        # update the value within an itemChange() override that checks for
+        # ItemPositionHasChanged changes.
+        self.posItem = QGraphicsSimpleTextItem(
+            '{}, {}'.format(self.x(), self.y()), parent=self)
+        self.posItem.setPos(
+            self.boundingRect().x(), 
+            self.boundingRect().y() - self.posItem.boundingRect().height()
+        )
+
+    def getEdges(self, pos):
+        # return a proper Qt.Edges flag that reflects the possible edge(s) at
+        # the given position; note that this only works properly as long as the
+        # shape() override is consistent and for *pure* rectangle items; if you
+        # are using other shapes (like QGraphicsEllipseItem) or items that have
+        # a different boundingRect or different implementation of shape(), the
+        # result might be unexpected.
+        # Finally, a simple edges = 0 could suffice, but considering the new
+        # support for Enums in PyQt6, it's usually better to use the empty flag
+        # as default value.
+
+        edges = Qt.Edge(0)
+        rect = self.rect()
+        border = self.pen().width() / 2
+
+        if pos.x() < rect.x() + border:
+            edges |= Qt.Edge.LeftEdge
+        elif pos.x() > rect.right() - border:
+            edges |= Qt.Edge.RightEdge
+        if pos.y() < rect.y() + border:
+            edges |= Qt.Edge.TopEdge
+        elif pos.y() > rect.bottom() - border:
+            edges |= Qt.Edge.BottomEdge
+
+        return edges
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.selected_edge = self.getEdges(event.pos())
+            self.offset = QPointF()
+        else:
+            self.selected_edge = Qt.Edge(0)
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.selected_edge:
+            mouse_delta = event.pos() - event.buttonDownPos(Qt.MouseButton.LeftButton)
+            rect = self.rect()
+            pos_delta = QPointF()
+            border = self.pen().width()
+
+            if self.selected_edge & Qt.Edge.LeftEdge:
+                # ensure that the width is *always* positive, otherwise limit
+                # both the delta position and width, based on the border size
+                diff = min(mouse_delta.x() - self.offset.x(), rect.width() - border)
+                if rect.x() < 0:
+                    offset = diff / 2
+                    self.offset.setX(self.offset.x() + offset)
+                    pos_delta.setX(offset)
+                    rect.adjust(offset, 0, -offset, 0)
+                else:
+                    pos_delta.setX(diff)
+                    rect.setWidth(rect.width() - diff)
+            elif self.selected_edge & Qt.Edge.RightEdge:
+                if rect.x() < 0:
+                    diff = max(mouse_delta.x() - self.offset.x(), border - rect.width())
+                    offset = diff / 2
+                    self.offset.setX(self.offset.x() + offset)
+                    pos_delta.setX(offset)
+                    rect.adjust(-offset, 0, offset, 0)
+                else:
+                    rect.setWidth(max(border, event.pos().x() - rect.x()))
+
+            if self.selected_edge & Qt.Edge.TopEdge:
+                # similarly to what done for LeftEdge, but for the height
+                diff = min(mouse_delta.y() - self.offset.y(), rect.height() - border)
+                if rect.y() < 0:
+                    offset = diff / 2
+                    self.offset.setY(self.offset.y() + offset)
+                    pos_delta.setY(offset)
+                    rect.adjust(0, offset, 0, -offset)
+                else:
+                    pos_delta.setY(diff)
+                    rect.setHeight(rect.height() - diff)
+            elif self.selected_edge & Qt.Edge.BottomEdge:
+                if rect.y() < 0:
+                    diff = max(mouse_delta.y() - self.offset.y(), border - rect.height())
+                    offset = diff / 2
+                    self.offset.setY(self.offset.y() + offset)
+                    pos_delta.setY(offset)
+                    rect.adjust(0, -offset, 0, offset)
+                else:
+                    rect.setHeight(max(border, event.pos().y() - rect.y()))
+
+            if rect != self.rect():
+                self.setRect(rect)
+                if pos_delta:
+                    self.setPos(self.pos() + pos_delta)
+        else:
+            # use the default implementation for ItemIsMovable
+            super().mouseMoveEvent(event)
+
+        self.posItem.setText('{},{} ({})'.format(
+            self.x(), self.y(), self.rect().getRect()))
+        self.posItem.setPos(
+            self.boundingRect().x(), 
+            self.boundingRect().y() - self.posItem.boundingRect().height()
+        )
+
+    def mouseReleaseEvent(self, event):
+        self.selected_edge = Qt.Edge(0)
+        super().mouseReleaseEvent(event)
+
+    def hoverMoveEvent(self, event):
+        edges = self.getEdges(event.pos())
+        if not edges:
+            self.unsetCursor()
+        elif edges in (Qt.Edge.TopEdge | Qt.Edge.LeftEdge, Qt.Edge.BottomEdge | Qt.Edge.RightEdge):
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        elif edges in (Qt.Edge.BottomEdge | Qt.Edge.LeftEdge, Qt.Edge.TopEdge | Qt.Edge.RightEdge):
+            self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+        elif edges in (Qt.Edge.LeftEdge, Qt.Edge.RightEdge):
+            self.setCursor(Qt.CursorShape.SizeHorCursor)
+        else:
+            self.setCursor(Qt.CursorShape.SizeVerCursor)
