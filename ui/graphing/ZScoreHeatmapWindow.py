@@ -20,6 +20,7 @@ class ZScoreHeatmapWindow(QMainWindow):
         'size'   : 10}
 
         matplotlib.rc('font', **font)
+        matplotlib.rcParams['figure.figsize'] = [4, 4]
 
                 # Define region of interest and filter dataset
         x_min, y_min, x_max, y_max = region
@@ -123,6 +124,7 @@ class ZScoreHeatmapWindow(QMainWindow):
 
         # Create the Matplotlib figure and canvas for displaying
         self.figure = plt.figure(figsize=(12, 10))
+        # self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
         # Create and plot the clustermap, no ax passed
         row_linkage = linkage(z_score_matrix.fillna(0), method="average", metric="euclidean")
@@ -141,7 +143,7 @@ class ZScoreHeatmapWindow(QMainWindow):
         )
 
         # Set the title
-        g.fig.suptitle("Clustered Z-Score Heatmap of Protein Spatial Proximity")
+        g.fig.suptitle("Clustered Z-Score Heatmap")
 
         # Transfer the clustermap figure to our main figure to embed in PyQt
         self.figure = g.fig

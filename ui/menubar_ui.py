@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QMenuBar, QWidget, QMenu
 from PyQt6.QtCore import QRect, QCoreApplication
-from ui.tool import Action
+from ui.Action import Action
 
 class MenuBarUI(QWidget):
     def __init__(self, parent=None, enc=None):

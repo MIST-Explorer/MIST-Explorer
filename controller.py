@@ -100,6 +100,7 @@ class Controller:
         self.model_stardist.stardistDone.connect(self.model_cellIntensity.loadStardistLabels)
         self.model_stardist.errorSignal.connect(self.handleError)
         self.model_stardist.progress.connect(self.view.updateProgressBar)
+        self.view.view_tab.progress.connect(self.view.updateProgressBar)
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
 
 

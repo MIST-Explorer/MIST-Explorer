@@ -33,6 +33,7 @@ class AnalysisTab(QWidget):
         self.graph_index = 0  # Current graph index for the active view
 
         self.rubberbands = []
+        self.regions = []
 
         self.initUI()
 
@@ -87,6 +88,8 @@ class AnalysisTab(QWidget):
 
             self.rubberbands[self.view_index].hide()
             self.rubberbands.pop(self.view_index)
+
+            self.regions.pop(self.view_index)
             if len(self.views) == 0:
                 for i in reversed(range(self.scroll_layout.count())):
                     widget = self.scroll_layout.itemAt(i).widget()
@@ -152,7 +155,15 @@ class AnalysisTab(QWidget):
         """Adds a new graph to the current view."""
         if self.views:
             self.graphs[self.view_index].append(graph_widget)
-            self.graph_index = len(self.graphs[self.view_index]) - 1
+            # self.graph_index = len(self.graphs[self.view_index]) - 1
+            self.set_view(self.view_index)
+
+    def remove_all_graphs_at_index(self):
+        if self.views:
+            for i in reversed(range(len(self.graphs[self.view_index]))):
+                self.graphs[self.view_index][i].close()
+            self.graphs[self.view_index] = []
+            self.graph_index = 0
             self.set_view(self.view_index)
 
     def next_graph(self):
@@ -187,15 +198,14 @@ class AnalysisTab(QWidget):
     # self.add_new_view()
     # self.fill_rubberband()
 
-    def analyze_region(self, random_data, rubberband, region):
+    def analyze_region(self, rubberband, region):
         """Analyzes a selected region and adds corresponding graphs."""
         if len(self.rubberbands) != 0:
             self.rubberbands[self.view_index].setFilled(False) 
 
         self.rubberbands.append(rubberband)
+        self.regions.append(region)
 
-        # file_path = r"/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
-        # data = pd.read_excel(file_path)
         data = self.enc.view_tab.load_df()
 
         # Create a new widget to display the results
@@ -209,8 +219,11 @@ class AnalysisTab(QWidget):
         # Add a label saying "Selection Results"
         self.multiComboBox = MultiComboBox()
         self.multiComboBox.addItems(data.columns[3:])
+        for i in range(0, len(data.columns[3:])):
+            self.multiComboBox.model().item(i).setCheckState(Qt.CheckState.Checked)
         result_details_layout.addWidget(self.multiComboBox)
-
+        self.multiComboBox.itemsCheckedChanged.connect(self.handleComboBoxChanged)
+        
         # Add a delete button (not hooked up to anything yet)
         delete_button = QPushButton("Delete")
         delete_button.clicked.connect(self.delete_view)
@@ -233,10 +246,10 @@ class AnalysisTab(QWidget):
         # Example: Adding graphs to the current view
         print("multi", self.multiComboBox.lineEdit().text())
 
-        box_plot_graph = self.box_plot(random_data)
+        box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in region])
         zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in region])
-        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region], [self.multiComboBox.lineEdit().text()])
+        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region])
         zDistributionViewer = DistributionViewer(data)
 
         self.add_graph_to_view(box_plot_graph)
@@ -244,39 +257,72 @@ class AnalysisTab(QWidget):
         self.add_graph_to_view(zscore_HeatmapWindow)
         self.add_graph_to_view(zscore_cellDens)
         self.add_graph_to_view(zDistributionViewer)
+        self.graph_index = 0
+        self.update_graph_navigation()
+        # self.back_plot_button.click()
+
+        # self.next_plot_button.click()
+        # self.display_current_graph()
         
         self.views[-1] = result_widget
         self.scroll_layout.addWidget(result_widget)
 
         self.rubberbands[-1].setFilled(True)
 
-    def box_plot(self, data):
+    def handleComboBoxChanged(self, checked_items):
+        self.remove_all_graphs_at_index()
+
+        data = self.enc.view_tab.load_df()
+        result = list(set(data.columns[3:]) - set(checked_items))
+
+        data = data.drop(columns=result)
+
+        box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
+        zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
+        zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
+        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in self.regions[self.view_index]])
+        zDistributionViewer = DistributionViewer(data)
+
+        self.add_graph_to_view(box_plot_graph)
+        self.add_graph_to_view(zscore_heatmap_graph)
+        self.add_graph_to_view(zscore_HeatmapWindow)
+        self.add_graph_to_view(zscore_cellDens)
+        self.add_graph_to_view(zDistributionViewer)
+
+    def box_plot(self, data, region):
         """Creates a box plot."""
         result_widget = QWidget()
         result_layout = QVBoxLayout(result_widget)
 
+        x_min, y_min, x_max, y_max = region
+
+        # Filter the dataset to include only cells within the specified region
+        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
+                            (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
+        
+        filtered_data = filtered_data.iloc[:, 3:]
+    
         fig, ax = plt.subplots(figsize=(12, 8))
-        ax.boxplot(data["Expression"], labels=data['Protein'].unique(), showfliers=False)
+        filtered_data.boxplot(ax=ax)
+        
         ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
         ax.set_xlabel('Protein')
         ax.set_ylabel('Expression Level')
         ax.set_title('Random Protein Expression Box Plot')
-        plt.subplots_adjust(bottom=0.25)
+        plt.subplots_adjust(bottom=0.3)
 
-        result_layout.addWidget(FigureCanvas(fig))
+        canvas = FigureCanvas(fig)
+        result_layout.addWidget(canvas)
+        
         return result_widget
 
     def save_current_plot(self):
-        if self.views:
-            current_graph = self.views[self.view_index]
-            if isinstance(current_graph, FigureCanvas):
-                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
-                if file_path:
-                    current_graph.figure.savefig(file_path)
-            elif isinstance(current_graph, QMainWindow):
-                file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
-                if file_path:
-                    current_graph.figure.savefig(file_path)
+        print("plot save cliked")
+        
+        current_graph = self.graphs[self.view_index][self.graph_index]
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Plot", "", "PNG Files (*.png);;All Files (*)")
+        if file_path:
+            current_graph.figure.savefig(file_path)
 
     def unfill_rubberband(self):
         try:
@@ -292,14 +338,16 @@ from PyQt6.QtWidgets import QComboBox
 from PyQt6.QtCore import Qt
 
 class MultiComboBox(QComboBox):
+    itemsCheckedChanged = pyqtSignal(list)  # Signal to emit the list of checked items
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
         self.lineEdit().setReadOnly(True)
         self.setModel(QStandardItemModel(self))
 
-        # Connect to the dataChanged signal to update the text
-        self.model().dataChanged.connect(self.updateText)
+        # Connect to the dataChanged signal to update the text and emit our signal
+        self.model().dataChanged.connect(self.onItemStateChanged)
 
     def addItem(self, text: str, data=None):
         item = QStandardItem()
@@ -317,23 +365,11 @@ class MultiComboBox(QComboBox):
                           if self.model().item(i).checkState() == Qt.CheckState.Checked]
         self.lineEdit().setText(", ".join(selected_items))
 
-    def showPopup(self):
-        super().showPopup()
-        # Set the state of each item in the dropdown
-        for i in range(self.model().rowCount()):
-            item = self.model().item(i)
-            combo_box_view = self.view()
-            combo_box_view.setRowHidden(i, False)
-            check_box = combo_box_view.indexWidget(item.index())
-            if check_box:
-                check_box.setChecked(item.checkState() == Qt.CheckState.Checked)
+    def onItemStateChanged(self):
+        # Update the displayed text
+        self.updateText()
 
-    def hidePopup(self):
-        # Update the check state of each item based on the checkbox state
-        for i in range(self.model().rowCount()):
-            item = self.model().item(i)
-            combo_box_view = self.view()
-            check_box = combo_box_view.indexWidget(item.index())
-            if check_box:
-                item.setCheckState(Qt.CheckState.Checked if check_box.isChecked() else Qt.CheckState.Unchecked)
-        super().hidePopup()
+        # Emit the custom signal with the list of checked items
+        checked_items = [self.model().item(i).text() for i in range(self.model().rowCount())
+                         if self.model().item(i).checkState() == Qt.CheckState.Checked]
+        self.itemsCheckedChanged.emit(checked_items)
