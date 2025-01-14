@@ -268,10 +268,17 @@ class ImageGraphicsViewUI(QGraphicsView):
         print("mousePressEvent: entered", self.isEmpty(), self.begin_crop, self.select)
 
         if self.begin_crop:
+
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
+            self.starting_x = int(image_pos.x())
+            self.starting_y = int(image_pos.y())
+
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
                 if not self.rubberBand:
-                    self.rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, 0, 0, self)
+                    self.rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
             return
@@ -427,6 +434,12 @@ class ImageGraphicsViewUI(QGraphicsView):
                 height = int(selectedRect.height() * y_ratio)
                 width = int(selectedRect.width() * x_ratio)
                 self.__qt_image_rect = QRect(left, top, width, height)
+
+                scene_pos = self.mapToScene(event.pos())
+                image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
+
+                image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
                 self.showCroppedImage(image_rect)
 
             if self.select:
@@ -452,6 +465,8 @@ class ImageGraphicsViewUI(QGraphicsView):
     
 
     def showCroppedImage(self, image_rect):
+
+        # TODO add if statement to diff. between single page tiffs/jpeg/png and multi-page tiffs
         print("in view.canvas: ", self.currentChannelNum)
         q_im = list(self.channels.values())[self.currentChannelNum]
         pix = QPixmap(q_im)
