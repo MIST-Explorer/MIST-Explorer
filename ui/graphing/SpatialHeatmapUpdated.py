@@ -30,8 +30,8 @@ class HeatmapWindow(QMainWindow):
         correlation_matrix = filtered_data[proteins].corr(method='spearman')
 
        
-        self.setWindowTitle("Protein Correlation Heatmap")
-        self.resize(1200, 800)
+        # self.setWindowTitle("Protein Correlation Heatmap")
+        # self.resize(1200, 800)
 
         # Central widget
         central_widget = QWidget(self)
@@ -43,12 +43,18 @@ class HeatmapWindow(QMainWindow):
         # Create the Matplotlib figure and axes
         self.figure, self.ax = plt.subplots(figsize=(12, 10))
 
+        self.figure.suptitle("Heatmap indicates protein-protein correlation; \nSize indicates spatial distances between protein expression cells", fontsize=7)
+        
+        # self.ax.text(0, -2.0, "Heatmap indicates protein-protein correlation; \nSize indicates spatial distances between protein expression cells", fontsize=7, weight="bold")
+
         # Plot the heatmap on the axes
         self.plot_heatmap(data, interaction_matrix, proteins, correlation_matrix, region)
 
         # Create a canvas to embed the Matplotlib figure into the PyQt6 application
         canvas = FigureCanvas(self.figure)
         layout.addWidget(canvas)
+
+        
 
     def plot_heatmap(self, data, interaction_matrix, proteins, correlation_matrix, region):
         x_min, y_min, x_max, y_max = region
@@ -59,6 +65,7 @@ class HeatmapWindow(QMainWindow):
             cmap="coolwarm",
             vmin=-0.25,
             vmax=0.25,
+            cbar=False,
             annot=False,
             xticklabels=proteins,
             yticklabels=proteins[::-1],  # Inverted y-axis labels

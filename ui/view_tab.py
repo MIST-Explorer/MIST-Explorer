@@ -479,8 +479,7 @@ class ImageOverlay(QWidget):
         self.open_df_label.setVisible(False)
         main_layout.addWidget(self.open_df_label)
 
-        
-        
+    
         ### scale slider
         self.scale_down_label = QLabel("Scale Down Factor: ")
         main_layout.addWidget(self.scale_down_label)
@@ -675,8 +674,6 @@ class ImageOverlay(QWidget):
         color_layout.addWidget(color_label)
         group_layout.addRow("Tint Color:", color_layout)
         
-
-        
         delete_button = QPushButton("Delete Layer")
         delete_button.clicked.connect(lambda: self.delete_layer(len(self.controls) - 1))
         # self.visibility_buttons.append(delete_button)
@@ -763,6 +760,7 @@ class ImageOverlay(QWidget):
         
         # QImage(combined_image.tobytes(), width, height, QImage.Format.Format_RGB888)
         
+        # commented out
         self.changePix.emit(QGraphicsPixmapItem(QPixmap.fromImage(q_image)))
 
 def numpy_to_qimage(array):

@@ -18,6 +18,7 @@ from ui.graphing.ZScoreHeatmapWindow import ZScoreHeatmapWindow
 from ui.graphing.SpatialHeatmapUpdated import HeatmapWindow
 from ui.graphing.CellDensityPlot import CellDensityPlot
 from ui.graphing.DistributionViewer import DistributionViewer
+from ui.graphing.PieChartCanvas import PieChartCanvas
 
 class AnalysisTab(QWidget):
 
@@ -218,16 +219,34 @@ class AnalysisTab(QWidget):
 
         # Add a label saying "Selection Results"
         self.multiComboBox = MultiComboBox()
+        self.multiComboBox.addItem("Select All")
+        self.multiComboBox.addItem("Deselect All")
         self.multiComboBox.addItems(data.columns[3:])
+        
+        
         for i in range(0, len(data.columns[3:])):
             self.multiComboBox.model().item(i).setCheckState(Qt.CheckState.Checked)
         result_details_layout.addWidget(self.multiComboBox)
-        self.multiComboBox.itemsCheckedChanged.connect(self.handleComboBoxChanged)
-        
-        # Add a delete button (not hooked up to anything yet)
+
+        # Create a vertical layout for the buttons
+        buttons_layout = QVBoxLayout()
+
+        # Add "Apply" button
+        apply_button = QPushButton("Apply")
+        apply_button.clicked.connect(lambda: self.handleComboBoxChanged(self.multiComboBox.get_checked_items()))
+        buttons_layout.addWidget(apply_button)
+
+        # Add "Delete" button
         delete_button = QPushButton("Delete")
         delete_button.clicked.connect(self.delete_view)
-        result_details_layout.addWidget(delete_button)
+        buttons_layout.addWidget(delete_button)
+
+        # Create a widget to hold the buttons' layout
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+
+        # Add the combined widget to the result_details_layout
+        result_details_layout.addWidget(buttons_widget)
 
         # Add a rectangle with the color converted to RGB
         pyqt_color_rgb = QColor(rubberband.color).getRgb()[:3]
@@ -249,13 +268,15 @@ class AnalysisTab(QWidget):
         box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in region])
         zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in region])
-        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region])
+        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region]) 
+        zscore_PieChartCanvas = PieChartCanvas(data, [i * 4 for i in region]) 
         zDistributionViewer = DistributionViewer(data)
 
         self.add_graph_to_view(box_plot_graph)
         self.add_graph_to_view(zscore_heatmap_graph)
         self.add_graph_to_view(zscore_HeatmapWindow)
-        self.add_graph_to_view(zscore_cellDens)
+        # self.add_graph_to_view(zscore_cellDens)
+        self.add_graph_to_view(zscore_PieChartCanvas)
         self.add_graph_to_view(zDistributionViewer)
         self.graph_index = 0
         self.update_graph_navigation()
@@ -270,6 +291,14 @@ class AnalysisTab(QWidget):
         self.rubberbands[-1].setFilled(True)
 
     def handleComboBoxChanged(self, checked_items):
+        if len(checked_items) == 0:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Alert")
+            msg_box.setText("You have nothing selected! Please select at least one protein.")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
+            return
+
         self.remove_all_graphs_at_index()
 
         data = self.enc.view_tab.load_df()
@@ -277,16 +306,19 @@ class AnalysisTab(QWidget):
 
         data = data.drop(columns=result)
 
+        region = self.regions[self.view_index]
         box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
         zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
-        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in self.regions[self.view_index]])
+        zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region]) 
+        zscore_PieChartCanvas = PieChartCanvas(data, [i * 4 for i in region]) 
         zDistributionViewer = DistributionViewer(data)
 
         self.add_graph_to_view(box_plot_graph)
         self.add_graph_to_view(zscore_heatmap_graph)
         self.add_graph_to_view(zscore_HeatmapWindow)
-        self.add_graph_to_view(zscore_cellDens)
+        # self.add_graph_to_view(zscore_cellDens)
+        self.add_graph_to_view(zscore_PieChartCanvas)
         self.add_graph_to_view(zDistributionViewer)
 
     def box_plot(self, data, region):
@@ -308,11 +340,12 @@ class AnalysisTab(QWidget):
         ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
         ax.set_xlabel('Protein')
         ax.set_ylabel('Expression Level')
-        ax.set_title('Random Protein Expression Box Plot')
+        ax.set_title('Protein Expression Box Plot')
         plt.subplots_adjust(bottom=0.3)
 
         canvas = FigureCanvas(fig)
         result_layout.addWidget(canvas)
+        result_widget.figure = fig
         
         return result_widget
 
@@ -369,7 +402,30 @@ class MultiComboBox(QComboBox):
         # Update the displayed text
         self.updateText()
 
-        # Emit the custom signal with the list of checked items
-        checked_items = [self.model().item(i).text() for i in range(self.model().rowCount())
-                         if self.model().item(i).checkState() == Qt.CheckState.Checked]
-        self.itemsCheckedChanged.emit(checked_items)
+        items = self.get_checked_items2()
+
+        if "Select All" in items and not "Deselect All"  in items:
+            for i in range(self.model().rowCount()):
+                    item = self.model().item(i)
+                    if item.text() != "Deselect All":
+                        item.setCheckState(Qt.CheckState.Checked)
+
+        if "Deselect All" in items:
+            for i in range(self.model().rowCount()):
+                    item = self.model().item(i)
+                    item.setCheckState(Qt.CheckState.Unchecked)
+            
+            
+        # self.updateText()   # Emit the custom si"Deselect All"gnal with the list of checked items
+        # self.itemsCheckedChanged.emit()
+    
+    def get_checked_items(self):
+        items = [self.model().item(i).text() for i in range(self.model().rowCount())
+                if self.model().item(i).checkState() == Qt.CheckState.Checked]
+        
+        return [item for item in items if item not in ["Select All", "Deselect All"]]   
+    
+    # stupid backwards compatability issue 
+    def get_checked_items2(self):
+        return [self.model().item(i).text() for i in range(self.model().rowCount())
+                if self.model().item(i).checkState() == Qt.CheckState.Checked]

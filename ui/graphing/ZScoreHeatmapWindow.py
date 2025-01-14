@@ -17,10 +17,10 @@ class ZScoreHeatmapWindow(QMainWindow):
 
         font = {
         
-        'size'   : 10}
+        'size'   : 8}
 
         matplotlib.rc('font', **font)
-        matplotlib.rcParams['figure.figsize'] = [4, 4]
+        matplotlib.rcParams['figure.figsize'] = [3, 3]
 
                 # Define region of interest and filter dataset
         x_min, y_min, x_max, y_max = region
@@ -112,8 +112,8 @@ class ZScoreHeatmapWindow(QMainWindow):
 
         np.fill_diagonal(z_score_matrix.values, 0)
 
-        self.setWindowTitle("Clustered Z-Score Heatmap")
-        self.resize(1200, 800)
+        # self.setWindowTitle("Clustered Z-Score Heatmap")
+        # self.resize(1200, 800)
 
         # Central widget
         central_widget = QWidget(self)
@@ -123,7 +123,8 @@ class ZScoreHeatmapWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
 
         # Create the Matplotlib figure and canvas for displaying
-        self.figure = plt.figure(figsize=(12, 10))
+        self.figure = plt.figure(figsize=(10, 10))
+        # plt.subplots_adjust(left=0, right=2, top=0.9, bottom=0.1)
         # self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
         # Create and plot the clustermap, no ax passed
@@ -133,9 +134,11 @@ class ZScoreHeatmapWindow(QMainWindow):
         # Create the clustered heatmap
         g = sns.clustermap(
             z_score_matrix.astype(float),
+            figsize=(6, 6),
             cmap="coolwarm",
             vmin=-5,
             vmax=5,
+            dendrogram_ratio=(0.1, 0.1),
             row_linkage=row_linkage,
             col_linkage=col_linkage,
             xticklabels=True,
@@ -146,6 +149,8 @@ class ZScoreHeatmapWindow(QMainWindow):
         g.fig.suptitle("Clustered Z-Score Heatmap")
 
         # Transfer the clustermap figure to our main figure to embed in PyQt
+        plt.setp(g.ax_heatmap.get_yticklabels(), fontsize=6)
+        plt.setp(g.ax_heatmap.get_xticklabels(), fontsize=6)
         self.figure = g.fig
 
         # Create a canvas to embed the Matplotlib figure into the PyQt6 application

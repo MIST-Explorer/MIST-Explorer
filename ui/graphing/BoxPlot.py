@@ -12,9 +12,9 @@ class BoxPlotCanvas(FigureCanvas):
         self.plot_boxplot()
 
     def plot_boxplot(self):
-        # Load your dataset from the Excel file
-        file_path = r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx"
-        data = pd.read_excel(file_path)
+        # # Load your dataset from the Excel file
+        # file_path = r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx"
+        # data = pd.read_excel(file_path)
 
         # Define the region of interest
         x_min, y_min = 0, 0  # Adjust these coordinates as needed

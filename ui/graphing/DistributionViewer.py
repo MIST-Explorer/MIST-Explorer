@@ -13,7 +13,10 @@ class DistributionViewer(QMainWindow):
     def __init__(self, data):
         super().__init__()
 
-        self.data = data  # DataFrame with data to plot
+        cols = data.columns[3:]
+
+        self.data = data[cols] # DataFrame with data to plot
+        
         self.initUI()
 
     def initUI(self):
@@ -70,6 +73,8 @@ class DistributionViewer(QMainWindow):
         file_path = r"/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
         data = pd.read_excel(file_path).iloc[:, 5:9]
         data = trim_outliers(data).dropna()
+
+        data = data[data.columns[3:]]
         self.plot_distributions(data)
 
 import pandas as pd

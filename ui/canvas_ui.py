@@ -62,7 +62,7 @@ class AnalysisRubberBand(QRubberBand):
     # def zoom(self, scale_factor):
     #     self.scale(scale_factor, scale_factor)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent1(self, event):
         # if self.mousePressPos is not None:
             # print("from  AnalysisRubberBand mouse press event")
             self.mousePressPos = event.pos()                # global
@@ -70,7 +70,7 @@ class AnalysisRubberBand(QRubberBand):
             # super(AnalysisRubberBand, self).mousePressEvent(event)
             self.hello = True
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent1(self, event):
         if self.mousePressPos is not None and self.hello:
             pos = event.pos()
             moved = pos - self.mousePressPos
@@ -81,7 +81,7 @@ class AnalysisRubberBand(QRubberBand):
                 self.mouseMovePos = pos - self.pos()
             super(AnalysisRubberBand, self).mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent1(self, event):
         # print("from  AnalysisRubberBand mouseReleaseEvent")
         self.hello = False
         if self.mousePressPos is not None:
@@ -150,7 +150,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.begin_crop = False
         self.origin = None
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
-        self.scale_factor = 1.25
         self.select = False
         self.zoom = 1
 
@@ -176,24 +175,26 @@ class ImageGraphicsViewUI(QGraphicsView):
         print("hello")
         
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
-        '''add a new image, deletes the older one'''
-        # clear
+        '''Update the pixmap of the existing image or add a new one'''
         print("addNewImage: entered")
-        self.scene().clear()
-        self.pixmapItem = pixmapItem
+
+        if not hasattr(self, 'pixmapItem') or self.pixmapItem is None:
+            # If no pixmapItem exists, add it to the scene
+            self.pixmapItem = pixmapItem
+            
+            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+            self.scene().addItem(self.pixmapItem)
+            self.__centerImage(self.pixmapItem)
+            print("addNewImage: created and added new pixmapItem")
+        else:
+            # Update the pixmap of the existing item
+            self.pixmapItem.setPixmap(pixmapItem.pixmap())
+            print("addNewImage: updated pixmap of existing pixmapItem")
 
         if not self.pixmapItem.pixmap().isNull():
             print("addNewImage: there is a pixmapItem")
         else:
             print("addNewImage; there is no pixmapItem")
-
-        self.__centerImage(self.pixmapItem)
-        #make item movable
-        self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
-
-        # add the item to the scene
-        self.scene().addItem(self.pixmapItem)
-        print("addNewImage: adding to scene")
 
     def __centerImage(self, pixmapItem):
         item_rect = self.pixmapItem.boundingRect()
@@ -256,18 +257,22 @@ class ImageGraphicsViewUI(QGraphicsView):
 
 
     def mousePressEvent(self, event: QMouseEvent):
+
+        if self.isEmpty():
+            return
+            
         print("mousePressEvent: entered", self.isEmpty(), self.begin_crop, self.select)
-        if not self.isEmpty() and self.begin_crop:
+
+        if self.begin_crop:
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
                 if not self.rubberBand:
-                    self.rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, self)
+                    self.rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, 0, 0, self)
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
             return
                 
         elif self.select:
-
             scene_pos = self.mapToScene(event.pos())
             image_pos = self.pixmapItem.mapFromScene(scene_pos)
             
@@ -297,7 +302,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
         if not self.select:
             for r in self.rubberBands:
-                r.mousePressEvent(event)
+                r.mousePressEvent1(event)
 
     def getCoordsRelativeToImage(self, event: QMouseEvent):
         scene_pos = self.mapToScene(event.pos())
@@ -376,7 +381,8 @@ class ImageGraphicsViewUI(QGraphicsView):
 
         if not self.select:
             for r in self.rubberBands:
-                r.mouseMoveEvent(event)
+                r.mouseMoveEvent1(event)
+                
 
         # else: 
         #     for r in self.rubberBands:
@@ -388,7 +394,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.rubber_band_positions = []
 
         for r in self.rubberBands:
-            r.mouseReleaseEvent(event)
+            r.mouseReleaseEvent1(event)
 
         if self.isEmpty(): # exit if there is no image
             return
