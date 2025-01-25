@@ -101,8 +101,11 @@ class AnalysisTab(QWidget):
                 self.view_index -= 1
                 self.graph_index -= 1
                 self.rubberbands[self.view_index].setFilled(True)
-
-            # self.update_graph_navigation()
+            
+            return True
+        
+        return False
+    
 
     def set_view(self, index):
         """Sets the current view by index."""

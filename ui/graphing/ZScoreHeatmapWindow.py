@@ -157,14 +157,7 @@ class ZScoreHeatmapWindow(QMainWindow):
         canvas = FigureCanvas(self.figure)
         layout.addWidget(canvas)
 
-
-
-
-
-    # def plot_heatmap(self, z_score_matrix):
-    #     # Perform hierarchical clustering on rows and columns
         
-
 
 def main():
     app = QApplication(sys.argv)

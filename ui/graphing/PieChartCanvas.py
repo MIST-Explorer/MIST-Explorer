@@ -203,6 +203,7 @@ class PieChartCanvas(FigureCanvas):
             radius=1.45,
             labeldistance=1.15
         )
+        
 
         # Add total rows label at the bottom
         total_rows = len(df)

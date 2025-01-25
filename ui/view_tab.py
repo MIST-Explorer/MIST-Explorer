@@ -400,6 +400,17 @@ class ImageOverlay(QWidget):
 
         resp = reply.exec()
 
+        for i in range(len(self.controls)):
+            self.delete_layer(0)
+
+        self.enc.analysis_tab.view_index = 0
+
+        while self.enc.analysis_tab.delete_view():
+            pass
+
+        # for i in range(len(self. )):
+        #     self.delete_layer(0)
+
         if resp == QMessageBox.StandardButton.Yes:
             self.open_image.setVisible(True)
             self.open_image_label.setVisible(False)
@@ -414,6 +425,10 @@ class ImageOverlay(QWidget):
             
             self.add_layer_button.setVisible(False)
             self.cancel_reset.setVisible(False)
+
+            self.add_other_image_button.setVisible(False)
+
+        
     
     
     def initUI(self):

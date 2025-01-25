@@ -73,10 +73,10 @@ class HeatmapWindow(QMainWindow):
         )
 
         # Customize axis labels
-        self.ax.set_xticks(range(len(proteins)))
-        self.ax.set_yticks(range(len(proteins)))
-        self.ax.set_xticklabels(proteins, rotation=90, fontname="Arial")
-        self.ax.set_yticklabels(proteins[::-1], fontname="Arial")
+        # self.ax.set_xticks(range(len(proteins)))
+        # self.ax.set_yticks(range(len(proteins)))
+        # self.ax.set_xticklabels(proteins, rotation=90, fontname="Arial")
+        # self.ax.set_yticklabels(proteins[::-1], fontname="Arial")
         self.figure.subplots_adjust(bottom=0.20, left=0.20)
 
         # Add circles proportional to the interaction strengths (edge lengths)
