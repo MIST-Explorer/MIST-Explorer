@@ -39,9 +39,7 @@ class AnalysisTab(QWidget):
         self.initUI()
 
     def initUI(self):
-        main_layout = QVBoxLayout()
-
-        # Navigation buttons for views
+        # top three buttons
         nav_layout = QHBoxLayout()
 
         self.save_button = QPushButton("Save Plot")
@@ -54,11 +52,17 @@ class AnalysisTab(QWidget):
 
         nav_layout.addWidget(self.save_button)
         nav_layout.addWidget(self.back_button)
-        nav_layout.addWidget(self.next_button)
+        nav_layout.addWidget(self.next_button) 
 
-        main_layout.addLayout(nav_layout)
+        # scroll area in middle
+        self.scroll_content = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_content)
+        self.scroll_area = QScrollArea()
 
-        # Graph navigation buttons
+        self.scroll_area.setWidget(self.scroll_content)
+        self.scroll_area.setWidgetResizable(True)
+
+        # bottom two buttons holder
         self.graph_nav_layout = QHBoxLayout()
 
         self.back_plot_button = QPushButton("< Previous Graph")
@@ -69,14 +73,12 @@ class AnalysisTab(QWidget):
 
         self.graph_nav_layout.addWidget(self.back_plot_button)
         self.graph_nav_layout.addWidget(self.next_plot_button)
+        
+        # END ^^
+        # Now add all to main layout
+        main_layout = QVBoxLayout()
 
-        # Scrollable area for the current view
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_content = QWidget()
-        self.scroll_layout = QVBoxLayout(self.scroll_content)
-        self.scroll_area.setWidget(self.scroll_content)
-
+        main_layout.addLayout(nav_layout)
         main_layout.addWidget(self.scroll_area)
         main_layout.addLayout(self.graph_nav_layout)
 
@@ -194,13 +196,6 @@ class AnalysisTab(QWidget):
         self.scroll_layout.addWidget(self.views[self.view_index])
         self.update_graph_navigation()
 
-
-    # if len(self.rubberbands) != 0:
-    #     self.rubberbands[self.view_index].setFilled(False) 
-
-    # self.rubberbands.append(rubberband)
-    # self.add_new_view()
-    # self.fill_rubberband()
 
     def analyze_region(self, rubberband, region):
         """Analyzes a selected region and adds corresponding graphs."""
