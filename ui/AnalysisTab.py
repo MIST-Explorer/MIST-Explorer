@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import pyqtSlot
 
 import sys
 import pandas as pd
@@ -20,6 +21,8 @@ from ui.graphing.SpatialHeatmapUpdated import HeatmapWindow
 from ui.graphing.CellDensityPlot import CellDensityPlot
 from ui.graphing.DistributionViewer import DistributionViewer
 from ui.graphing.PieChartCanvas import PieChartCanvas
+from ui.graphing.delete_later import UMAPVisualizer
+
 
 class AnalysisTab(QWidget):
 
@@ -196,7 +199,9 @@ class AnalysisTab(QWidget):
 
     def open_in_new_window(self):
         # Create a new window to display the current graph
-        new_window = QWidget()
+        new_window = RegenerateOnCloseWindow(
+            regenerate_callback=self._on_new_window_closed
+        )
         new_window.setWindowTitle("Icon Detail - New Window")
         layout = QVBoxLayout()
 
@@ -211,13 +216,27 @@ class AnalysisTab(QWidget):
         new_window.resize(300, 200)
         new_window.show()
 
-                # Track the new window and update original content
+        # Track the new window and update original content
         self.windows.append(new_window)
         for i in reversed(range(self.icon_detail_page.content_layout.count())):
             widget_to_remove = self.icon_detail_page.content_layout.itemAt(i).widget()
             if widget_to_remove is not None:
                 widget_to_remove.setParent(None)
         self.icon_detail_page.content_layout.addWidget(QLabel("visible in new window"))
+
+    @pyqtSlot()
+    def _on_new_window_closed(self):
+        # When the new window is closed, regenerate the graph in the main window
+        index = self.graph_index
+        new_graph = self.get_graph(int(self.graph_index))
+
+        # Clear old content and update layout with the regenerated graph
+        for i in reversed(range(self.icon_detail_page.content_layout.count())):
+            widget_to_remove = self.icon_detail_page.content_layout.itemAt(i).widget()
+            if widget_to_remove is not None:
+                widget_to_remove.setParent(None)
+
+        self.icon_detail_page.content_layout.addWidget(new_graph)
 
 
     def analyze_region(self, rubberband, region):
@@ -236,44 +255,49 @@ class AnalysisTab(QWidget):
         # result_layout.setContentsMargins(0, 0, 0, 0)
 
         # Create a horizontal layout for the result details
-        # result_details_layout = QHBoxLayout()
+        result_details_layout = QHBoxLayout()
 
         # Add a label saying "Selection Results"
-        # self.multiComboBox = MultiComboBox()
-        # self.multiComboBox.addItem("Select All")
-        # self.multiComboBox.addItem("Deselect All")
-        # self.multiComboBox.addItems(data.columns[3:])
+        self.multiComboBox = MultiComboBox()
+        self.multiComboBox.addItem("Select All")
+        self.multiComboBox.addItem("Deselect All")
+        self.multiComboBox.addItems(data.columns[3:])
         
-        # for i in range(0, len(data.columns[3:])):
-        #     self.multiComboBox.model().item(i).setCheckState(Qt.CheckState.Checked)
+        for i in range(0, len(data.columns[3:])):
+            self.multiComboBox.model().item(i).setCheckState(Qt.CheckState.Checked)
         # result_details_layout.addWidget(self.multiComboBox)
 
-        # Create a vertical layout for the buttons
-        # buttons_layout = QVBoxLayout()
-
-        # # Add "Apply" button
-        # apply_button = QPushButton("Apply")
-        # apply_button.clicked.connect(lambda: self.handleComboBoxChanged(self.multiComboBox.get_checked_items()))
+        # Add "Apply" button
+        apply_button = QPushButton("Apply")
+        apply_button.clicked.connect(lambda: self.handleComboBoxChanged(self.multiComboBox.get_checked_items()))
         # buttons_layout.addWidget(apply_button)
 
-        # # Add "Delete" button
-        # delete_button = QPushButton("Delete")
-        # delete_button.clicked.connect(self.delete_view)
-        # buttons_layout.addWidget(delete_button)
+        # Create a vertical layout for the buttons
+        buttons_layout = QVBoxLayout()
 
-        # # Create a widget to hold the buttons' layout
-        # buttons_widget = QWidget()
-        # buttons_widget.setLayout(buttons_layout)
+        bounds = QLabel(f"Bounds: {region}")
+        buttons_layout.addWidget(bounds)
 
-        # # Add the combined widget to the result_details_layout
-        # result_details_layout.addWidget(buttons_widget)
+        # Add "Delete" button
+        delete_button = QPushButton("Delete")
+        delete_button.clicked.connect(self.delete_view)
+        buttons_layout.addWidget(delete_button)
 
-        # # Add a rectangle with the color converted to RGB
-        # pyqt_color_rgb = QColor(rubberband.color).getRgb()[:3]
-        # color_label = QLabel()
-        # color_label.setFixedSize(100, 50)
-        # color_label.setStyleSheet(f"background-color: rgb({pyqt_color_rgb[0]}, {pyqt_color_rgb[1]}, {pyqt_color_rgb[2]});")
-        # result_details_layout.addWidget(color_label)
+        
+
+        # Create a widget to hold the buttons' layout
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+
+        # Add the combined widget to the result_details_layout
+        result_details_layout.addWidget(buttons_widget)
+
+        # Add a rectangle with the color converted to RGB
+        pyqt_color_rgb = QColor(rubberband.color).getRgb()[:3]
+        color_label = QLabel()
+        color_label.setFixedSize(100, 50)
+        color_label.setStyleSheet(f"background-color: rgb({pyqt_color_rgb[0]}, {pyqt_color_rgb[1]}, {pyqt_color_rgb[2]});")
+        result_details_layout.addWidget(color_label)
 
         box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
@@ -285,15 +309,16 @@ class AnalysisTab(QWidget):
         self.windows = []
 
         self.icon_list = [
-            "Boxplot", "Z-Scores Heatmap", "Other Heatmap",
-            "Pi Chart", "Histogram", 
+            "Boxplot", "Z-Scores Heatmap", "Spatial Heatmap",
+            "Pi Chart", "Histogram", "UMAP" 
         ]
 
         self.icon_path = ["/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/linechart.png",
                           "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/heatmap.png",
-                          "/Users/clark/heatmap/wang/protein_visualization_app/ui/graphing/icons/barchart.png",
+                          "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/heatmap.png",
                           "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/piechart.png",
                           "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/barchart.png",
+                          "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/scatter.png",
                           ]
 
         
@@ -301,7 +326,7 @@ class AnalysisTab(QWidget):
         # self.icon_list = self.icon_grid
         self.stacked_widget = QStackedWidget()
 
-        self.icon_list_page = IconListPage(self.icon_list, self.show_icon_detail_page, self.icon_path)
+        self.icon_list_page = IconListPage(self.icon_list, self.show_icon_detail_page, self.icon_path, result_details_layout)
         self.icon_detail_page = IconDetailPage(self.show_icon_grid_page, self.open_in_new_window, self)
 
         self.stacked_widget.addWidget(self.icon_list_page)
@@ -321,17 +346,28 @@ class AnalysisTab(QWidget):
         
         # TODO: fix static 4, shoulkd be based on whatever
         box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
+        b1 = QWidget()
+        boxxer = QVBoxLayout()
+        boxxer.addWidget(box_plot_graph)
+        boxxer.addWidget(apply_button)
+        boxxer.addWidget(self.multiComboBox)
+
+        b1.setLayout(boxxer)
+        self.add_graph_to_view(b1)
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in region])
         zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in region])
         # zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region]) 
         zscore_PieChartCanvas = PieChartCanvas(data, [i * 4 for i in region]) 
         zDistributionViewer = DistributionViewer(data)
 
-        self.add_graph_to_view(box_plot_graph)
+        umaper = UMAPVisualizer()
+
+        
         self.add_graph_to_view(zscore_heatmap_graph)
         self.add_graph_to_view(zscore_HeatmapWindow)
         self.add_graph_to_view(zscore_PieChartCanvas)
         self.add_graph_to_view(zDistributionViewer)
+        self.add_graph_to_view(umaper)
 
         
         
@@ -550,7 +586,7 @@ class IconDetailPage(QWidget):
         self.content_layout.setContentsMargins(0, 0, 0, 0)
 
 class IconListPage(QWidget):
-    def __init__(self, icon_list, navigate_to_page, icon_paths):
+    def __init__(self, icon_list, navigate_to_page, icon_paths, result_details_layout):
         super().__init__()
         self.icon_list = icon_list
         self.navigate_to_page = navigate_to_page
@@ -586,21 +622,33 @@ class IconListPage(QWidget):
         add_chart_button.setFixedHeight(70)
         add_chart_button.setStyleSheet("text-align:left; padding: 10px; margin-top: 10px;")
         add_chart_button.setIcon(QIcon("/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/addchart.png"))
-        layout.addWidget(add_chart_button)
+        # layout.addWidget(add_chart_button)
 
         # Add status box at the bottom
-        status_layout = QHBoxLayout()
+        # status_layout = QHBoxLayout()
 
-        delete_button = QPushButton("Delete")
-        status_layout.addWidget(delete_button)
+        # delete_button = QPushButton("Delete")
+        # status_layout.addWidget(delete_button)
 
-        color_label = QLabel()
-        color_label.setFixedSize(100, 50)
-        color_label.setStyleSheet("background-color: blue;")
+        # color_label = QLabel()
+        # color_label.setFixedSize(100, 50)
+        # color_label.setStyleSheet("background-color: blue;")
         
 
-        coordinates_label = QLabel("400, 200 to 700, 550")
-        status_layout.addWidget(coordinates_label)
-        status_layout.addWidget(color_label)
+        # coordinates_label = QLabel("400, 200 to 700, 550")
+        # status_layout.addWidget(coordinates_label)
+        # status_layout.addWidget(color_label)
 
-        layout.addLayout(status_layout)
+        layout.addLayout(result_details_layout)
+
+
+class RegenerateOnCloseWindow(QWidget):
+    def __init__(self, regenerate_callback):
+        super().__init__()
+        self.regenerate_callback = regenerate_callback
+
+    def closeEvent(self, event):
+        # Call the regenerate callback when the window is closed
+        if self.regenerate_callback:
+            self.regenerate_callback()
+        super().closeEvent(event)

@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 import sys
+from PyQt6.QtCore import pyqtSlot
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt6.QtGui import QIcon
@@ -106,7 +107,9 @@ class MainWindow(QWidget):
 
     def open_in_new_window(self):
         # Create a new window to display the current graph
-        new_window = QWidget()
+        new_window = RegenerateOnCloseWindow(
+            regenerate_callback=self._on_new_window_closed
+        )
         new_window.setWindowTitle("Icon Detail - New Window")
         layout = QVBoxLayout()
 
@@ -129,11 +132,39 @@ class MainWindow(QWidget):
                 widget_to_remove.setParent(None)
         self.icon_detail_page.content_layout.addWidget(QLabel("visible in new window"))
 
+    @pyqtSlot()
+    def _on_new_window_closed(self):
+        # When the new window is closed, regenerate the graph in the main window
+        index = self.icon_detail_page.content_layout.itemAt(0).widget().text().split()[-1]
+        new_graph = self.encoder.get_graph(int(1))
+
+        # Clear old content and update layout with the regenerated graph
+        for i in reversed(range(self.icon_detail_page.content_layout.count())):
+            widget_to_remove = self.icon_detail_page.content_layout.itemAt(i).widget()
+            if widget_to_remove is not None:
+                widget_to_remove.setParent(None)
+
+        self.icon_detail_page.content_layout.addWidget(new_graph)
+
     class MockEncoder:
         def get_graph(self, index):
             widget = QLabel(f"Graph for Icon Index: {index}")
             widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
             return widget
+
+
+class RegenerateOnCloseWindow(QWidget):
+    def __init__(self, regenerate_callback):
+        super().__init__()
+        self.regenerate_callback = regenerate_callback
+
+    def closeEvent(self, event):
+        # Call the regenerate callback when the window is closed
+        if self.regenerate_callback:
+            self.regenerate_callback()
+        super().closeEvent(event)
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

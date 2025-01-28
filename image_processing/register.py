@@ -135,19 +135,25 @@ class Register(QThread):
                     print(f"aligned a tile...{tile_n}")
                     progress_update = int(((tile_n+1)/len(inputs))*100)
                     self.progress.emit(progress_update, str(f"aligning tile {tile_n+1}/{len(inputs)}"))
+
+                    print(1)
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
-                        
+                    
+                    print("2")
                     t = time.time()
                     result = self.f(tile_set) # align
+
+                    print(3)
                     print(time.time() - t)
                     if result == None:
                         continue
                     outputs.append(result)
                 except Exception as e:
-                    raise e
                     print("ERROE!")
+                    raise e
+                    
                     print(e)
             print("done aligning")
 
