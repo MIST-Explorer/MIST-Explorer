@@ -362,14 +362,34 @@ class Register(QThread):
         # source = convert_to_rgb_image(source)
         # target = convert_to_rgb_image(target)
         print(source.dtype, source.shape, target.dtype, target.shape)
+        global transf
+        global transf_previous
+
+        print("finding alignment")
+        # try:
         transf, (source_list, target_list) = aa.find_transform(source, target,detection_sigma=2, min_area=20, max_control_points=500)
+
+
+        # except Exception as e:
+        #     print("This tile is not aligned!")
+        #     if 'transf_previous' in globals():
+        #         transf = transf_previous
+        #     else:
+        #         transf = None  # or some default transformation
+        # finally:
+        #     print(" ")
+
+        # transf_previous = transf
+
         registered, footprint = aa.apply_transform(transf, source, target)
     
-        # # convert the 3D back to 2D gray image
-        # def rgb2gray(rgb):
-        #     return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
-        # registered = rgb2gray(registered)
-        # target = rgb2gray(target)
+        # # # convert the 3D back to 2D gray image
+        # # def rgb2gray(rgb):
+        # #     return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
+        # # registered = rgb2gray(registered)
+        # # target = rgb2gray(target)
+
+        # [transf, []], ymin, xmin, radius, x, y
 
 
         if not self.has_blue:

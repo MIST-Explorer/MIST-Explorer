@@ -70,7 +70,7 @@ class RegisterUI(QWidget):
         self.num_tiles_label =  QLabel(self.register_groupbox)
         self.num_tiles_layout.addWidget(self.num_tiles_label)
         self.num_tiles = QSpinBox(self.register_groupbox)
-        self.num_tiles.setMaximum(10)
+        self.num_tiles.setMaximum(30)
         self.num_tiles.setSingleStep(1)
         self.num_tiles.setProperty("value", 5)
         self.num_tiles_layout.addWidget(self.num_tiles)

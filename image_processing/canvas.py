@@ -429,6 +429,28 @@ class ImageGraphicsView(__BaseGraphicsView):
     #     # Start the timer with a delay
     #     self.timer.start(100)  # Delay in milliseconds
 
+    def auto_contrast(self, lower = 0.1, upper=.9):
+        num = self.currentChannelNum + 1
+        channel = scale_adjust(self.np_channels[f"Channel {num}"])
+        flat_channel = channel.flatten()
+    
+        hist, bin_edges = np.histogram(channel.flatten(), bins=256, range=(0, 255))
+        total_pixels = flat_channel.size
+        cumulative_hist = np.cumsum(hist) / total_pixels
+        new_min= np.argmax(cumulative_hist > lower)  
+        new_max = np.argmax(cumulative_hist > upper)  
+
+
+        print(new_min, new_max)
+
+        lut = self.create_lut(new_min, new_max)
+
+        contrast_im = cv2.LUT(channel, lut)
+
+        contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(contrast_im)))
+
+        self.canvasUpdated.emit(contrastPix)
+
     def apply_contrast(self, new_min, new_max):
 
         qimage = self.pixmap.toImage()
@@ -473,3 +495,5 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.np_channels[layer_key] = corrected_layer_4 # Replace the 4th layer with the corrected version
         self.channelLoaded.emit(self.np_channels, False)
         self.updateProgress.emit(100, "Done")
+        
+

@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox, QLabel, QSizePolicy, QPushButton
 from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
 from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
 from ui.Action import Action
@@ -42,7 +42,8 @@ class ToolBarUI(QWidget):
         self.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged) #try avoiding connect signal within the same class, but this will do for now
         
         self.statusLine = QLabel("Welcome! Please load an image to get started.")
-        
+        self.auto_contrast_button = QPushButton(self)
+        self.auto_contrast_button.setText("Auto Contrast")
         self.cmapSelector = QComboBox(parent)
         # self.statusLine.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.cmapSelector.currentTextChanged.connect(self.on_cmapTextChanged) #try avoiding connect signal within the same class, but this will do for now
@@ -101,7 +102,8 @@ class ToolBarUI(QWidget):
         self.statusLine.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.statusLine.setStyleSheet("""margin: 10px; """)
         self.toolbar.addWidget(self.statusLine)
-        
+
+        self.toolbar.addWidget(self.auto_contrast_button)
         self.toolbar.addWidget(self.contrastSlider)
 
     def updateContrastSlider(self, values):

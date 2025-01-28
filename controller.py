@@ -40,6 +40,7 @@ class Controller:
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
         # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
+        self.view.toolBar.auto_contrast_button.clicked.connect(self.model_canvas.auto_contrast)
         self.model_canvas.changeSlider.connect(self.view.toolBar.updateContrastSlider)
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
@@ -197,7 +198,7 @@ class Controller:
             return True
         else:
             raise ValueError("Image format not recognized")
-        
+    
     def controlSave(self):
         
         pm = self.model_canvas.pixmap
@@ -231,7 +232,8 @@ class Controller:
        self.openFileDialog(self.view.small_view)
 
     def on_actionOpen_triggered(self):
-       self.openFileDialog(self.model_canvas)  
+       self.openFileDialog(self.model_canvas)
+
 
     # def on_channelSelector_currentIndexChanged(self, index):
     #     if self.view.toolBar.channelSelector.count() != 0:
@@ -240,4 +242,5 @@ class Controller:
     #         self.view.canvas.setCurrentChannel(self.view.toolBar.channelSelector.currentIndex()) 
     #         channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
     #         self.model_canvas.toPixmapItem(channel_pixmap)
+
 
