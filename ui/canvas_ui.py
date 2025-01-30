@@ -104,7 +104,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
+        self.zoom = 1
         self.setMinimumSize(QSize(300, 300))
         self.setObjectName("reference_canvas")
         self.setScene(QGraphicsScene(self))
@@ -112,6 +112,23 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
 
         self.parent = parent
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
+
+    def wheelEvent(self, event):
+        zooming_out = event.angleDelta().y() > 0
+
+        # this is to prevent zooming in too much or zooming out too much
+        if self.zoom > 1.1**90 and zooming_out: # if max zoomed out, and not zooming in, quit. not as nessecary
+            return
+        
+        if self.zoom < 1/(1.1**2) and not zooming_out: # if max zoomed in, and not zooming out, quit.
+            return
+
+        zoom_factor = 1.1 if zooming_out else 0.9
+
+        self.zoom *= zoom_factor
+
+        self.scale(zoom_factor, zoom_factor)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -138,8 +155,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         print(self.sceneRect().height(), self.sceneRect().width())
         item_rect = pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
-        # self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
-        # self.centerOn(pixmapItem)
+        self.centerOn(pixmapItem)
 
 class ImageGraphicsViewUI(QGraphicsView):
     

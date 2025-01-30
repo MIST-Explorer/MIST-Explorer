@@ -143,40 +143,31 @@ class ReferenceGraphicsView(__BaseGraphicsView):
         arr = adjustContrast(arr, alpha=20, beta=35)
         # size down the image for display
 
-        rh = self.size().height() 
-        rw = self.size().width()   
-        print("reference h,w is: ", rh, rw)
-        h, w = arr.shape[:2]
-        scale_factor = min(rw / w, rh / h)
+        # rh = self.size().height() 
+        # rw = self.size().width()   
+        # h, w = arr.shape[:2]
+        # scale_factor = min(rw / w, rh / h)
     
-        new_width = int(w * scale_factor)
-        new_height = int(h * scale_factor)
-        print(new_height, new_width)
+        # new_width = int(w * scale_factor)
+        # new_height = int(h * scale_factor)
+        # print(new_height, new_width)
 
-        arr = cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        # rh = self.size().height()
-        # rw = self.size().width()
-        # print("reference h,w is: ", rh, rw)
-        # factor = arr.shape[0]/rw
-        # if arr.shape[0] > rh and arr.shape[1] > rw:
-        #     thumbnail_size = (int(arr.shape[1]/factor), int(arr.shape[0]/factor))
-        #     arr = cv2.resize(arr, thumbnail_size, interpolation=cv2.INTER_AREA)
+        # arr = cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         qimage = numpy_to_qimage(arr)
         self.pixmap =QPixmap(qimage)
         self.pixmapItem =  QGraphicsPixmapItem(self.pixmap)
 
-
         self.referenceViewAdded.emit(self.pixmapItem)
-
 
         self.cycle_worker = Worker(self.filename_to_image, file_path)
         self.cycle_worker.start()
+        
         # self.cycle_worker.signal.connect(self.filename_to_image_complete)
         self.cycle_worker.finished.connect(self.cycle_worker.quit)
         self.cycle_worker.finished.connect(self.cycle_worker.deleteLater)
 
-    def filename_to_image_complete(self, ):
+    def filename_to_image_complete(self):
         pass
 
 ##########################################################
@@ -253,7 +244,6 @@ class ImageGraphicsView(__BaseGraphicsView):
             return cv2.LUT(cv2.merge((r, g, b)), lut)
         else:
             return cv2.LUT(cv2.merge((labels, labels, labels)), lut) # gray to color
-
     
 
     def loadStardistLabels(self, stardist: ImageType):
