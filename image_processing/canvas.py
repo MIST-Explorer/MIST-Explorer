@@ -23,6 +23,10 @@ class __BaseGraphicsView(QGraphicsView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        
+        self.setMinimumSize(QSize(300, 300))
+        self.setScene(QGraphicsScene(self))
         # self.channels= None
         self.reset_pixmap =  None
         self.reset_pixmapItem = None
@@ -115,11 +119,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
     referenceLoaded = pyqtSignal(dict)
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(QSize(300, 300))
-        self.setObjectName("reference_canvas")
-        self.setScene(QGraphicsScene(self))
-        self.setSceneRect(0, 0, 200, 150)
-        self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
+
 
     def dropEvent(self, event: QDropEvent):
         if event.mimeData().hasUrls():
@@ -130,7 +130,6 @@ class ReferenceGraphicsView(__BaseGraphicsView):
             event.acceptProposedAction()
     
 
-
     def addImage(self, file_path):
         # check if canvas already has an image
         self.resetTransform()
@@ -139,15 +138,35 @@ class ReferenceGraphicsView(__BaseGraphicsView):
         with tiff.TiffFile(file_path) as tif:
             arr = tif.pages[0].asarray()
 
+        #auto adjust contrast when adding cycle image
         arr = scale_adjust(np.array(arr).astype(np.uint16))
         arr = adjustContrast(arr, alpha=20, beta=35)
         # size down the image for display
-        if arr.shape[0] > 20000:
-            thumbnail_size = (int(arr.shape[1]/50), int(arr.shape[0]/50))
-            arr = cv2.resize(arr, thumbnail_size, interpolation=cv2.INTER_AREA)
-        else: pass
+
+        rh = self.size().height() 
+        rw = self.size().width()   
+        print("reference h,w is: ", rh, rw)
+        h, w = arr.shape[:2]
+        scale_factor = min(rw / w, rh / h)
+    
+        new_width = int(w * scale_factor)
+        new_height = int(h * scale_factor)
+        print(new_height, new_width)
+
+        arr = cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        # rh = self.size().height()
+        # rw = self.size().width()
+        # print("reference h,w is: ", rh, rw)
+        # factor = arr.shape[0]/rw
+        # if arr.shape[0] > rh and arr.shape[1] > rw:
+        #     thumbnail_size = (int(arr.shape[1]/factor), int(arr.shape[0]/factor))
+        #     arr = cv2.resize(arr, thumbnail_size, interpolation=cv2.INTER_AREA)
+
         qimage = numpy_to_qimage(arr)
-        self.pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
+        self.pixmap =QPixmap(qimage)
+        self.pixmapItem =  QGraphicsPixmapItem(self.pixmap)
+
+
         self.referenceViewAdded.emit(self.pixmapItem)
 
 
@@ -432,24 +451,18 @@ class ImageGraphicsView(__BaseGraphicsView):
     def auto_contrast(self, lower = 0.1, upper=.9):
         num = self.currentChannelNum + 1
         channel = scale_adjust(self.np_channels[f"Channel {num}"])
+
+
         flat_channel = channel.flatten()
     
-        hist, bin_edges = np.histogram(channel.flatten(), bins=256, range=(0, 255))
+        hist, bin_edges = np.histogram(flat_channel, bins=256, range=(0, 255))
         total_pixels = flat_channel.size
         cumulative_hist = np.cumsum(hist) / total_pixels
         new_min= np.argmax(cumulative_hist > lower)  
         new_max = np.argmax(cumulative_hist > upper)  
 
 
-        print(new_min, new_max)
-
-        lut = self.create_lut(new_min, new_max)
-
-        contrast_im = cv2.LUT(channel, lut)
-
-        contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(contrast_im)))
-
-        self.canvasUpdated.emit(contrastPix)
+        self.update_contrast((new_min, new_max))
 
     def apply_contrast(self, new_min, new_max):
 

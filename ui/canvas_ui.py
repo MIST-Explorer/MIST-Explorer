@@ -108,9 +108,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setMinimumSize(QSize(300, 300))
         self.setObjectName("reference_canvas")
         self.setScene(QGraphicsScene(self))
-        self.setSceneRect(0, 0, 200, 150)
+        # self.setSceneRect(0, 0, 300, 300)
         self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
-        
+
         self.parent = parent
 
     def dragEnterEvent(self, event: QDragEnterEvent):
@@ -129,10 +129,13 @@ class ReferenceGraphicsViewUI(QGraphicsView):
             event.acceptProposedAction()
 
 
-    def addNewImage(self, pixmapItem):
+    def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
         # center the image
+        self.pixmap = pixmapItem.pixmap()
         self.scene().addItem(pixmapItem)
-
+        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # Set scene rect
+        print(self.sceneRect().height(), self.sceneRect().width())
         item_rect = pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
         # self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
