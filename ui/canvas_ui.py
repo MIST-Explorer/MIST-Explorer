@@ -146,16 +146,15 @@ class ReferenceGraphicsViewUI(QGraphicsView):
             event.acceptProposedAction()
 
 
-    def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
-        # center the image
+    def display(self, pixmapItem: QGraphicsPixmapItem):
         self.pixmap = pixmapItem.pixmap()
         self.scene().addItem(pixmapItem)
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # Set scene rect
+        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # set scene rect to same size as pixmap
         print(self.sceneRect().height(), self.sceneRect().width())
         item_rect = pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
-        self.centerOn(pixmapItem)
+        self.centerOn(pixmapItem) # center the image
 
 class ImageGraphicsViewUI(QGraphicsView):
     
@@ -214,10 +213,10 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
             print("addNewImage: updated pixmap of existing pixmapItem")
 
-        if not self.pixmapItem.pixmap().isNull():
-            print("addNewImage: there is a pixmapItem")
-        else:
-            print("addNewImage; there is no pixmapItem")
+        # if not self.pixmapItem.pixmap().isNull():
+        #     print("addNewImage: there is a pixmapItem")
+        # else:
+        #     print("addNewImage; there is no pixmapItem")
 
     def __centerImage(self, pixmapItem):
         item_rect = self.pixmapItem.boundingRect()

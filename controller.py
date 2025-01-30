@@ -45,7 +45,7 @@ class Controller:
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
         self.view.small_view.imageDropped.connect(self._small_view.addImage)
-        self._small_view.referenceViewAdded.connect(self.view.small_view.addNewImage)
+        self._small_view.referenceViewAdded.connect(self.view.small_view.display)
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
         self._small_view.channelLoaded.connect(self.model_register.updateCycleImage)
@@ -105,8 +105,6 @@ class Controller:
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
 
 
-
-
         # registration
         # change params
         self.view.register_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
@@ -140,11 +138,11 @@ class Controller:
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
         self.view.tabWidget.currentChanged.connect(self.view.onChange)
 
-
         # cancel process
         self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)
         self.view.cellIntensity_groupbox.cancel_button.clicked.connect(self.model_cellIntensity.cancel)
         self.view.stardist_groupbox.cancel_button.clicked.connect(self.model_stardist.cancel)
+
     def handleError(self, error_message):
         QMessageBox.critical(self.view,"Error", error_message)
 
@@ -229,7 +227,7 @@ class Controller:
             viewer.addImage(file_name)
 
     def on_action_reference_triggered(self):
-       self.openFileDialog(self.view.small_view)
+       self.openFileDialog(self._small_view)
 
     def on_actionOpen_triggered(self):
        self.openFileDialog(self.model_canvas)

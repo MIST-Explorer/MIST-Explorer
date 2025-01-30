@@ -130,7 +130,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
             event.acceptProposedAction()
     
 
-    def addImage(self, file_path):
+    def addImage(self, file_path:str):
         # check if canvas already has an image
         self.resetTransform()
         if self.pixmapItem:
