@@ -15,8 +15,10 @@ class Ui_MainWindow(QMainWindow):
         QImageReader.setAllocationLimit(0)
         super().__init__()
         
-        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+A"), self) # A for analysis
         self.analysis_shortcut.activated.connect(self.select)
+        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+C"), self) # C for circle select
+        self.analysis_shortcut.activated.connect(self.circle_select)
         
         self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         self.save_shortcut.activated.connect(self.save)
@@ -26,6 +28,10 @@ class Ui_MainWindow(QMainWindow):
     def select(self):
         print("selecting")
         self.canvas.select = True
+
+    def circle_select(self):
+        print("selecting")
+        self.canvas.circle_select = True
     
     def save(self):
         from PIL import Image

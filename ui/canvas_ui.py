@@ -15,13 +15,77 @@ import random
 import pandas as pd
 
 
-def getRandomColor():
+from PyQt6.QtWidgets import QApplication, QRubberBand, QMainWindow
+from PyQt6.QtGui import QPainter, QPen
+from PyQt6.QtCore import QRect, QPoint, Qt, QSize
+
+class CircularRubberBand(QRubberBand):
+    def __init__(self, shape, parent=None):
+        super().__init__(shape, parent)
+        self.fill = self.getRandomColor()
+
+        # self.starting_x = starting_x
+        # self.starting_y = starting_y
+        self.color = QColor(*self.fill[0:3])
+
+        self.f = QColor(*self.fill)
+        self.filled = False
+        self.dragging_threshold = 5
+        self.mousePressPos = None
+        self.mouseMovePos = None
+        self.hello = False
+
+    def getRandomColor(self):
         return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        pen = QPen(self.color)
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Draw a circle inside the current geometry
+        rect = self.rect()
+        painter.drawEllipse(rect)
+
+
+    def mousePressEvent1(self, event):
+    # if self.mousePressPos is not None:
+        # print("from  AnalysisRubberBand mouse press event")
+        self.mousePressPos = event.pos()                # global
+        self.mouseMovePos = event.pos() - self.pos()    # local
+        # super(AnalysisRubberBand, self).mousePressEvent(event)
+        self.hello = True
+
+    def mouseMoveEvent1(self, event):
+        if self.mousePressPos is not None and self.hello:
+            pos = event.pos()
+            moved = pos - self.mousePressPos
+            if moved.manhattanLength() > self.dragging_threshold:
+                # Move when user drag window more than dragging_threshold
+                diff = pos - self.mouseMovePos
+                self.move(diff)
+                self.mouseMovePos = pos - self.pos()
+            super(CircularRubberBand, self).mouseMoveEvent(event)
+
+    def mouseReleaseEvent1(self, event):
+        # print("from  AnalysisRubberBand mouseReleaseEvent")
+        self.hello = False
+        if self.mousePressPos is not None:
+            moved = event.pos() - self.mousePressPos
+            if moved.manhattanLength() > self.dragging_threshold:
+                # Do not call click event or so on
+                event.ignore()
+            self.mousePressPos = None
+            self.mouseMovePos = None
+
+
         
 class AnalysisRubberBand(QRubberBand):
     def __init__(self, shape, starting_x, starting_y, parent=None):
         super(AnalysisRubberBand, self).__init__(shape, parent)
-        self.fill = getRandomColor()
+        self.fill = self.getRandomColor()
 
         self.starting_x = starting_x
         self.starting_y = starting_y
@@ -32,6 +96,9 @@ class AnalysisRubberBand(QRubberBand):
         self.mousePressPos = None
         self.mouseMovePos = None
         self.hello = False
+
+    def getRandomColor(self):
+        return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
 
     def getRubberBandSizeRelativeToScene(self):
         rect = self.geometry()  # QRect of the rubberband
@@ -54,6 +121,8 @@ class AnalysisRubberBand(QRubberBand):
             color_trans = QColor(self.color)
             color_trans.setAlpha(75)  
             painter.fillRect(self.rect(), color_trans)
+
+ 
             
 
     def setFilled(self, fill):
@@ -155,6 +224,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.origin = None
         self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
         self.select = False
+        self.circle_select = False
         self.zoom = 1
 
         self.rubber_band_positions = []
@@ -282,7 +352,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
             return
-                
+            
         elif self.select:
             scene_pos = self.mapToScene(event.pos())
             image_pos = self.pixmapItem.mapFromScene(scene_pos)
@@ -293,12 +363,33 @@ class ImageGraphicsViewUI(QGraphicsView):
             print("mousePressEvent: with select mouse click detected")
             if event.button() == Qt.MouseButton.LeftButton:
                 self.origin = event.pos()
-                rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
+                rubberBand = AnalysisRubberBand(QRubberBand.Shape.Rectangle, self.
+                starting_x, self.starting_y, self)
+
                 self.rubberBands.append(rubberBand)
                 self.rubberBandColors.append(rubberBand.color)  # Store the color of the rubber band
+                
                 rubberBand.setGeometry(QRect(self.origin, QSize()))
                 rubberBand.show()
             return
+
+        elif self.circle_select:
+
+            self.origin = event.pos()
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            
+            self.starting_x = int(image_pos.x())
+            self.starting_y = int(image_pos.y())
+
+            self.center = QPoint(self.starting_x, self.starting_y)
+            
+            self.rubberband = CircularRubberBand(QRubberBand.Shape.Rectangle, self)
+            self.rubberBands.append(self.rubberband)
+            self.rubberBandColors.append(self.rubberband.color)
+
+            self.rubberband.setGeometry(QRect(self.origin, QSize())) 
+            self.rubberband.show()
         
         else: 
             # pass
@@ -311,29 +402,9 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.starting_x = int(image_pos.x())
             self.starting_y = int(image_pos.y())
 
-        if not self.select:
+        if not self.select and not self.circle_select:
             for r in self.rubberBands:
                 r.mousePressEvent1(event)
-
-    def getCoordsRelativeToImage(self, event: QMouseEvent):
-        scene_pos = self.mapToScene(event.pos())
-        image_pos = self.pixmapItem.mapFromScene(scene_pos)
-        
-        return int(image_pos.x()), int(image_pos.y())
-    
-    def getCoordsRelativeToScene(self, event: QMouseEvent):
-        scene_pos = self.mapToScene(event.pos())
-        
-        return int(scene_pos.x()), int(scene_pos.y())
-    
-    def convertSceneCoordsToImageCoords(self, scene_pos: QPointF):
-        image_pos = self.pixmapItem.mapFromScene(scene_pos)
-        
-        return int(image_pos.x()), int(image_pos.y())
-    
-    def convertImageCoordsToSceneCoords(self, image_coords: QPointF):
-        scene_pos = self.pixmapItem.mapToScene(image_coords)
-        return int(scene_pos.x()), int(scene_pos.y())
 
     def mouseMoveEvent(self, event:QMouseEvent):
         super().mouseMoveEvent(event)
@@ -385,19 +456,28 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
                 
         if self.select and self.rubberBands and self.origin != None:
-            self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
+                self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
+
+        if self.circle_select and self.rubberBands and self.origin != None:
+            # current = event.position().toPoint()
+            # radius = int((self.center - current).manhattanLength())  # Calculate the radius
+            # top_left = self.center - QPoint(radius, radius)
+            # size = 2 * radius
+
+            center = self.origin
+            corner = event.pos()
+            size = max(abs(center.x() - corner.x()), abs(center.y() - corner.y())) * 2
+            self.rubberBands[-1].setGeometry(QRect(center.x() - size // 2, center.y() - size // 2, size, size))
+
+            # self.rubberBands[-1].setGeometry(QRect(self.origin, QSize(size, size)))
+
         else:
             # pass
             super().mouseMoveEvent(event)
 
-        if not self.select:
+        if not self.select and not self.circle_select:
             for r in self.rubberBands:
                 r.mouseMoveEvent1(event)
-                
-
-        # else: 
-        #     for r in self.rubberBands:
-        #         r.mousePressEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         super().mouseReleaseEvent(event)
@@ -410,7 +490,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.isEmpty(): # exit if there is no image
             return
         
-        if not self.begin_crop and not self.select:
+        if not self.begin_crop and not self.select and not self.circle_select:
             return
         
         
@@ -445,15 +525,22 @@ class ImageGraphicsViewUI(QGraphicsView):
             if self.select:
                 self.select = False
                 self.origin = None
+                    
 
                 scene_pos = self.mapToScene(event.pos())
                 image_pos = self.pixmapItem.mapFromScene(scene_pos)
                 image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
             
 
-                self.enc.analysis_tab.analyze_region(rubberband, image_rect)
+                # self.enc.analysis_tab.analyze_region(rubberband, image_rect)
 
                 return
+
+            if self.circle_select:
+                self.circle_select = False
+                self.origin = None
+                # self.rubberBands[-1].hide()
+                # self.rubberBands[-1] = None  # Optionally keep it visible if needed
             
             if self.pixmapItem:
                 scene_pos = self.mapToScene(event.pos())

@@ -167,21 +167,13 @@ class Register(QThread):
         test_mode = True
 
         for i, tif in enumerate(self.tifs): 
-            # if test_mode and i == 0:
-            #     continue
-            
-            # print(tif["path"])
-            # file = Image.open(tif["path"])
+
             file = tif["image_dict"]
             n_frames = len(file) # 4
             print("n frames", n_frames)
             new_registered_tif = []
             
-            for layer_number in range(n_frames):
-
-                # # testing!
-                # if layer_number == 0:
-                #     continue
+            for layer_number in range(n_frames):    
 
                 print("Layer Number:", layer_number, "for tif", i)
                 progress_update = int(((layer_number+1)/n_frames)*100)

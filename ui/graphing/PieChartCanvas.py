@@ -221,8 +221,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
+        df = pd.read_excel(r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx")
+        region = (0, 0, 1000, 1000)
+
         # Add the pie chart canvas
-        self.canvas = PieChartCanvas(self)
+        self.canvas = PieChartCanvas(df, region, self)
         layout.addWidget(self.canvas)
 
         # Ensure the chart resizes with the window
@@ -231,8 +234,8 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
 
 
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-#     window = MainWindow()
-#     window.show()
-#     sys.exit(app.exec())
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

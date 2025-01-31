@@ -393,6 +393,10 @@ class AnalysisTab(QWidget):
 
         data = data.drop(columns=result)
 
+        x_min, y_min, x_max, y_max = region
+        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
+                            (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
+
         region = self.regions[self.view_index]
         box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
         zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
