@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF
 import Dialogs, numpy as np, matplotlib as mpl, cv2
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
@@ -113,6 +113,14 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
         self.parent = parent
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
+
+    def slideshow(self):
+        right_arrow = (QPixmap("icons/right-arrow.png"))
+        left_arrow = (QIcon("icons/left-arrow.png"))
+        
+
+    def mouseDoubleClickEvent(self, event):
+        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def wheelEvent(self, event):
         zooming_out = event.angleDelta().y() > 0

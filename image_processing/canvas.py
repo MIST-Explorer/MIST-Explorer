@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread, QTimer
 import tifffile as tiff, numpy as np
@@ -14,7 +14,7 @@ class ImageType:
         self.name = name
         self.arr = arr
 
-class __BaseGraphicsView(QGraphicsView):
+class __BaseGraphicsView(QWidget):
     '''base class for graphics view'''
     channelLoaded = pyqtSignal(dict, bool)
     channelNotLoaded = pyqtSignal(np.ndarray)
@@ -26,7 +26,8 @@ class __BaseGraphicsView(QGraphicsView):
 
         
         self.setMinimumSize(QSize(300, 300))
-        self.setScene(QGraphicsScene(self))
+        self.scene = QGraphicsView()
+        self.scene.setScene(QGraphicsScene(self))
         # self.channels= None
         self.reset_pixmap =  None
         self.reset_pixmapItem = None
@@ -110,7 +111,7 @@ class __BaseGraphicsView(QGraphicsView):
             return channel_one_image
     
     def deleteImage(self):
-        self.scene().clear()
+        self.scene.scene().clear()
 
 
 class ReferenceGraphicsView(__BaseGraphicsView):
@@ -132,7 +133,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
 
     def addImage(self, file_path:str):
         # check if canvas already has an image
-        self.resetTransform()
+        self.scene.resetTransform()
         if self.pixmapItem:
             self.deleteImage() 
         with tiff.TiffFile(file_path) as tif:
@@ -256,7 +257,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         self.qimage_channels.clear()
         self.np_channels.clear()
-        self.resetTransform()
+        self.scene.resetTransform()
 
         if isinstance(file, str):
 
