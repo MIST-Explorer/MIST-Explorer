@@ -532,7 +532,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
             
 
-                # self.enc.analysis_tab.analyze_region(rubberband, image_rect)
+                self.enc.analysis_tab.analyze_region(rubberband, image_rect)
 
                 return
 

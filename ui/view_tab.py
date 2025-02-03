@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import threading
 
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 from PIL import Image
@@ -81,7 +82,7 @@ def write_protein(protein_data, reduced_cell_img):
     return cnv
 
 
-@njit
+@njit(cache=True)
 def write_protein_sub(protein_data=np.array([]), reduced_cell_img=np.array([[]])):
     # Copy the image
     cnv = reduced_cell_img.copy()
@@ -92,7 +93,7 @@ def write_protein_sub(protein_data=np.array([]), reduced_cell_img=np.array([[]])
     protein_1 = np.clip(protein_1, lower, upper)
     # protein_1 = 60 + (protein_1 - lower) * (255 - 60) / (upper - lower)
 
-    # Optimize the pixel update using vectorized operations
+    
     for i in range(cnv.shape[0]):
         for j in range(cnv.shape[1]):
             id = reduced_cell_img[i, j]
@@ -100,6 +101,19 @@ def write_protein_sub(protein_data=np.array([]), reduced_cell_img=np.array([[]])
                 cnv[i, j] = protein_1[id - 1]
 
     return cnv
+
+def precompile_jit():
+    """Precompile the function in the background."""
+    
+    # Dummy protein data: Random values between 0 and 255
+    dummy_protein_data = np.random.randint(0, 256, size=100, dtype=np.uint8)
+
+    # Dummy reduced cell image: A 10x10 grid with random cell IDs
+    dummy_reduced_cell_img = np.random.randint(0, 101, size=(10, 10), dtype=np.uint8)
+
+    write_protein(dummy_protein_data, dummy_reduced_cell_img)
+
+
 
 
 def tint_grayscale_image(grayscale_image, color):
@@ -338,6 +352,35 @@ class ImageOverlay(QWidget):
 
         self.loaded_df = df
         return df
+    
+    def generate_image(self, index):
+
+        
+        # protein_name = self.df.columns[3 + index]
+        # im = write_protein(np.array(self.df[protein_name]), np.array(self.reduced_cell_img))
+        # im = adjust_contrast(im)
+        # return tint_grayscale_image(im, [255, 255, 255])
+
+
+        start = time.perf_counter()
+        
+        protein_name = self.df.columns[3 + index]
+        print(f"Time after fetching protein name: {time.perf_counter() - start:.6f} sec")
+
+        im = write_protein(np.array(self.df[protein_name]), np.array(self.reduced_cell_img))
+        print(f"Time after writing protein: {time.perf_counter() - start:.6f} sec")
+
+        im = adjust_contrast(im)
+        print(f"Time after adjusting contrast: {time.perf_counter() - start:.6f} sec")
+
+        result = tint_grayscale_image(im, [255, 255, 255])
+        print(f"Time after tinting grayscale image: {time.perf_counter() - start:.6f} sec")
+
+        return result
+    
+    
+        
+        
 
     def build_all(self):
 
@@ -360,27 +403,36 @@ class ImageOverlay(QWidget):
                 ui.app.Ui_MainWindow(), "Error", "Please load data first!"
             )
             return
-
-        print("buidling all")
-        reduced_cell_img = (self.load_stardist_image()).astype(np.uint16)
-        self.progress.emit(15, "Loaded Stardist image")
-        df = self.load_df()
-        self.df = df
-        print(" df loaded")
-        self.progress.emit(35, "Loaded Dataframe")
+        
+        
+        # Start compilation in a background thread
 
         start = time.time()
+        self.progress.emit(15, "Compiling `write_protein`function...")
+        
 
-        ims = [
-            write_protein(np.array(df[protein_name]), np.array(reduced_cell_img))
-            for protein_name in df.columns[3:]
-        ]
-        self.progress.emit(70, "Images generated")
-        print("ims write", time.time() - start)
-        ims = [adjust_contrast(im) for im in ims]
-        print("contrast adjusted")
-        ims = [tint_grayscale_image(ims[i], [255, 255, 255]) for i in range(len(ims))]
-        print("tinted")
+        threading.Thread(target=precompile_jit, daemon=True).start()
+
+        reduced_cell_img = (self.load_stardist_image()).astype(np.uint16)
+        self.reduced_cell_img = reduced_cell_img
+
+        df = self.load_df()
+        self.df = df
+
+        end = time.time()
+
+        print("TOTAL TIME ", end - start)
+        # self.progress.emit(35, "Loaded Stardist image")
+        
+        
+        print(" df loaded")
+        # self.progress.emit(75, "Loaded Dataframe")
+
+        
+
+        ims = [None for i in range(len(df.columns[3:]))]
+
+        # self.progress.emit(70, "Images generated")
         layer_names = list(df.columns[3:])
 
         self.progress.emit(96, "Almost complete...")
@@ -388,7 +440,6 @@ class ImageOverlay(QWidget):
         print("df", df)
 
         self.ims = ims  # List of images as np.arrays
-        self.layer_names = layer_names  # List of layer names
         self.color_dict = color_dict  # Dictionary of color names to RGB values
 
         self.layers = [
@@ -641,6 +692,15 @@ class ImageOverlay(QWidget):
             print("selected indexxxx is ", selected_index)
             if selected_index is not None:
                 c = ControlsBox()
+
+                print("potential error", selected_index)
+
+                try:
+                    if self.layers[selected_index]["image"] == None:
+                        self.layers[selected_index]["image"] = self.generate_image(selected_index)
+                except:
+                    pass
+                
                 c.image = self.layers[selected_index]["image"]
                 c.name = self.layers[selected_index]["name"]
                 self.add_layer(c)

@@ -120,14 +120,11 @@ class AnalysisTab(QWidget):
             if widget is not None:
                 widget.setParent(None)
 
-        # # Add the first graph of the selected view
-        # if self.graphs and self.graphs[index]:
-        #     self.scroll_layout.addWidget(self.graphs[index][0])
-        #     self.scroll_layout.addWidget(self.views[index])
+        self.scroll_layout.addWidget(self.views[index])
 
         # # Update navigation button states
-        # self.back_button.setEnabled(index > 0)
-        # self.next_button.setEnabled(index < len(self.views) - 1)
+        self.back_button.setEnabled(index > 0)
+        self.next_button.setEnabled(index < len(self.views) - 1)
 
         # self.update_graph_navigation()
 
@@ -146,6 +143,7 @@ class AnalysisTab(QWidget):
         """Navigate to the next view."""
         
         if self.view_index < len(self.views) - 1:
+            # print("Hello")
             self.unfill_rubberband()
             self.view_index += 1
             self.set_view(self.view_index)
@@ -171,7 +169,7 @@ class AnalysisTab(QWidget):
     def remove_all_graphs_at_index(self):
         if self.views:
             for i in reversed(range(len(self.graphs[self.view_index]))):
-                self.graphs[self.view_index][i].close()
+                self.graphs[self.view_index][i] = None
             self.graphs[self.view_index] = []
             self.graph_index = 0
             self.set_view(self.view_index)
@@ -185,6 +183,10 @@ class AnalysisTab(QWidget):
         #         widget.setParent(None)
 
         current_graph = self.graphs[self.view_index][i]
+
+        if callable(current_graph):
+            current_graph = current_graph()
+            self.graphs[self.view_index][i] = current_graph
         # self.scroll_layout.addWidget(current_graph)
         # self.scroll_layout.addWidget(self.views[self.view_index])
         # self.update_graph_navigation()
@@ -299,12 +301,6 @@ class AnalysisTab(QWidget):
         color_label.setStyleSheet(f"background-color: rgb({pyqt_color_rgb[0]}, {pyqt_color_rgb[1]}, {pyqt_color_rgb[2]});")
         result_details_layout.addWidget(color_label)
 
-        box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
-        zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
-        zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
-        # zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region]) 
-        zscore_PieChartCanvas = PieChartCanvas(data, [i * 4 for i in region]) 
-        zDistributionViewer = DistributionViewer(data)
 
         self.windows = []
 
@@ -343,9 +339,13 @@ class AnalysisTab(QWidget):
         self.add_new_view()
         self.next_view()
 
+        x_min, y_min, x_max, y_max =  [i * 4 for i in self.regions[self.view_index]]
+        data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
+                            (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
+
         
         # TODO: fix static 4, shoulkd be based on whatever
-        box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
+        box_plot_graph = self.box_plot(data)
         b1 = QWidget()
         boxxer = QVBoxLayout()
         boxxer.addWidget(box_plot_graph)
@@ -354,11 +354,10 @@ class AnalysisTab(QWidget):
 
         b1.setLayout(boxxer)
         self.add_graph_to_view(b1)
-        zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in region])
-        zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in region])
-        # zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region]) 
-        zscore_PieChartCanvas = PieChartCanvas(data, [i * 4 for i in region]) 
-        zDistributionViewer = DistributionViewer(data)
+        zscore_heatmap_graph = lambda : ZScoreHeatmapWindow(data)
+        zscore_HeatmapWindow = lambda : HeatmapWindow(data)
+        zscore_PieChartCanvas = lambda : PieChartCanvas(data) 
+        zDistributionViewer = lambda : DistributionViewer(data)
 
         umaper = UMAPVisualizer()
 
@@ -390,38 +389,33 @@ class AnalysisTab(QWidget):
 
         data = self.enc.view_tab.load_df()
         result = list(set(data.columns[3:]) - set(checked_items))
-
         data = data.drop(columns=result)
 
-        x_min, y_min, x_max, y_max = region
-        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
+        x_min, y_min, x_max, y_max =  [i * 4 for i in self.regions[self.view_index]]
+        data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
                             (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
 
-        region = self.regions[self.view_index]
-        box_plot_graph = self.box_plot(data, [i * 4 for i in self.regions[self.view_index]])
-        zscore_heatmap_graph = ZScoreHeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
-        zscore_HeatmapWindow = HeatmapWindow(data, [i * 4 for i in self.regions[self.view_index]])
-        # zscore_cellDens = CellDensityPlot(data, [i * 4 for i in region]) 
-        zscore_PieChartCanvas = PieChartCanvas(data, [i * 4 for i in region]) 
-        zDistributionViewer = DistributionViewer(data)
+        box_plot_graph = self.box_plot(data)
+        zscore_heatmap_graph = lambda : ZScoreHeatmapWindow(data)
+        zscore_HeatmapWindow = lambda : HeatmapWindow(data)
+        zscore_PieChartCanvas = lambda : PieChartCanvas(data) 
+        zDistributionViewer = lambda : DistributionViewer(data)
 
         self.add_graph_to_view(box_plot_graph)
         self.add_graph_to_view(zscore_heatmap_graph)
         self.add_graph_to_view(zscore_HeatmapWindow)
-        # self.add_graph_to_view(zscore_cellDens)
         self.add_graph_to_view(zscore_PieChartCanvas)
         self.add_graph_to_view(zDistributionViewer)
 
-    def box_plot(self, data, region):
+    def box_plot(self, data):
         """Creates a box plot."""
         result_widget = QWidget()
         result_layout = QVBoxLayout(result_widget)
 
-        x_min, y_min, x_max, y_max = region
+        
 
         # Filter the dataset to include only cells within the specified region
-        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
-                            (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
+        filtered_data = data
         
         filtered_data = filtered_data.iloc[:, 3:]
     

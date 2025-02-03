@@ -158,11 +158,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 
 class PieChartCanvas(FigureCanvas):
-    def __init__(self, df, region, parent=None):
-        self.fig, self.ax = plt.subplots(figsize=(8, 6))
+    def __init__(self, df, parent=None):
+        self.fig, self.ax = plt.subplots(figsize=(6, 6))  # Make the chart smaller
         super().__init__(self.fig)
         self.setParent(parent)
-        self.region = region
         
         self.df = df
 
@@ -170,66 +169,68 @@ class PieChartCanvas(FigureCanvas):
 
     def plot_pie_chart(self):
         df = self.df
-        x_min, y_min, x_max, y_max = self.region
 
-        # Filter the data based on the selected region
-        df = df[(df['Global X'] >= x_min) & (df['Global X'] <= x_max) &
-                (df['Global Y'] >= y_min) & (df['Global Y'] <= y_max)]
+        # Process data
         df = df[df.columns[3:]]  # Exclude irrelevant columns
-
-        # Count how many rows are dominated by each protein
         dominant_counts = df.idxmax(axis=1).value_counts()
-
-        # Data for the pie chart
         labels = dominant_counts.index
         values = dominant_counts.values
         total = sum(values)
 
-        # Modify labels: Add raw counts and hide labels for slices contributing less than 1%
+        # Modify labels: Hide slices under 2% and add raw counts
         final_labels = [
-            f"{label} ({value})" if (value / total * 100) >= 1 else ''  # Hide labels under 1%
+            f"{label}\n({value})" if (value / total * 100) >= 2 else ''
             for label, value in zip(labels, values)
         ]
 
-        # Plot the pie chart
+        count = 0
+        i_start = 0
+        for i in range(len(final_labels)):
+            if final_labels[i] == '':
+                if i_start == 0: 
+                    i_start = i
+                count += 1
+
+        final_labels[i_start - 2 + count // 2] = f"Others ({sum(values[i_start + count:])})"
+
+        # Plot the donut chart
         self.ax.clear()
         wedges, _, _ = self.ax.pie(
             values,
-            labels=final_labels,  # Use the modified labels
+            labels=final_labels,
             startangle=90,
             wedgeprops={'edgecolor': 'black'},
-            autopct=lambda pct: f'{pct:.1f}%' if pct >= 1 else '',  # Show % only if >= 1%
-            pctdistance=.9,
-            radius=1.45,
-            labeldistance=1.15
+            autopct=lambda pct: f'{pct:.1f}%' if pct >= 2 else '',
+            pctdistance=0.85,  # Closer labels
+            radius=1,  # Smaller chart
+            labeldistance=1.15,
+            textprops={'fontsize': 9}
         )
-        
 
-        # Add total rows label at the bottom
-        total_rows = len(df)
-        self.ax.text(0, -2.0, f"Total cells in this region: {total_rows}", ha='center', fontsize=10, weight="bold")
+        # Add white circle in the middle to create a donut effect
+        center_circle = plt.Circle((0, 0), 0.4, fc='white')
+        self.ax.add_artist(center_circle)
 
-        # Adjust plot layout
-        plt.subplots_adjust(bottom=0.3)
+        # Add total cell count in the center
+        self.ax.text(0, 0, f"Total:\n{total}", ha='center', va='center', fontsize=10, weight="bold")
+
+        plt.subplots_adjust(bottom=0.2)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # self.setWindowTitle("Protein Dominance Pie Chart")
         self.setGeometry(100, 100, 1280, 720)
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
         df = pd.read_excel(r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx")
-        region = (0, 0, 1000, 1000)
 
         # Add the pie chart canvas
-        self.canvas = PieChartCanvas(df, region, self)
+        self.canvas = PieChartCanvas(df, self)
         layout.addWidget(self.canvas)
 
-        # Ensure the chart resizes with the window
-        self.setCentralWidget(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
