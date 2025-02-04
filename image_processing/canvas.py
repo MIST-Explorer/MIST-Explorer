@@ -132,10 +132,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
     
 
     def addImage(self, file_path:str):
-        # check if canvas already has an image
-        self.scene.resetTransform()
-        if self.pixmapItem:
-            self.deleteImage() 
+
         with tiff.TiffFile(file_path) as tif:
             arr = tif.pages[0].asarray()
 

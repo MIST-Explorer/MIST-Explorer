@@ -49,6 +49,7 @@ class Controller:
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
         self._small_view.channelLoaded.connect(self.model_register.updateCycleImage)
+        self._small_view.channelLoaded.connect(self.view.small_view.load_channels)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
