@@ -168,6 +168,8 @@ class PieChartCanvas(FigureCanvas):
         self.plot_pie_chart()
 
     def plot_pie_chart(self):
+
+        plt.style.use('ggplot')
         df = self.df
 
         # Process data
@@ -191,7 +193,7 @@ class PieChartCanvas(FigureCanvas):
                     i_start = i
                 count += 1
 
-        final_labels[i_start - 2 + count // 2] = f"Others ({sum(values[i_start + count:])})"
+        final_labels[i_start - 2 + count // 2] = f"Others < 2%"
 
         # Plot the donut chart
         self.ax.clear()
@@ -208,11 +210,11 @@ class PieChartCanvas(FigureCanvas):
         )
 
         # Add white circle in the middle to create a donut effect
-        center_circle = plt.Circle((0, 0), 0.4, fc='white')
+        center_circle = plt.Circle((0, 0), 0.4, fc='white', ec='black', lw=1)
         self.ax.add_artist(center_circle)
 
         # Add total cell count in the center
-        self.ax.text(0, 0, f"Total:\n{total}", ha='center', va='center', fontsize=10, weight="bold")
+        self.ax.text(0, 0, f"Total Cells:\n{total}", ha='center', va='center', fontsize=10, weight="bold")
 
         plt.subplots_adjust(bottom=0.2)
 
