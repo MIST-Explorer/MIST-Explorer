@@ -26,7 +26,7 @@ class Register(QThread):
         self.np_channels = None 
         self.cycle_channels = None
         self.protein_signal_array = None
-        self.has_blue = True
+        self.has_blue = True  
         self.params = { 
             'alignment_layer': 0, 
             'cell_layer': 2, # 0 index
@@ -41,8 +41,8 @@ class Register(QThread):
                 # "path": r"testing/test/protein signal.ome.tif", 
                 # "flor_layers": [2, 3],   # this actually does not do anything in this program
                 # "alignment_layer": 0, #alignment layer
-                "pystack_transforms" : [],
-                "sitk_transforms": [] 
+                # "pystack_transforms" : [],
+                # "sitk_transforms": [] 
             },
 
             {
@@ -50,8 +50,8 @@ class Register(QThread):
                 # "path": r"testing/test/cycle_1.ome.tif", 
                 # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
                 # "alignment_layer": 0,
-                "pystack_transforms" : [],
-                "sitk_transforms": []
+                # "pystack_transforms" : [],
+                # "sitk_transforms": []
             },
         )
     def runRegister(self):
@@ -70,13 +70,6 @@ class Register(QThread):
             self.finished.connect(self.quit)
             self.finished.connect(self.deleteLater)
     def run(self):
-        # print(len(self.tifs[0]["image_dict"]))
-        # print(len(self.tifs[1]["image_dict"]))
-        # if len(self.tifs[0]["image_dict"]) < len(self.tifs[1]["image_dict"]):
-        #     self.error.emit("Incompatible layer counts for input images")
-        #     return
-        
-
 
         m = self.params["max_size"]
         self.OVERLAP = self.params["overlap"]
@@ -97,10 +90,12 @@ class Register(QThread):
 
         # generate tiles
         for tif_n, tif in enumerate(self.tifs):
+
+            # skip reference
+            if tif_n == self.params["alignment_layer"]:
+                self.tifs[tif_n]["outputs"] = None
+                continue
             
-            # bf2_f = Image.open(self.tifs[tif_n]["path"])
-            # # bf2_f.seek(tifs[tif_n]["brightfield"])
-            # bf2 = np.array(bf2_f)
             bf2_f = self.tifs[tif_n]["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"]
 
             bf2 = self.adjust_contrast(bf2_f, 50, 99)
@@ -132,15 +127,18 @@ class Register(QThread):
             outputs = []
             for tile_n, tile_set in enumerate(inputs):
                 try:
+
+                    # update progress bar
                     print(f"aligned a tile...{tile_n}")
                     progress_update = int(((tile_n+1)/len(inputs))*100)
                     self.progress.emit(progress_update, str(f"aligning tile {tile_n+1}/{len(inputs)}"))
+
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
                         
                     t = time.time()
-                    result = self.f(tile_set) # align
+                    result = self.align_two_img(tile_set) # align
                     print(time.time() - t)
                     if result == None:
                         continue
@@ -156,13 +154,10 @@ class Register(QThread):
 #########################################################
         # align all layers
         aligned_protein_signal = None
-        import tifffile
-
-        test_mode = True
 
         for i, tif in enumerate(self.tifs): 
-            # if test_mode and i == 0:
-            #     continue
+            if i == 0:
+                continue
             
             # print(tif["path"])
             # file = Image.open(tif["path"])
@@ -205,8 +200,7 @@ class Register(QThread):
                 dest = Image.fromarray(np.zeros((m, m), dtype="float"))  #need to determine the final bit size
                 
                 for result in tif["outputs"]:
-                    im, x, y, metadata = result
-                    transforms, ymin, xmin, radius, _, _ = metadata
+                    transforms, ymin, xmin, radius, x, y = result
 
                     corresponding_tile = None
                     
@@ -215,10 +209,9 @@ class Register(QThread):
                         corresponding_tile = moving_map.get_tile_by_center(bf, x, y)[ymin: ymin + radius * 2, xmin: xmin + radius * 2]
             
                     else:
-                        print(i)
-                        im, x, y, metadata = result
-                        transforms, ymin, xmin, radius, _, _ = metadata
-                        
+                        transforms, ymin, xmin, radius, x, y = result
+                        print(x, y)
+
                         transf = transforms[0]
                         x_translate, y_translate =  transforms[1]
                         
@@ -336,52 +329,56 @@ class Register(QThread):
 
         return self.sc(img)
 
-    def f(self, param):
-        fixed_img, moving_img, ymin, xmin, radius, x, y = param
-        #### insert custom code here
-        
+    def align_two_img(self, param):
+
+        def convert_to_rgb_image(array_2d):
+            normalized_array = (array_2d - np.min(array_2d)) / (np.max(array_2d) - np.min(array_2d))
+            scaled_array = (normalized_array * 255).astype(np.uint8)
+            rgb_image = np.stack((scaled_array, scaled_array, scaled_array), axis=-1)
+            return rgb_image
+
+        fixed_img, moving_img, ymin, xmin, radius, x, y = param        
         source = moving_img.copy()
         target = fixed_img.copy()
+
+        # check source and target data type
+        # if target.dtype != "uint8":
+        #     target = scale(target)
+
+        # if source.dtype != "uint8":
+        #     source = scale(source)
+        # source = convert_to_rgb_image(source)
+        # target = convert_to_rgb_image(target)
 
         source = np.clip(source,128, 255 )-128  # to remove most gradient of background
         target = np.clip(target, 128, 255)-128  # to remove most gradient of background
         
-        # def convert_to_rgb_image(array_2d):
-        #     # Normalize the input array to be between 0 and 1
-        #     normalized_array = (array_2d - np.min(array_2d)) / (np.max(array_2d) - np.min(array_2d))
-            
-        #     # Rescale the values to be between 0 and 255
-        #     scaled_array = (normalized_array * 255).astype(np.uint8)
-            
-        #     # Create a 3D array where each channel is the same as the input array
-        #     rgb_image = np.stack((scaled_array, scaled_array, scaled_array), axis=-1)
-            
-        #     return rgb_image
-        
-        # Convert 2D array to RGB image
-        # source = convert_to_rgb_image(source)
-        # target = convert_to_rgb_image(target)
-        print(source.dtype, source.shape, target.dtype, target.shape)
+
+        print(target.shape, "target dimension")
+        print(source.shape, 'source dimension')
+
         global transf
         global transf_previous
 
         print("finding alignment")
-        # try:
-        transf, (source_list, target_list) = aa.find_transform(source, target,detection_sigma=2, min_area=20, max_control_points=500)
+        try:
+            transf, (source_list, target_list) = aa.find_transform(source, target,detection_sigma=3, min_area=10, max_control_points=300)
 
 
-        # except Exception as e:
-        #     print("This tile is not aligned!")
-        #     if 'transf_previous' in globals():
-        #         transf = transf_previous
-        #     else:
-        #         transf = None  # or some default transformation
-        # finally:
-        #     print(" ")
+        except Exception as e:
+            print("This tile is not aligned!")
+            if 'transf_previous' in globals():
+                transf = transf_previous
+            else:
+                transf = None  # or some default transformation
+        finally:
+            print(" ")
 
-        # transf_previous = transf
+        transf_previous = transf
 
-        registered, footprint = aa.apply_transform(transf, source, target)
+        return [transf, []], ymin, xmin, radius, x, y
+
+        # registered, footprint = aa.apply_transform(transf, source, target)
     
         # # # convert the 3D back to 2D gray image
         # # def rgb2gray(rgb):
@@ -392,18 +389,18 @@ class Register(QThread):
         # [transf, []], ymin, xmin, radius, x, y
 
 
-        if not self.has_blue:
-            return (
-            (None, x, y, ([transf, (0, 0), registered], ymin, xmin, radius, x, y))
-        )
+        # if not self.has_blue:
+        #     return (
+        #     (None, x, y, ([transf, (0, 0), registered], ymin, xmin, radius, x, y))
+        # )
 
-        else:
-            sr = StackReg(StackReg.AFFINE)
-            sr.register(target, registered)
-            # registered = sr.transform(registered)        
-            return (
-                (None, x, y, ([transf, (0, 0), sr], ymin, xmin, radius, x, y))
-            )
+        # else:
+        #     sr = StackReg(StackReg.AFFINE)
+        #     sr.register(target, registered)
+        #     # registered = sr.transform(registered)        
+        #     return (
+        #         (None, x, y, ([transf, (0, 0), sr], ymin, xmin, radius, x, y))
+        #     )
         
         
 
