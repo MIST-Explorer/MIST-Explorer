@@ -240,7 +240,6 @@ class AnalysisTab(QWidget):
 
         self.icon_detail_page.content_layout.addWidget(new_graph)
 
-
     def analyze_region(self, rubberband, region):
         """Analyzes a selected region and adds corresponding graphs."""
         if len(self.rubberbands) != 0:
@@ -285,8 +284,6 @@ class AnalysisTab(QWidget):
         delete_button.clicked.connect(self.delete_view)
         buttons_layout.addWidget(delete_button)
 
-        
-
         # Create a widget to hold the buttons' layout
         buttons_widget = QWidget()
         buttons_widget.setLayout(buttons_layout)
@@ -316,8 +313,6 @@ class AnalysisTab(QWidget):
                           "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/barchart.png",
                           "/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/scatter.png",
                           ]
-
-        
 
         # self.icon_list = self.icon_grid
         self.stacked_widget = QStackedWidget()

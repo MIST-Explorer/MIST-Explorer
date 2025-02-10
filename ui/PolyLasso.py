@@ -31,6 +31,7 @@ class PolyLasso(QWidget):
             self.selected_point.setX(event.position().x())
             self.selected_point.setY(event.position().y())
             self.update()
+        
 
     def mouseReleaseEvent(self, event):
         self.selected_point = None
