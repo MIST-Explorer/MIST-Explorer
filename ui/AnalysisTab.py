@@ -244,7 +244,7 @@ class AnalysisTab(QWidget):
     def analyze_region(self, rubberband, region):
         """Analyzes a selected region and adds corresponding graphs."""
         if len(self.rubberbands) != 0:
-            self.rubberbands[self.view_index].setFilled(False) 
+            self.rubberbands[self.view_index].set_filled(False) 
 
         self.rubberbands.append(rubberband)
         self.regions.append(region)
@@ -374,7 +374,7 @@ class AnalysisTab(QWidget):
         self.views[-1] = result_widget
         self.scroll_layout.addWidget(result_widget)
 
-        self.rubberbands[-1].setFilled(True)
+        self.rubberbands[-1].set_filled(True)
 
     def handleComboBoxChanged(self, checked_items):
         if len(checked_items) == 0:
@@ -444,12 +444,12 @@ class AnalysisTab(QWidget):
 
     def unfill_rubberband(self):
         try:
-            self.rubberbands[self.view_index].setFilled(False)
+            self.rubberbands[self.view_index].set_filled(False)
         except Exception as e:
             print(e)
 
     def fill_rubberband(self):
-        self.rubberbands[self.view_index].setFilled(True)
+        self.rubberbands[self.view_index].set_filled(True)
 
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtWidgets import QComboBox
