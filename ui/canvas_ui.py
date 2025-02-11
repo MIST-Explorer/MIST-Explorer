@@ -14,6 +14,8 @@ from PyQt6.QtGui import QColor
 import random
 import pandas as pd
 
+import traceback
+
 
 from PyQt6.QtWidgets import QApplication, QRubberBand, QMainWindow
 from PyQt6.QtGui import QPainter, QPen
@@ -82,6 +84,13 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.select = False
         self.circle_select = False
         self.zoom = 1
+
+        self.polygons = []
+        self.current_polygon = None
+
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setMouseTracking(True)
+        
 
         self.rubber_band_positions = []
 
@@ -165,7 +174,6 @@ class ImageGraphicsViewUI(QGraphicsView):
 
         self.zoom *= zoom_factor
 
-
         # part a) storing values -- i forget why this has to be this way, but I dont think im going to change it
         if len(self.rubber_band_positions) == 0: # this is important though, to only store the values once per zoom operation
             self.rubber_band_positions = []
@@ -187,7 +195,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
 
 
-    # shouldnt be an instance method, rather a create
+    # shouldnt be an instance method, rather a class method
     def create_rubber_band(self, rubber_band_class, shape, x, y, parent, origin):
         rubber_band = rubber_band_class(shape, x, y, self)
         rubber_band.setGeometry(QRect(origin, QSize()))
@@ -197,14 +205,12 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def update_starting_position(self, event):
         scene_pos = self.mapToScene(event.pos())
-        image_pos = self.pixmapItem.mapFromScene(scene_pos)
-        self.starting_x = int(image_pos.x())
-        self.starting_y = int(image_pos.y())
+        self.image_pos = self.pixmapItem.mapFromScene(scene_pos)
+        self.starting_x = int(self.image_pos.x())
+        self.starting_y = int(self.image_pos.y())
 
     def mousePressEvent(self, event: QMouseEvent):
 
-
-            
         print("mousePressEvent: entered", self.isEmpty(), self.begin_crop, self.select)
 
         if event.button() == Qt.MouseButton.LeftButton:
@@ -221,11 +227,34 @@ class ImageGraphicsViewUI(QGraphicsView):
                     return
                     
 
-                elif self.select: 
-                    self.rubberband = RectLasso(QRubberBand.Shape.Rectangle, self)
-                # elif self.circle_select:
-                #     self.center = QPoint(self.starting_x, self.starting_y)
-                #     self.rubberband = CircleLasso(QRubberBand.Shape.Rectangle, self)
+                elif self.select == "rect": 
+                    self.rubberband = RectLasso(self)
+                elif self.select == "circle": 
+                    self.center = QPoint(self.starting_x, self.starting_y)
+                    self.rubberband = CircleLasso(self)
+                elif self.select == "poly": 
+                    # self.rubberband = PolyLasso()
+                    if not self.current_polygon:
+                        self.current_polygon = PolyLasso()
+
+                    self.current_polygon.add_point(event.pos())
+                    self.painter = QPainter(self)
+                    self.current_polygon.draw(self.painter)
+                    # self.current_polygon.draw(self.painter)
+                    print("repaint?")
+                    # self.viewport.repaint()
+
+                    # self.paintEvent(self.p_event)
+                    self.repaint()
+                    # self.update()   
+
+                    # event.acceptProposedAction()
+
+                    super().mousePressEvent(event)
+                    self.mouseMoveEvent(event)
+
+                    return 
+
 
                 self.rubberBands.append(self.rubberband)
                 self.rubberBandColors.append(self.rubberband.color)
@@ -243,6 +272,60 @@ class ImageGraphicsViewUI(QGraphicsView):
         for r in self.rubberBands:
             r.mousePressEvent(event)
 
+    def keyPressEvent(self, event):
+        print(f"Key press event: {event.key()}")
+        if event.key() == Qt.Key.Key_Return and self.current_polygon:
+            print("Enter key pressed - finalizing polygon")
+            self.current_polygon.completed = True
+            self.polygons.append(self.current_polygon)
+            self.current_polygon = None
+            self.repaint()
+
+            # self.paint()
+
+
+
+    def paint(self):
+
+        self.painter = QPainter(self)
+        
+        # Explicitly draw on the viewport
+        self.painter.begin(self.viewport())
+        
+        # Draw polygons
+        for polygon in self.polygons:
+            print(f"Drawing stored polygon with {len(polygon.points)} points")
+            polygon.draw(self.painter)
+        
+        # Draw current polygon if exists
+        if self.current_polygon:
+            print(f"Drawing current polygon with {len(self.current_polygon.points)} points")
+            self.current_polygon.draw(self.painter)
+
+    def paintEvent(self, event):
+
+
+
+        
+        print(f"Paint event: Polygons count = {len(self.polygons)}")
+        print(f"Current polygon = {self.current_polygon}")
+        
+        super().paintEvent(event)
+        
+        painter = QPainter(self)
+        
+        # Explicitly draw on the viewport
+        painter.begin(self.viewport())
+        
+        # Draw polygons
+        for polygon in self.polygons:
+            print(f"Drawing stored polygon with {len(polygon.points)} points")
+            polygon.draw(painter)
+        
+        # Draw current polygon if exists
+        if self.current_polygon:
+            print(f"Drawing current polygon with {len(self.current_polygon.points)} points")
+            self.current_polygon.draw(painter)
 
     def mouseMoveEvent(self, event:QMouseEvent):
         super().mouseMoveEvent(event)
@@ -297,8 +380,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
 
         if self.circle_select and self.rubberBands and self.origin != None:
-
-
             center = self.origin
             corner = event.pos()
             size = max(abs(center.x() - corner.x()), abs(center.y() - corner.y())) * 2

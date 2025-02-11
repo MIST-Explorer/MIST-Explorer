@@ -39,6 +39,8 @@ class Ui_MainWindow(QMainWindow):
 
     def poly_select(self):
         print("selecting")
+        if self.canvas.select == "poly":
+            self.canvas.select = False
         self.canvas.select = "poly"
     
     def save(self):

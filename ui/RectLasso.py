@@ -6,15 +6,9 @@ from ui.Lasso import Lasso
 
 
 class RectLasso(Lasso):
-    def __init__(self, shape, parent=None):
-        super().__init__(shape, parent)
+    def __init__(self, parent=None):
+        super().__init__(QRubberBand.Shape.Rectangle, parent)
         
-    def get_rubber_band_size_relative_to_scene(self):
-        rect = self.geometry()
-        top_left_scene = self.mapToScene(rect.topLeft())
-        bottom_right_scene = self.mapToScene(rect.bottomRight())
-        return bottom_right_scene.x() - top_left_scene.x(), bottom_right_scene.y() - top_left_scene.y()
-
     def paintEvent(self, event):
         painter = QPainter(self)
         pen = QPen(self.color)

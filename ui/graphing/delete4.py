@@ -8,7 +8,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import scanpy as sc
 import matplotlib.pyplot as plt
+
+
+
+
+
+
 
 
 class UMAPComputation(QThread):
@@ -26,16 +33,17 @@ class UMAPComputation(QThread):
         self.running = False
 
     def run(self):
-        reducer = umap.UMAP(
-            n_neighbors=self.n_neighbors, min_dist=self.min_dist, n_epochs=self.n_iter, random_state=42
-        )
+        adata = sc.AnnData(self.data)
+        sc.pp.neighbors(adata, n_neighbors=self.n_neighbors)
+        sc.tl.umap(adata, min_dist=self.min_dist, n_epochs=self.n_iter)
+
         if not self.running:
             return
-        embedding = reducer.fit_transform(self.data)
+        embedding = adata.obsm['X_umap']
 
         # Perform clustering
-        clustering = DBSCAN(eps=0.3, min_samples=10).fit(embedding)
-        labels = clustering.labels_
+        sc.tl.leiden(adata, resolution=0.5)
+        labels = adata.obs['leiden'].astype(int).to_numpy()
 
         if self.running:
             self.finished.emit(embedding, labels)

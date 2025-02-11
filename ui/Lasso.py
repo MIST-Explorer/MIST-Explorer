@@ -4,8 +4,8 @@ from PyQt6.QtCore import QPoint
 import random
 
 class Lasso(QRubberBand):
-    def __init__(self, shape, parent=None):
-        super().__init__(shape, parent)
+    def __init__(self, parent=None):
+        super().__init__(QRubberBand.Shape.Rectangle, parent)
         self.color = QColor(*self._get_random_color()[:3])
         self.filled = False
         self.dragging_threshold = 5
