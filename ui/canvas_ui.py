@@ -14,10 +14,7 @@ import pandas as pd
 def getRandomColor():
         return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
         
-class AnalysisRubberBand(QRubberBand):
-    def __init__(self, shape, starting_x, starting_y, parent=None):
-        super(AnalysisRubberBand, self).__init__(shape, parent)
-        self.fill = getRandomColor()
+           
 
         self.starting_x = starting_x
         self.starting_y = starting_y
@@ -146,7 +143,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.parent = parent
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
 
-        self.slideshow()
+        # self.slideshow()
 
     def load_channels(self, np_channels):
         self.np_channels = np_channels
@@ -259,6 +256,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # set scene rect to same size as pixmap
 
+        self.slideshow()
 
         # self.group.addToGroup(self.pixmapItem)
         # self.group.addToGroup(self.right_arrow)
@@ -268,9 +266,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
         
 
-
-        self.right_arrow.setZValue(1)
-        self.left_arrow.setZValue(1)
+        self.pixmapItem.setZValue(0)
+        self.right_arrow.setZValue(10)
+        self.left_arrow.setZValue(10)
 
         print("image zval: ", self.pixmapItem.zValue())
         print("rt zval: ", self.right_arrow.zValue())
