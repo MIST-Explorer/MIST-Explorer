@@ -5,6 +5,9 @@ from PyQt6.QtWidgets import  QApplication
 
 if __name__ == "__main__":
 
+    import cProfile
+    import pstats
+    import sys
 
     import sys
 
@@ -20,4 +23,14 @@ if __name__ == "__main__":
                                         model_register,
                                         ui)
     ui.show()
-    sys.exit(__app.exec())
+
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+
+    __app.exec()
+
+    # profiler.disable()
+    # stats = pstats.Stats(profiler).sort_stats('cumulative')
+    # stats.print_stats()
+
+    # sys.exit()

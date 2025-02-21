@@ -133,10 +133,12 @@ class Register(QThread):
                     progress_update = int(((tile_n+1)/len(inputs))*100)
                     self.progress.emit(progress_update, str(f"aligning tile {tile_n+1}/{len(inputs)}"))
 
+                    print(1)
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
-                        
+                    
+                    print("2")
                     t = time.time()
                     result = self.align_two_img(tile_set) # align
                     print(time.time() - t)
@@ -144,8 +146,9 @@ class Register(QThread):
                         continue
                     outputs.append(result)
                 except Exception as e:
-                    raise e
                     print("ERROE!")
+                    raise e
+                    
                     print(e)
             print("done aligning")
 
@@ -156,6 +159,7 @@ class Register(QThread):
         aligned_protein_signal = None
 
         for i, tif in enumerate(self.tifs): 
+
             if i == 0:
                 continue
             
@@ -166,11 +170,7 @@ class Register(QThread):
             print("n frames", n_frames)
             new_registered_tif = []
             
-            for layer_number in range(n_frames):
-
-                # # testing!
-                # if layer_number == 0:
-                #     continue
+            for layer_number in range(n_frames):    
 
                 print("Layer Number:", layer_number, "for tif", i)
                 progress_update = int(((layer_number+1)/n_frames)*100)

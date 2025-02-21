@@ -12,7 +12,7 @@ from itertools import combinations
 # implement 1
 
 class ZScoreHeatmapWindow(QMainWindow):
-    def __init__(self, data, region, parent=None):
+    def __init__(self, data, parent=None):
         super().__init__(parent)
 
         font = {
@@ -23,9 +23,8 @@ class ZScoreHeatmapWindow(QMainWindow):
         matplotlib.rcParams['figure.figsize'] = [3, 3]
 
                 # Define region of interest and filter dataset
-        x_min, y_min, x_max, y_max = region
-        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
-                            (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
+        # x_min, y_min, x_max, y_max = region
+        filtered_data = data
         
         print(filtered_data)
 
