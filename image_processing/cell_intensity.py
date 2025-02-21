@@ -212,6 +212,8 @@ class CellIntensity(QThread):
 
     def cancel(self):
         self.terminate()
+
+        
     def saveCellData(self):
         file_name, _ = QFileDialog.getSaveFileName(None, "Save Cell Data File", "cell_data.csv", "*.csv;;*.xlsx;; All Files(*)")
         if not self.df_cell_data is None:
@@ -244,22 +246,76 @@ class CellIntensity(QThread):
 
 
     def get_adjusted_median_intensity(self, bead_x, bead_y):
-        if not self.protein_signal_array is None:
-            radius_bg = self.params['radius_bg']
-            # radius_fg = self.params['radius_fg']
-            # get entire 13x13 region (or whatever size)
-            region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
-            # use boolean indexing to only get outside ring (donut)
-            bg_pixels = region[self.__background_bool_arr]
-            # use boolean indexing to only get inside (donut hole)
-            bead_pixels = region[self.__bead_bool_arr]
 
-            # find 80th percentile 
-            percentile_bg = np.percentile(bg_pixels, 80)
-            # adjust bead intensity relative to
-            return np.median(bg_pixels)- percentile_bg*0.3
-        else:
-            return False
+        if self.protein_signal_array is None:
+            return
+        
+        radius_bg = self.params['radius_bg']
+        radius_fg = self.params['radius_fg']
+        #     # get entire 13x13 region (or whatever size)
+        #     region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
+        #     # use boolean indexing to only get outside ring (donut)
+        #     bg_pixels = region[self.__background_bool_arr]
+        #     # use boolean indexing to only get inside (donut hole)
+        #     bead_pixels = region[self.__bead_bool_arr]
+
+        #     # find 80th percentile 
+        #     percentile_bg = np.percentile(bg_pixels, 80)
+        #     # adjust bead intensity relative to
+        #     return np.median(bg_pixels)- percentile_bg*0.3
+        # else:
+        #     return False
+
+
+         # Extract the 5x5 region around the bead
+        bead_region = self.protein_signal_array[bead_y-radius_fg:bead_y+radius_fg+1, bead_x-radius_fg:bead_x+radius_fg+1]
+
+        # Ensure the 5x5 region is valid
+        # if bead_region.shape != (5, 5):
+        #     return np.nan  # Handle invalid regions
+
+        # Calculate the mean and median intensity of the 5x5 bead region
+        mean_5x5 = np.mean(bead_region)
+        bead_median_org = np.median(bead_region)
+        bead_median=bead_median_org.copy()
+
+        # Extract the 15x15 surrounding region
+
+        surrounding_region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]   # Convert to float to handle NaN values
+
+        # Ensure the 15x15 region is valid
+        if surrounding_region.shape != (15, 15):
+            return bead_median_org  # Return unadjusted median if the 15x15 region is invalid
+
+
+        # Mask out the 5x5 region from the 15x15 region
+        surrounding_region[bead_y-radius_fg:bead_y+radius_fg+1, bead_x-radius_fg:bead_x+radius_fg+1] = 0
+
+        # Calculate the mean intensity of the surrounding 15x15 area, excluding the 5x5 region
+        surrounding_mean_15x15 = np.nanmean(surrounding_region)
+
+        # Apply correction only if 15x15 mean is 1.5x greater than 5x5 mean, and bead median > 5000
+        if surrounding_mean_15x15 > 1.5 * mean_5x5 and bead_median > 5000:
+            # Calculate the correction factor and apply linear correction
+            correction_factor = mean_5x5 * (mean_5x5 / surrounding_mean_15x15)
+            y =self.linear_correction(correction_factor)
+
+            # Apply the correction to the bead median
+            bead_median = bead_median - y + 2000
+
+        # Ensure no negative values
+        if bead_median < 1:
+            bead_median = 1
+
+        # Return the final adjusted bead median
+        return bead_median
+
+
+
+    # Define the linear function for the correction equation
+    def linear_correction(self, x):
+        return 0.8266 * x + 3970.1
+    
 
     def loadStardistLabels(self, stardist:ImageType) ->None:
         self.stardist_labels = stardist.arr

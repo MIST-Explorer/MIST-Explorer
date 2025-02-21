@@ -40,14 +40,16 @@ class Controller:
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
         # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
+        self.view.toolBar.auto_contrast_button.clicked.connect(self.model_canvas.auto_contrast)
         self.model_canvas.changeSlider.connect(self.view.toolBar.updateContrastSlider)
 
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
         self.view.small_view.imageDropped.connect(self._small_view.addImage)
-        self._small_view.referenceViewAdded.connect(self.view.small_view.addNewImage)
+        self._small_view.referenceViewAdded.connect(self.view.small_view.display)
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
         self._small_view.channelLoaded.connect(self.model_register.updateCycleImage)
+        self._small_view.channelLoaded.connect(self.view.small_view.load_channels)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
@@ -104,8 +106,6 @@ class Controller:
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
 
 
-
-
         # registration
         # change params
         self.view.register_groupbox.alignment_layer.currentTextChanged.connect(self.model_register.setAlignmentLayer)
@@ -139,11 +139,11 @@ class Controller:
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
         self.view.tabWidget.currentChanged.connect(self.view.onChange)
 
-
         # cancel process
         self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)
         self.view.cellIntensity_groupbox.cancel_button.clicked.connect(self.model_cellIntensity.cancel)
         self.view.stardist_groupbox.cancel_button.clicked.connect(self.model_stardist.cancel)
+
     def handleError(self, error_message):
         QMessageBox.critical(self.view,"Error", error_message)
 
@@ -197,7 +197,7 @@ class Controller:
             return True
         else:
             raise ValueError("Image format not recognized")
-        
+    
     def controlSave(self):
         
         pm = self.model_canvas.pixmap
@@ -228,10 +228,11 @@ class Controller:
             viewer.addImage(file_name)
 
     def on_action_reference_triggered(self):
-       self.openFileDialog(self.view.small_view)
+       self.openFileDialog(self._small_view)
 
     def on_actionOpen_triggered(self):
-       self.openFileDialog(self.model_canvas)  
+       self.openFileDialog(self.model_canvas)
+
 
     # def on_channelSelector_currentIndexChanged(self, index):
     #     if self.view.toolBar.channelSelector.count() != 0:
@@ -240,4 +241,5 @@ class Controller:
     #         self.view.canvas.setCurrentChannel(self.view.toolBar.channelSelector.currentIndex()) 
     #         channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
     #         self.model_canvas.toPixmapItem(channel_pixmap)
+
 

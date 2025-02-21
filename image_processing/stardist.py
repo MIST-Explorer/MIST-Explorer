@@ -20,6 +20,7 @@ class StarDist(QObject):
     # sendGrayScale = pyqtSignal(np.ndarray)
     progress = pyqtSignal(int, str)
     errorSignal = pyqtSignal(str)
+    
 
     def __init__(self):
         super().__init__()
@@ -77,6 +78,9 @@ class StarDist(QObject):
         
     def stardistTask(self):
         cell_image = self.getCellImage()
+
+        # if self.aligned:
+        #     self.setChannel()
 
         adjusted = cv.convertScaleAbs(cell_image, alpha=(255.0/65535.0))
     

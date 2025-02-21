@@ -129,6 +129,9 @@ def scale_adjust(arr:np.ndarray):
         print("unsupported array type")
 
 
+def auto_contrast(img):
+    return adjustContrast(scale_adjust(img))
+
 # def recolor(arr):
 #     pass
 

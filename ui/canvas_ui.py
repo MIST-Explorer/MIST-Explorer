@@ -1,16 +1,12 @@
-from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF
+from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
+from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve
 import Dialogs, numpy as np, matplotlib as mpl, cv2
-from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QPainter, QColor, QPen
-from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal, pyqtSlot, QPointF
 import Dialogs
 import numpy as np
 import cv2
 from qt_threading import Worker
 import utils
-from PyQt6.QtGui import QColor
 import random
 import pandas as pd
 
@@ -21,24 +17,109 @@ from PyQt6.QtWidgets import QApplication, QRubberBand, QMainWindow
 from PyQt6.QtGui import QPainter, QPen
 from PyQt6.QtCore import QRect, QPoint, Qt, QSize
 
+
 from ui.CircleLasso import CircleLasso
 from ui.RectLasso import RectLasso
 from ui.PolyLasso import PolyLasso
 
+class ArrowItem(QGraphicsPixmapItem):
+    """Arrow with fade and hover effect"""
+    def __init__(self, pixmap, position):
+        super().__init__(pixmap)
+        self.setPos(position)
+        self.setOpacity(0.3)  # Start with faded opacity
+
+        # Opacity effect
+        self.effect = QGraphicsOpacityEffect()
+        self.setGraphicsEffect(self.effect)
+
+        # Fade animations
+        self.fade_in = QPropertyAnimation(self.effect, b"opacity")
+        self.fade_in.setDuration(300)
+        self.fade_in.setEndValue(1.0)
+        self.fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+        self.fade_out = QPropertyAnimation(self.effect, b"opacity")
+        self.fade_out.setDuration(300)
+        self.fade_out.setEndValue(0.3)
+        self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+        self.setAcceptHoverEvents(True)
+
+    def hoverEnterEvent(self, event):
+        """Trigger fade-in when hovered"""
+        self.fade_out.stop()
+        self.fade_in.start()
+
+    def hoverLeaveEvent(self, event):
+        """Trigger fade-out when hover leaves"""
+        self.fade_in.stop()
+        self.fade_out.start()
+
+
 class ReferenceGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
-
     def __init__(self, parent=None):
         super().__init__(parent)
-
+        self.zoom = 1
+        self.pixmapItem = None
+        self.current_index = 1
+        self.np_channels = {}
+        self.pixmap = None
+        self.group = QGraphicsItemGroup()
         self.setMinimumSize(QSize(300, 300))
-        self.setObjectName("reference_canvas")
         self.setScene(QGraphicsScene(self))
-        self.setSceneRect(0, 0, 200, 150)
+        # self.setSceneRect(0, 0, 300, 300)
         self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
         
         self.parent = parent
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
+
+        # self.slideshow()
+
+    def load_channels(self, np_channels):
+        self.np_channels = np_channels
+
+    def slideshow(self):
+
+        self.right_arrow = ArrowItem(QPixmap("icons/right-arrow.png").scaled(25, 25, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation), 
+                                     QPointF(250, 275))
+        
+        self.left_arrow = ArrowItem(QPixmap("icons/left-arrow.png").scaled(25, 25, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation), 
+                                    QPointF(10, 275))
+        
+
+
+        self.scene().addItem(self.right_arrow)
+        self.scene().addItem(self.left_arrow)
+
+
+        self.left_arrow.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
+        self.right_arrow.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
+
+    def mouseDoubleClickEvent(self, event):
+        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+    def wheelEvent(self, event):
+
+        if self.pixmapItem != None:
+            zooming_out = event.angleDelta().y() > 0
+
+            # this is to prevent zooming in too much or zooming out too much
+            if self.zoom > 1.1**90 and zooming_out: # if max zoomed out, and not zooming in, quit. not as nessecary
+                return
+            
+            if self.zoom < 1/(1.1**2) and not zooming_out: # if max zoomed in, and not zooming out, quit.
+                return
+
+            zoom_factor = 1.1 if zooming_out else 0.9
+
+            self.zoom *= zoom_factor
+
+            self.scale(zoom_factor, zoom_factor)
+        else:
+            super().wheelEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -56,14 +137,85 @@ class ReferenceGraphicsViewUI(QGraphicsView):
             event.acceptProposedAction()
 
 
-    def addNewImage(self, pixmapItem):
-        # center the image
-        self.scene().addItem(pixmapItem)
+    def mousePressEvent(self, event):
+        scene_pos = self.mapToScene(event.pos())
 
-        item_rect = pixmapItem.boundingRect()
-        self.setSceneRect(item_rect)
-        # self.fitInView(pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
-        # self.centerOn(pixmapItem)
+        if self.left_arrow.contains(scene_pos - self.left_arrow.pos()):
+            print("hi")
+            self.prev_slide()
+        elif self.right_arrow.contains(scene_pos - self.right_arrow.pos()):
+            print("bye")
+            self.next_slide()
+        super().mousePressEvent(event)
+
+    def prev_slide(self):
+        """Show previous slide"""
+        if self.current_index > 1:
+            self.current_index -= 1
+            print("prev")
+            self.update_slide()
+
+    def next_slide(self):
+        """Show next slide"""
+        if self.current_index < len(self.np_channels.keys()):
+            print("next")
+            self.current_index += 1
+            self.update_slide()
+
+    def update_slide(self):
+        """Update displayed image"""
+        self.pixmap = QPixmap(self.np_channels[f"Channel {self.current_index}"])
+
+        self.pixmapItem.setPixmap(self.pixmap)
+        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # set scene rect to same size as pixmap
+
+                                  
+
+    def display(self, pixmapItem: QGraphicsPixmapItem):
+
+
+        if self.pixmapItem == None:
+            self.pixmapItem = pixmapItem
+            self.pixmap = self.pixmapItem.pixmap()
+            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+
+        else:
+            self.pixmapItem.setPixmap(pixmapItem.pixmap())
+        # self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent)
+
+        self.scene().addItem(self.pixmapItem)
+
+        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # set scene rect to same size as pixmap
+
+        self.slideshow()
+
+        # self.group.addToGroup(self.pixmapItem)
+        # self.group.addToGroup(self.right_arrow)
+        # self.group.addToGroup(self.left_arrow)
+        print(self.pixmapItem.parentItem())
+        print(self.right_arrow.parentItem())
+
+        
+
+        self.pixmapItem.setZValue(0)
+        self.right_arrow.setZValue(10)
+        self.left_arrow.setZValue(10)
+
+        print("image zval: ", self.pixmapItem.zValue())
+        print("rt zval: ", self.right_arrow.zValue())
+        print("lt zval: ", self.left_arrow.zValue())
+        print("num of items: ", self.items())
+        self.scene().update()
+
+        # item_rect = self.pixmapItem.boundingRect()
+        # self.setSceneRect(item_rect)
+        # self.centerOn(self.pixmapItem) # center the image
+
+        
+
+
 
 class ImageGraphicsViewUI(QGraphicsView):
     
@@ -130,10 +282,10 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
             print("addNewImage: updated pixmap of existing pixmapItem")
 
-        if not self.pixmapItem.pixmap().isNull():
-            print("addNewImage: there is a pixmapItem")
-        else:
-            print("addNewImage; there is no pixmapItem")
+        # if not self.pixmapItem.pixmap().isNull():
+        #     print("addNewImage: there is a pixmapItem")
+        # else:
+        #     print("addNewImage; there is no pixmapItem")
 
     def __centerImage(self, pixmapItem):
         item_rect = self.pixmapItem.boundingRect()

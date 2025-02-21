@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread, QTimer
 import tifffile as tiff, numpy as np
@@ -14,7 +14,7 @@ class ImageType:
         self.name = name
         self.arr = arr
 
-class __BaseGraphicsView(QGraphicsView):
+class __BaseGraphicsView(QWidget):
     '''base class for graphics view'''
     channelLoaded = pyqtSignal(dict, bool)
     channelNotLoaded = pyqtSignal(np.ndarray)
@@ -23,6 +23,11 @@ class __BaseGraphicsView(QGraphicsView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        
+        self.setMinimumSize(QSize(300, 300))
+        self.scene = QGraphicsView()
+        self.scene.setScene(QGraphicsScene(self))
         # self.channels= None
         self.reset_pixmap =  None
         self.reset_pixmapItem = None
@@ -106,7 +111,7 @@ class __BaseGraphicsView(QGraphicsView):
             return channel_one_image
     
     def deleteImage(self):
-        self.scene().clear()
+        self.scene.scene().clear()
 
 
 class ReferenceGraphicsView(__BaseGraphicsView):
@@ -115,11 +120,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
     referenceLoaded = pyqtSignal(dict)
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(QSize(300, 300))
-        self.setObjectName("reference_canvas")
-        self.setScene(QGraphicsScene(self))
-        self.setSceneRect(0, 0, 200, 150)
-        self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
+
 
     def dropEvent(self, event: QDropEvent):
         if event.mimeData().hasUrls():
@@ -130,34 +131,41 @@ class ReferenceGraphicsView(__BaseGraphicsView):
             event.acceptProposedAction()
     
 
+    def addImage(self, file_path:str):
 
-    def addImage(self, file_path):
-        # check if canvas already has an image
-        self.resetTransform()
-        if self.pixmapItem:
-            self.deleteImage() 
         with tiff.TiffFile(file_path) as tif:
             arr = tif.pages[0].asarray()
 
+        #auto adjust contrast when adding cycle image
         arr = scale_adjust(np.array(arr).astype(np.uint16))
         arr = adjustContrast(arr, alpha=20, beta=35)
         # size down the image for display
-        if arr.shape[0] > 20000:
-            thumbnail_size = (int(arr.shape[1]/50), int(arr.shape[0]/50))
-            arr = cv2.resize(arr, thumbnail_size, interpolation=cv2.INTER_AREA)
-        else: pass
-        qimage = numpy_to_qimage(arr)
-        self.pixmapItem = QGraphicsPixmapItem(QPixmap(qimage))
-        self.referenceViewAdded.emit(self.pixmapItem)
 
+        # rh = self.size().height() 
+        # rw = self.size().width()   
+        # h, w = arr.shape[:2]
+        # scale_factor = min(rw / w, rh / h)
+    
+        # new_width = int(w * scale_factor)
+        # new_height = int(h * scale_factor)
+        # print(new_height, new_width)
+
+        # arr = cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        qimage = numpy_to_qimage(arr)
+        self.pixmap =QPixmap(qimage)
+        self.pixmapItem =  QGraphicsPixmapItem(self.pixmap)
+
+        self.referenceViewAdded.emit(self.pixmapItem)
 
         self.cycle_worker = Worker(self.filename_to_image, file_path)
         self.cycle_worker.start()
+        
         # self.cycle_worker.signal.connect(self.filename_to_image_complete)
         self.cycle_worker.finished.connect(self.cycle_worker.quit)
         self.cycle_worker.finished.connect(self.cycle_worker.deleteLater)
 
-    def filename_to_image_complete(self, ):
+    def filename_to_image_complete(self):
         pass
 
 ##########################################################
@@ -234,7 +242,6 @@ class ImageGraphicsView(__BaseGraphicsView):
             return cv2.LUT(cv2.merge((r, g, b)), lut)
         else:
             return cv2.LUT(cv2.merge((labels, labels, labels)), lut) # gray to color
-
     
 
     def loadStardistLabels(self, stardist: ImageType):
@@ -247,7 +254,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         self.qimage_channels.clear()
         self.np_channels.clear()
-        self.resetTransform()
+        self.scene.resetTransform()
 
         if isinstance(file, str):
 
@@ -429,6 +436,22 @@ class ImageGraphicsView(__BaseGraphicsView):
     #     # Start the timer with a delay
     #     self.timer.start(100)  # Delay in milliseconds
 
+    def auto_contrast(self, lower = 0.1, upper=.9):
+        num = self.currentChannelNum + 1
+        channel = scale_adjust(self.np_channels[f"Channel {num}"])
+
+
+        flat_channel = channel.flatten()
+    
+        hist, bin_edges = np.histogram(flat_channel, bins=256, range=(0, 255))
+        total_pixels = flat_channel.size
+        cumulative_hist = np.cumsum(hist) / total_pixels
+        new_min= np.argmax(cumulative_hist > lower)  
+        new_max = np.argmax(cumulative_hist > upper)  
+
+
+        self.update_contrast((new_min, new_max))
+
     def apply_contrast(self, new_min, new_max):
 
         qimage = self.pixmap.toImage()
@@ -473,3 +496,5 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.np_channels[layer_key] = corrected_layer_4 # Replace the 4th layer with the corrected version
         self.channelLoaded.emit(self.np_channels, False)
         self.updateProgress.emit(100, "Done")
+        
+
