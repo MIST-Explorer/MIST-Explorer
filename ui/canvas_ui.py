@@ -11,10 +11,14 @@ import random
 import pandas as pd
 
 
+
 def getRandomColor():
         return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
         
-           
+class AnalysisRubberBand(QRubberBand):
+    def __init__(self, shape, starting_x, starting_y, parent=None):
+        super(AnalysisRubberBand, self).__init__(shape, parent)
+        self.fill = getRandomColor()
 
         self.starting_x = starting_x
         self.starting_y = starting_y
@@ -95,34 +99,35 @@ class ArrowItem(QGraphicsPixmapItem):
     def __init__(self, pixmap, position):
         super().__init__(pixmap)
         self.setPos(position)
-        self.setOpacity(0.3)  # Start with faded opacity
+        # self.setOpacity(0.3)  # Start with faded opacity
 
-        # Opacity effect
-        self.effect = QGraphicsOpacityEffect()
-        self.setGraphicsEffect(self.effect)
+        # # Opacity effect
+        # self.effect = QGraphicsOpacityEffect()
+        # self.setGraphicsEffect(self.effect)
 
-        # Fade animations
-        self.fade_in = QPropertyAnimation(self.effect, b"opacity")
-        self.fade_in.setDuration(300)
-        self.fade_in.setEndValue(1.0)
-        self.fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        # # Fade animations
+        # self.fade_in = QPropertyAnimation(self.effect, b"opacity")
+        # self.fade_in.setDuration(300)
+        # self.fade_in.setEndValue(1.0)
+        # self.fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
 
-        self.fade_out = QPropertyAnimation(self.effect, b"opacity")
-        self.fade_out.setDuration(300)
-        self.fade_out.setEndValue(0.3)
-        self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        # self.fade_out = QPropertyAnimation(self.effect, b"opacity")
+        # self.fade_out.setDuration(300)
+        # self.fade_out.setEndValue(0.3)
+        # self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
 
         self.setAcceptHoverEvents(True)
 
-    def hoverEnterEvent(self, event):
-        """Trigger fade-in when hovered"""
-        self.fade_out.stop()
-        self.fade_in.start()
+        
+    # def hoverEnterEvent(self, event):
+    #     """Trigger fade-in when hovered"""
+    #     self.fade_out.stop()
+    #     self.fade_in.start()
 
-    def hoverLeaveEvent(self, event):
-        """Trigger fade-out when hover leaves"""
-        self.fade_in.stop()
-        self.fade_out.start()
+    # def hoverLeaveEvent(self, event):
+    #     """Trigger fade-out when hover leaves"""
+    #     self.fade_in.stop()
+    #     self.fade_out.start()
 
 class ReferenceGraphicsViewUI(QGraphicsView):
     
@@ -143,17 +148,16 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.parent = parent
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
 
-        # self.slideshow()
+        self.slideshow()
 
     def load_channels(self, np_channels):
         self.np_channels = np_channels
 
     def slideshow(self):
-
-        self.right_arrow = ArrowItem(QPixmap("icons/right-arrow.png").scaled(25, 25, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation), 
+        self.right_arrow = ArrowItem(QPixmap("icons/right-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation),
                                      QPointF(250, 275))
         
-        self.left_arrow = ArrowItem(QPixmap("icons/left-arrow.png").scaled(25, 25, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation), 
+        self.left_arrow = ArrowItem(QPixmap("icons/left-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation), 
                                     QPointF(10, 275))
         
 
@@ -165,8 +169,11 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.left_arrow.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.right_arrow.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
 
+
+
     def mouseDoubleClickEvent(self, event):
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
 
     def wheelEvent(self, event):
 
@@ -206,12 +213,11 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
     def mousePressEvent(self, event):
         scene_pos = self.mapToScene(event.pos())
-
-        if self.left_arrow.contains(scene_pos - self.left_arrow.pos()):
-            print("hi")
+        if self.left_arrow.contains(self.left_arrow.mapFromScene(scene_pos)):
+            print("prev")
             self.prev_slide()
-        elif self.right_arrow.contains(scene_pos - self.right_arrow.pos()):
-            print("bye")
+        elif self.right_arrow.contains(self.right_arrow.mapFromScene(scene_pos)):
+            print("next")
             self.next_slide()
         super().mousePressEvent(event)
 
@@ -231,16 +237,16 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
     def update_slide(self):
         """Update displayed image"""
-        self.pixmap = QPixmap(self.np_channels[f"Channel {self.current_index}"])
+        self.pixmap = QPixmap(utils.numpy_to_qimage(self.np_channels[f"Channel {self.current_index}"]))
 
         self.pixmapItem.setPixmap(self.pixmap)
+
+        item_rect = self.pixmapItem.boundingRect()
+        self.setSceneRect(item_rect)
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # set scene rect to same size as pixmap
 
                                   
-
     def display(self, pixmapItem: QGraphicsPixmapItem):
-
 
         if self.pixmapItem == None:
             self.pixmapItem = pixmapItem
@@ -253,31 +259,32 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
         self.scene().addItem(self.pixmapItem)
 
-        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-        self.setSceneRect(0, 0, self.pixmap.width(), self.pixmap.height())  # set scene rect to same size as pixmap
 
-        self.slideshow()
-
-        # self.group.addToGroup(self.pixmapItem)
-        # self.group.addToGroup(self.right_arrow)
-        # self.group.addToGroup(self.left_arrow)
-        print(self.pixmapItem.parentItem())
-        print(self.right_arrow.parentItem())
+        self.right_arrow.setScale(40)
+        self.left_arrow.setScale(40)
+        scene_height = self.scene().height()
+        scene_width = self.scene().width()
+        self.right_arrow.setPos(QPointF(scene_width-800, scene_height/2))
+        self.left_arrow.setPos(QPointF(0, scene_height/2))
 
         
+        item_rect = self.pixmapItem.boundingRect()
+        self.setSceneRect(item_rect)
+        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
+        # rect_item = QGraphicsRectItem(self.sceneRect())
+        # rect_item.setPen(QPen(Qt.GlobalColor.blue, 2, Qt.PenStyle.DashLine))
+        # self.scene().addItem(rect_item)
+        
+
+        # make sure arrows go on top of image
         self.pixmapItem.setZValue(0)
-        self.right_arrow.setZValue(10)
-        self.left_arrow.setZValue(10)
+        self.right_arrow.setZValue(1)
+        self.left_arrow.setZValue(1)
 
-        print("image zval: ", self.pixmapItem.zValue())
-        print("rt zval: ", self.right_arrow.zValue())
-        print("lt zval: ", self.left_arrow.zValue())
-        print("num of items: ", self.items())
-        self.scene().update()
+        # self.scene().update()
 
-        # item_rect = self.pixmapItem.boundingRect()
-        # self.setSceneRect(item_rect)
+  
         # self.centerOn(self.pixmapItem) # center the image
 
         
