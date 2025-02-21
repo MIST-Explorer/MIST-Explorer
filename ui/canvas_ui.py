@@ -12,18 +12,6 @@ import pandas as pd
 
 import traceback
 
-<<<<<<< HEAD
-
-def getRandomColor():
-        return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
-        
-class AnalysisRubberBand(QRubberBand):
-    def __init__(self, shape, starting_x, starting_y, parent=None):
-        super(AnalysisRubberBand, self).__init__(shape, parent)
-        self.fill = getRandomColor()
-=======
->>>>>>> 2fe6fde126b99220481a58bb23985bfca5674fcf
-
 from PyQt6.QtWidgets import QApplication, QRubberBand, QMainWindow
 from PyQt6.QtGui import QPainter, QPen
 from PyQt6.QtCore import QRect, QPoint, Qt, QSize
