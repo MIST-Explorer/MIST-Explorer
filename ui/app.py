@@ -15,8 +15,14 @@ class Ui_MainWindow(QMainWindow):
         QImageReader.setAllocationLimit(0)
         super().__init__()
         
-        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+R"), self) # A for analysis
         self.analysis_shortcut.activated.connect(self.select)
+
+        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+C"), self) # C for circle select
+        self.analysis_shortcut.activated.connect(self.circle_select)
+
+        self.analysis_shortcut = QShortcut(QKeySequence("Ctrl+P"), self) # C for circle select
+        self.analysis_shortcut.activated.connect(self.poly_select)
         
         self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         self.save_shortcut.activated.connect(self.save)
@@ -25,7 +31,17 @@ class Ui_MainWindow(QMainWindow):
 
     def select(self):
         print("selecting")
-        self.canvas.select = True
+        self.canvas.select = "rect"
+
+    def circle_select(self):
+        print("selecting")
+        self.canvas.select = "circle"
+
+    def poly_select(self):
+        print("selecting")
+        if self.canvas.select == "poly":
+            self.canvas.select = False
+        self.canvas.select = "poly"
     
     def save(self):
         from PIL import Image

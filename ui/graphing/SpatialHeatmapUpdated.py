@@ -11,15 +11,13 @@ import sys
 
 
 class HeatmapWindow(QMainWindow):
-    def __init__(self, data, region, parent=None):
+    def __init__(self, data, parent=None):
 
         super().__init__(parent)
 
-        x_min, y_min, x_max, y_max = region
 
         # Filter the dataset to include only cells within the specified region
-        filtered_data = data[(data['Global X'] >= x_min) & (data['Global X'] <= x_max) &
-                            (data['Global Y'] >= y_min) & (data['Global Y'] <= y_max)]
+        filtered_data = data
 
         # Extract the list of all proteins dynamically based on the column range
         protein_columns = filtered_data.columns[3:]  # Assuming proteins start at the 4th column
@@ -48,7 +46,7 @@ class HeatmapWindow(QMainWindow):
         # self.ax.text(0, -2.0, "Heatmap indicates protein-protein correlation; \nSize indicates spatial distances between protein expression cells", fontsize=7, weight="bold")
 
         # Plot the heatmap on the axes
-        self.plot_heatmap(data, interaction_matrix, proteins, correlation_matrix, region)
+        self.plot_heatmap(data, interaction_matrix, proteins, correlation_matrix)
 
         # Create a canvas to embed the Matplotlib figure into the PyQt6 application
         canvas = FigureCanvas(self.figure)
@@ -56,8 +54,7 @@ class HeatmapWindow(QMainWindow):
 
         
 
-    def plot_heatmap(self, data, interaction_matrix, proteins, correlation_matrix, region):
-        x_min, y_min, x_max, y_max = region
+    def plot_heatmap(self, data, interaction_matrix, proteins, correlation_matrix):
 
         # Plot the heatmap
         ax = sns.heatmap(
@@ -103,7 +100,7 @@ class HeatmapWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
 
-    # Load your dataset (replace with actual file path and region)
+    # Load your dataset (replace with actual file path and)
     file_path = r"/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/Grouped Cells Biopsy Data.xlsx"
     data = pd.read_excel(file_path)
 
@@ -111,7 +108,7 @@ def main():
     
 
     # Create and show the main window
-    window = HeatmapWindow(data, region=(0, 2100, 1600, 3600))
+    window = HeatmapWindow(data)
     window.show()
 
     sys.exit(app.exec())
