@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve, QRectF, QSizeF
 import Dialogs, numpy as np, matplotlib as mpl, cv2
 import Dialogs
 import numpy as np
@@ -22,39 +22,47 @@ from ui.RectLasso import RectLasso
 from ui.PolyLasso import PolyLasso
 
 class ArrowItem(QGraphicsPixmapItem):
-    """Arrow with fade and hover effect"""
+    """Arrow with hover effect"""
     def __init__(self, pixmap, position):
         super().__init__(pixmap)
+        rect = QRectF(self.boundingRect())
+        self.bg_rect = QGraphicsRectItem(rect, parent=self)
+        self.bg_rect.setBrush(QBrush(QColor(255, 255, 255, 100)))  
+        self.bg_rect.setZValue(1)  #make sure it goes behind the arrows
+        self.base_opacity = 0.4
+        self.hover_opacity = 1  # darker when hovered
         self.setPos(position)
-        # self.setOpacity(0.3)  # Start with faded opacity
+        self.applyHoverEffect()
 
-        # # Opacity effect
-        # self.effect = QGraphicsOpacityEffect()
-        # self.setGraphicsEffect(self.effect)
+    
+    def applyHoverEffect(self):
+        self.effect = QGraphicsOpacityEffect()
+        self.effect.setOpacity(self.base_opacity)
+        self.setGraphicsEffect(self.effect)
 
-        # # Fade animations
-        # self.fade_in = QPropertyAnimation(self.effect, b"opacity")
-        # self.fade_in.setDuration(300)
-        # self.fade_in.setEndValue(1.0)
-        # self.fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.bg_rect.setGraphicsEffect(self.effect)
 
-        # self.fade_out = QPropertyAnimation(self.effect, b"opacity")
-        # self.fade_out.setDuration(300)
-        # self.fade_out.setEndValue(0.3)
-        # self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.fade_in = QPropertyAnimation(self.effect, b"opacity")
+        self.fade_in.setDuration(300)
+        self.fade_in.setEndValue(self.hover_opacity)
+        self.fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+
+        self.fade_out = QPropertyAnimation(self.effect, b"opacity")
+        self.fade_out.setDuration(300)
+        self.fade_out.setEndValue(self.base_opacity)
+        self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
 
         self.setAcceptHoverEvents(True)
 
-        
-    # def hoverEnterEvent(self, event):
-    #     """Trigger fade-in when hovered"""
-    #     self.fade_out.stop()
-    #     self.fade_in.start()
+    def hoverEnterEvent(self, event):
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fade_out.stop() 
+        self.fade_in.start()  
 
-    # def hoverLeaveEvent(self, event):
-    #     """Trigger fade-out when hover leaves"""
-    #     self.fade_in.stop()
-    #     self.fade_out.start()
+    def hoverLeaveEvent(self, event):
+        self.fade_in.stop()   
+        self.fade_out.start() 
 
 
 class ReferenceGraphicsViewUI(QGraphicsView):
@@ -63,6 +71,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.zoom = 1
+        self.left_arrow = None
+        self.right_arrow = None
         self.pixmapItem = None
         self.current_index = 1
         self.np_channels = {}
@@ -76,12 +86,16 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.parent = parent
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
 
-        self.slideshow()
-
+    def isEmpty(self) -> bool:
+        return self.pixmapItem == None
     def load_channels(self, np_channels):
         self.np_channels = np_channels
 
     def slideshow(self):
+
+        if not self.right_arrow  == None:
+            return
+        
         self.right_arrow = ArrowItem(QPixmap("icons/right-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation),
                                      QPointF(250, 275))
         
@@ -90,21 +104,24 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         
 
 
+
         self.scene().addItem(self.right_arrow)
         self.scene().addItem(self.left_arrow)
 
+        print("scene: ", self.scene().width()/self.right_arrow.pixmap().width())
 
         self.left_arrow.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.right_arrow.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
 
-
-
-    def mouseDoubleClickEvent(self, event):
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
 
-    def wheelEvent(self, event):
+    def mouseDoubleClickEvent(self, event):
+        if not self.isEmpty():
+            self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
+
+    def wheelEvent(self, event):
         if self.pixmapItem != None:
             zooming_out = event.angleDelta().y() > 0
 
@@ -140,14 +157,15 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
 
     def mousePressEvent(self, event):
-        scene_pos = self.mapToScene(event.pos())
-        if self.left_arrow.contains(self.left_arrow.mapFromScene(scene_pos)):
-            print("prev")
-            self.prev_slide()
-        elif self.right_arrow.contains(self.right_arrow.mapFromScene(scene_pos)):
-            print("next")
-            self.next_slide()
-        super().mousePressEvent(event)
+        if not self.isEmpty():
+            scene_pos = self.mapToScene(event.pos())
+            if self.left_arrow.contains(self.left_arrow.mapFromScene(scene_pos)):
+                print("prev")
+                self.prev_slide()
+            elif self.right_arrow.contains(self.right_arrow.mapFromScene(scene_pos)):
+                print("next")
+                self.next_slide()
+            super().mousePressEvent(event)
 
     def prev_slide(self):
         """Show previous slide"""
@@ -176,23 +194,31 @@ class ReferenceGraphicsViewUI(QGraphicsView):
                                   
     def display(self, pixmapItem: QGraphicsPixmapItem):
 
+        self.slideshow()
+
         if self.pixmapItem == None:
             self.pixmapItem = pixmapItem
             self.pixmap = self.pixmapItem.pixmap()
-            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
         else:
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-        # self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent)
 
         self.scene().addItem(self.pixmapItem)
+        
+        rw = int(self.scene().width()/10.6)
+        rh = int(self.scene().height()/10.6)
+        print(rw, rh)
+        self.right_arrow.bg_rect.setRect(0, 0, rw, rh) 
+        self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
 
+        self.right_arrow.setPixmap(QPixmap("icons/right-arrow.png").scaled(rw,rh))
+        self.left_arrow.setPixmap(QPixmap("icons/left-arrow.png").scaled(rw,rh))
 
-        self.right_arrow.setScale(40)
-        self.left_arrow.setScale(40)
         scene_height = self.scene().height()
         scene_width = self.scene().width()
-        self.right_arrow.setPos(QPointF(scene_width-800, scene_height/2))
+        self.right_arrow.setToolTip("Next")
+        self.left_arrow.setToolTip("Previous")
+        self.right_arrow.setPos(QPointF(scene_width-self.right_arrow.pixmap().width(), scene_height/2))
         self.left_arrow.setPos(QPointF(0, scene_height/2))
 
         
@@ -207,13 +233,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
         # make sure arrows go on top of image
         self.pixmapItem.setZValue(0)
-        self.right_arrow.setZValue(1)
-        self.left_arrow.setZValue(1)
+        self.right_arrow.setZValue(2)
+        self.left_arrow.setZValue(2)
 
-        # self.scene().update()
-
-  
-        # self.centerOn(self.pixmapItem) # center the image
 
         
 
