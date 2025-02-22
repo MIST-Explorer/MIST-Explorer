@@ -20,10 +20,11 @@ class RegisterUI(QWidget):
         self.register_components_vlayout.setSpacing(0)
         self.register_components_vlayout.setContentsMargins(0, 0, 0, 0)
 
-        # ALIGNMENT LAYER
         self.hasblue_layout = QHBoxLayout()
+
         self.has_blue_color = QComboBox(self.register_groupbox)
         self.has_blue_color.addItems(["Yes", "No"])
+
         self.hasblue_label = QLabel()
         self.hasblue_layout.addWidget(self.hasblue_label)
         self.hasblue_layout.addWidget(self.has_blue_color)
