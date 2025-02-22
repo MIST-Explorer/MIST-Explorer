@@ -60,7 +60,7 @@ class __BaseGraphicsView(QWidget):
                     continue
         return pages
     
-    def filename_to_image(self, file_name:str) -> np.ndarray:  
+    def filename_to_image(self, file_name:str, adjust_contrast=False) -> np.ndarray:  
 
             t = time.time()
 
@@ -75,14 +75,15 @@ class __BaseGraphicsView(QWidget):
                         channel_name = f'Channel {channel_num + 1}'
                         height, width = image.shape
                         image_adjusted =image
-                        # __scaled = scale_adjust(image) 
-                        # image_adjusted = adjustContrast(__scaled) # uint8
 
+                        if adjust_contrast:
+                            __scaled = scale_adjust(image) 
+                            image_adjusted = adjustContrast(__scaled) # uint8
 
                         bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
                         format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
 
-                        print("my dtype is", image_adjusted.dtype)   
+                        print("my dtype is", image_adjusted.dtype)
                         self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
 
                         # qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
@@ -133,40 +134,20 @@ class ReferenceGraphicsView(__BaseGraphicsView):
 
     def addImage(self, file_path:str):
 
-        with tiff.TiffFile(file_path) as tif:
-            arr = tif.pages[0].asarray()
+        self.reference_worker = Worker(self.filename_to_image, file_path, True)
+        self.reference_worker.start()
+        self.reference_worker.signal.connect(self.filename_to_image_complete)
+        self.reference_worker.finished.connect(self.reference_worker.quit)
+        self.reference_worker.finished.connect(self.reference_worker.deleteLater)
 
-        #auto adjust contrast when adding cycle image
-        arr = scale_adjust(np.array(arr).astype(np.uint16))
-        arr = adjustContrast(arr, alpha=20, beta=35)
-        # size down the image for display
 
-        # rh = self.size().height() 
-        # rw = self.size().width()   
-        # h, w = arr.shape[:2]
-        # scale_factor = min(rw / w, rh / h)
-    
-        # new_width = int(w * scale_factor)
-        # new_height = int(h * scale_factor)
-        # print(new_height, new_width)
 
-        # arr = cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
+    def filename_to_image_complete(self):
+        arr = self.np_channels["Channel 1"]
         qimage = numpy_to_qimage(arr)
         self.pixmap =QPixmap(qimage)
         self.pixmapItem =  QGraphicsPixmapItem(self.pixmap)
-
         self.referenceViewAdded.emit(self.pixmapItem)
-
-        self.cycle_worker = Worker(self.filename_to_image, file_path)
-        self.cycle_worker.start()
-        
-        # self.cycle_worker.signal.connect(self.filename_to_image_complete)
-        self.cycle_worker.finished.connect(self.cycle_worker.quit)
-        self.cycle_worker.finished.connect(self.cycle_worker.deleteLater)
-
-    def filename_to_image_complete(self):
-        pass
 
 ##########################################################
 class ImageGraphicsView(__BaseGraphicsView):
