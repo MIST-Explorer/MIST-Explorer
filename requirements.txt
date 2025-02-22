@@ -15,4 +15,5 @@ stardist
 seaborn
 pyclesperanto-prototype
 sep
-scikit-image
+scikit-learn
+umap
