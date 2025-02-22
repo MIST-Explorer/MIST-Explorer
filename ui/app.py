@@ -75,19 +75,11 @@ class Ui_MainWindow(QMainWindow):
         
         # initialize tabs 
         self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabScrollArea.setMinimumSize(QSize(400,600))
-        self.tabScrollArea.setMaximumWidth(500)
+        self.tabScrollArea.setMinimumSize(QSize(400,500))
+        self.tabScrollArea.setMaximumWidth(450)
         
         self.tabWidget = QTabWidget(self.tabScrollArea)
-        self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
 
-        self.tabWidget.setMinimumSize(QSize(400, 800))
-
-        self.tabScrollArea.setWidget(self.tabWidget)
-        
-        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
-        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
@@ -97,23 +89,37 @@ class Ui_MainWindow(QMainWindow):
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
 
         ####### preprocess tab ###################################
-        
         self.preprocessUISetup() # uses self.canvas #stardist
+
+        self.tabScrollArea.setWidget(self.preprocessing_tab)
+        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
+        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
         self.tabWidget.addTab(self.preprocessing_tab, "")
+
         
+ 
         ####### view tab #######################################
 
         self.view_tab = ImageOverlay(self.canvas, enc=self)
         self.view_tab.setObjectName("view_tab")
+        self.view_tab.setMaximumWidth(450)
         self.tabWidget.addTab(self.view_tab, "")
         
         ####### analysis tab #######################################
 
         self.analysis_tab = AnalysisTab(self.canvas, self)
-        self.analysis_tab.resize(200, 100)
+        self.analysis_tab.setMaximumWidth(450)
+
         self.analysis_tab.setObjectName("analysis_tab")
         self.tabWidget.addTab(self.analysis_tab, "")
-        
+        # grid = QGridLayout(self)
+        # grid.addWidget(self.tabWidget)
+        self.setStyleSheet('''
+        QTabWidget::tab-bar {
+            alignment: left;
+        }''')
         self.main_layout.addWidget(self.tabScrollArea)
 
         ##########################################################
@@ -162,11 +168,13 @@ class Ui_MainWindow(QMainWindow):
         
     def onChange(self,i): #changed!
         if i == 0:
-            self.tabWidget.setMinimumSize(QSize(400, 800))
+            print("preprocess selected")
         elif i == 1:
-            self.tabWidget.setMinimumSize(QSize(400, 600))
             print("view selected")
-    
+
+        elif i == 2:
+            print("analysis selected")
+
     def updateMousePositionLabel(self, text):
         self.toolBar.statusLine.setText(text)
     
@@ -184,10 +192,11 @@ class Ui_MainWindow(QMainWindow):
         self.saveSignal.emit()
         
     def preprocessUISetup(self):
-        self.scrollarea = QScrollArea()
-        self.preprocessing_tab = QWidget(self.scrollarea)
+        self.preprocessing_tab = QWidget(self.tabWidget)
+        self.preprocessing_tab.setMinimumHeight(1000)
+        self.preprocessing_tab.setMaximumWidth(450)
+
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
-        # 
 
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
 

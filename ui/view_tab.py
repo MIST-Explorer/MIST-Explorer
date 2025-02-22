@@ -580,7 +580,7 @@ class ImageOverlay(QWidget):
         self.apply_button = QPushButton("Apply")
         self.apply_button.clicked.connect(self.start_build_all_worker)
         main_layout.addWidget(self.apply_button)
-        # main_layout.addStretch()
+        main_layout.addStretch()
         # main_layout.setDirection(QVBoxLayout.BottomToTop)
 
         # self.main_btn = QPushButton('run main')
