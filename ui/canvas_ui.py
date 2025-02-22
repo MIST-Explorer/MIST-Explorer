@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup
+from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup, QGraphicsSimpleTextItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve, QRectF, QSizeF
 import Dialogs, numpy as np, matplotlib as mpl, cv2
@@ -77,7 +77,6 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.current_index = 1
         self.np_channels = {}
         self.pixmap = None
-        self.group = QGraphicsItemGroup()
         self.setMinimumSize(QSize(300, 300))
         self.setScene(QGraphicsScene(self))
         # self.setSceneRect(0, 0, 300, 300)
@@ -85,6 +84,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         
         self.parent = parent
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse) 
+
+
 
     def isEmpty(self) -> bool:
         return self.pixmapItem == None
@@ -191,10 +192,10 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setSceneRect(item_rect)
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-                                  
+
     def display(self, pixmapItem: QGraphicsPixmapItem):
 
-        self.slideshow()
+        self.slideshow() # init arrows
 
         if self.pixmapItem == None:
             self.pixmapItem = pixmapItem
@@ -206,7 +207,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.scene().addItem(self.pixmapItem)
         
         rw = int(self.scene().width()/10.6)
-        rh = int(self.scene().height()/10.6)
+        rh = int(self.scene().height()/10.6) # scale arrows up
         print(rw, rh)
         self.right_arrow.bg_rect.setRect(0, 0, rw, rh) 
         self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
@@ -218,12 +219,19 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         scene_width = self.scene().width()
         self.right_arrow.setToolTip("Next")
         self.left_arrow.setToolTip("Previous")
-        self.right_arrow.setPos(QPointF(scene_width-self.right_arrow.pixmap().width(), scene_height/2))
-        self.left_arrow.setPos(QPointF(0, scene_height/2))
 
-        
+
+        right_arrow_pos_x = int(scene_width)
+        left_arrow_pos_x = 0
+        arrow_pos_y = int(scene_height / 2)
+
+        self.right_arrow.setPos(self.mapToScene(right_arrow_pos_x, arrow_pos_y))
+        self.left_arrow.setPos(self.mapToScene(left_arrow_pos_x, arrow_pos_y))
         item_rect = self.pixmapItem.boundingRect()
+
+
         self.setSceneRect(item_rect)
+
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
         # rect_item = QGraphicsRectItem(self.sceneRect())
@@ -236,11 +244,10 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.right_arrow.setZValue(2)
         self.left_arrow.setZValue(2)
 
-
-        
-
-
-
+        # self.posItem = QGraphicsSimpleTextItem("hey", parent=self.pixmapItem)
+        # self.posItem.setPos(0,0
+            
+        # )
 class ImageGraphicsViewUI(QGraphicsView):
     
     imageDropped = pyqtSignal(str)  
@@ -398,7 +405,8 @@ class ImageGraphicsViewUI(QGraphicsView):
 
                 if self.begin_crop:
                     self.update_starting_position(event)
-                    if not self.rubberBand:
+
+                    if not self.rubberBand: 
                         self.rubberBand = RectLasso(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
                     return
                     

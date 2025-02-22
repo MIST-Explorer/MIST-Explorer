@@ -166,7 +166,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.pixmap=None
         self.pixmapItem=None
         self.begin_crop = False
-        self.crop_cursor =  QCursor(QPixmap("icons/clicks.png").scaled(25,25, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
+        self.crop_cursor =  QCursor(Qt.CursorShape.CrossCursor)
         # self.contrast_worker_running = False 
         # self.timer = QTimer()
         self.contrast_worker = None
