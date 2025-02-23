@@ -290,7 +290,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-            # self.__centerImage(self.pixmapItem)
+            self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
     def saveImage(self):
