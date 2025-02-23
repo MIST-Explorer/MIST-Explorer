@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QToolBar, QWidget, QComboBox, QLabel, QSizePolicy, QPushButton
 from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
 from PyQt6.QtGui import QPainter, QIcon, QImage, QPixmap
-from ui.Action import Action
+from ui.toolbar.Action import Action
 import matplotlib.pyplot as plt, numpy as np, cv2
 from PyQt6.QtCore import pyqtSignal
 from qtrangeslider import QRangeSlider

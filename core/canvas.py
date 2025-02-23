@@ -5,7 +5,7 @@ import tifffile as tiff, numpy as np
 # from PIL import Image, ImageSequence
 import cv2, matplotlib as mpl
 import time
-from Worker import Worker
+from core.Worker import Worker
 from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
 
 

@@ -8,7 +8,7 @@ from core.canvas import ImageGraphicsView, ImageType
 import ui.app
 from utils import numpy_to_qimage, qimage_to_numpy
 from skimage.segmentation import expand_labels
-from Worker import Worker
+from core.Worker import Worker
 # STARDIST
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'

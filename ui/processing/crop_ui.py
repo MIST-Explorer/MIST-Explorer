@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import  QHBoxLayout, QGroupBox, QToolButton, QWidget
 from PyQt6.QtCore import QSize, QCoreApplication
-from ui.Action import Action
+from ui.toolbar.Action import Action
 
 class CropUI(QWidget):
     def __init__(self, parent=None):

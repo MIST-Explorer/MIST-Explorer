@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup, QGraphicsSimpleTextItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve, QRectF, QSizeF
-import ui.Dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
-import ui.Dialogs as Dialogs
+import ui.dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
+import ui.dialogs as Dialogs
 import numpy as np
 import cv2
-from Worker import Worker
+from core.Worker import Worker
 import utils
 import random
 import pandas as pd
