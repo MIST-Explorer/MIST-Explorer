@@ -1,12 +1,12 @@
 
-import ui.app, ui.dialogs as Dialogs, core.canvas, core.stardist, core.cell_intensity, core.register
+import ui.app, ui.Dialogs as Dialogs, core.canvas, core.stardist, core.cell_intensity, core.register
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
 import numpy as np
 import cv2
 from PyQt6.QtCore import pyqtSignal
 from PIL import Image
-from ui.dialogs import ImageDialog
+from ui.Dialogs import ImageDialog
         
 class Controller:
     controllerSignal = pyqtSignal(object)

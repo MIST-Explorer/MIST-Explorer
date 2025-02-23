@@ -34,9 +34,9 @@ class ToolBarUI(QWidget):
         self.channelSelector.clear()
 
     def __createActions(self, parent):
-        self.actionRotate = Action(parent, "actionRotate", "icons/rotate-right.png")
-        self.actionReset = Action(parent, "actionReset", "icons/home.png")
-        self.actionOpenBrightnessContrast = Action(parent, "actionBC", "icons/brightness.png")
+        self.actionRotate = Action(parent, "actionRotate", "assets/icons/rotate-right.png")
+        self.actionReset = Action(parent, "actionReset", "assets/icons/home.png")
+        self.actionOpenBrightnessContrast = Action(parent, "actionBC", "assets/icons/brightness.png")
         # self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
         self.channelSelector.currentIndexChanged.connect(self.on_channelSelector_currentIndexChanged) #try avoiding connect signal within the same class, but this will do for now
