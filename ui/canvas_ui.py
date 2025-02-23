@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup, QGraphicsSimpleTextItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve, QRectF, QSizeF
-import ui.dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
-import ui.dialogs as Dialogs
+import ui.Dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
+import ui.Dialogs as Dialogs
 import numpy as np
 import cv2
 from core.Worker import Worker
@@ -97,10 +97,10 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         if not self.right_arrow  == None:
             return
         
-        self.right_arrow = ArrowItem(QPixmap("icons/right-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation),
+        self.right_arrow = ArrowItem(QPixmap("assets/icons/right-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation),
                                      QPointF(250, 275))
         
-        self.left_arrow = ArrowItem(QPixmap("icons/left-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation), 
+        self.left_arrow = ArrowItem(QPixmap("assets/icons/left-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation), 
                                     QPointF(10, 275))
         
 
@@ -212,8 +212,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.right_arrow.bg_rect.setRect(0, 0, rw, rh) 
         self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
 
-        self.right_arrow.setPixmap(QPixmap("icons/right-arrow.png").scaled(rw,rh))
-        self.left_arrow.setPixmap(QPixmap("icons/left-arrow.png").scaled(rw,rh))
+        self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw,rh))
+        self.left_arrow.setPixmap(QPixmap("assets/icons/left-arrow.png").scaled(rw,rh))
 
         scene_height = self.scene().height()
         scene_width = self.scene().width()
@@ -263,7 +263,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.rubberBandColors = []  # List to store colors of the rubber bands
         self.begin_crop = False
         self.origin = None
-        self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
+        self.crop_cursor = QCursor(Qt.CursorShape.CrossCursor)
         self.select = False
         self.circle_select = False
         self.zoom = 1
@@ -407,15 +407,15 @@ class ImageGraphicsViewUI(QGraphicsView):
                     self.update_starting_position(event)
 
                     if not self.rubberBand: 
-                        self.rubberBand = RectLasso(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
-                    return
+                        self.rubberBand = RectLasso(self)
+                    
                     
 
                 elif self.select == "rect": 
-                    self.rubberband = RectLasso(self)
+                    self.rubberBand = RectLasso(self)
                 elif self.select == "circle": 
                     self.center = QPoint(self.starting_x, self.starting_y)
-                    self.rubberband = CircleLasso(self)
+                    self.rubberBand = CircleLasso(self)
                 elif self.select == "poly": 
                     # self.rubberband = PolyLasso()
                     if not self.current_polygon:
@@ -440,10 +440,10 @@ class ImageGraphicsViewUI(QGraphicsView):
                     return 
 
 
-                self.rubberBands.append(self.rubberband)
-                self.rubberBandColors.append(self.rubberband.color)
-                self.rubberband.setGeometry(QRect(self.origin, QSize()))
-                self.rubberband.show()
+                self.rubberBands.append(self.rubberBand)
+                self.rubberBandColors.append(self.rubberBand.color)
+                self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                self.rubberBand.show()
 
                 return
                     
