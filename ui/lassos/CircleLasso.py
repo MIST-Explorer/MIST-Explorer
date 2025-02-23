@@ -3,7 +3,7 @@ from PyQt6.QtGui import QPainter, QPen, QColor
 from PyQt6.QtCore import QPoint
 import random
 
-from ui.Lasso import Lasso
+from ui.lassos.Lasso import Lasso
 
 class CircleLasso(Lasso):
     def __init__(self, shape, parent=None):

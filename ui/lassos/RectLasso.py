@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QRubberBand
 from PyQt6.QtGui import QPainter, QPen, QColor
 import random
 
-from ui.Lasso import Lasso
+from ui.lassos.Lasso import Lasso
 
 
 class RectLasso(Lasso):

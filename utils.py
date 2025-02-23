@@ -1,12 +1,10 @@
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtGui import  QImage, QPixmap
 from PyQt6.QtCore import QTimer
-import Dialogs, tifffile as tiff, numpy as np
+import tifffile as tiff, numpy as np
 from PIL import Image, ImageSequence
 import cv2
 import time
-
-
 
 def numpy_to_qimage(array:np.ndarray) -> QImage:
 
@@ -132,15 +130,4 @@ def scale_adjust(arr:np.ndarray):
 def auto_contrast(img):
     return adjustContrast(scale_adjust(img))
 
-# def recolor(arr):
-#     pass
 
-
-class Pixmap(QPixmap):
-    def __init__(self, pixmap_type, qimage=None, *args):
-        super().__init__(*args)  # Call QPixmap's constructor
-        self.type = pixmap_type  # Store the custom type
-        
-        if qimage is not None:
-            # Convert QImage to QPixmap if provided
-            self.convertFromImage(qimage)

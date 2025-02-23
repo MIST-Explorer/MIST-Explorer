@@ -16,12 +16,12 @@ import seaborn as sns
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-from ui.graphing.ZScoreHeatmapWindow import ZScoreHeatmapWindow 
-from ui.graphing.SpatialHeatmapUpdated import HeatmapWindow
-from ui.graphing.CellDensityPlot import CellDensityPlot
-from ui.graphing.DistributionViewer import DistributionViewer
-from ui.graphing.PieChartCanvas import PieChartCanvas
-from ui.graphing.delete_later import UMAPVisualizer
+from ui.analysis.graphing.ZScoreHeatmapWindow import ZScoreHeatmapWindow 
+from ui.analysis.graphing.SpatialHeatmapUpdated import HeatmapWindow
+from ui.analysis.graphing.CellDensityPlot import CellDensityPlot
+from ui.analysis.graphing.DistributionViewer import DistributionViewer
+from ui.analysis.graphing.PieChartCanvas import PieChartCanvas
+from ui.analysis.graphing.delete_later import UMAPVisualizer
 
 
 class AnalysisTab(QWidget):

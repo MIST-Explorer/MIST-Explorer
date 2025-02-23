@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox
 import cv2
 import os
 from numba import njit
-from qt_threading import Worker
+from Worker import Worker
 
 Image.MAX_IMAGE_PIXELS = None
 

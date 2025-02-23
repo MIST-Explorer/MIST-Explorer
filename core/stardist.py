@@ -4,11 +4,11 @@ from PyQt6.QtCore import pyqtSignal, QObject, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
 import numpy as np, cv2 as cv, matplotlib as mpl, time
 from pyclesperanto_prototype import dilate_labels
-from image_processing.canvas import ImageGraphicsView, ImageType
+from core.canvas import ImageGraphicsView, ImageType
 import ui.app
 from utils import numpy_to_qimage, qimage_to_numpy
 from skimage.segmentation import expand_labels
-from qt_threading import Worker
+from Worker import Worker
 # STARDIST
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'

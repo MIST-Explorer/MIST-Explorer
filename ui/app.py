@@ -3,12 +3,12 @@ from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 import pandas as pd
 
-from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist_ui import StarDistUI; from ui.cell_intensity_ui import CellIntensityUI
-from ui.crop_ui import CropUI; from ui.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
-from ui.register_ui import RegisterUI
+from ui.menubar_ui import MenuBarUI; from ui.toolbar_ui import ToolBarUI; from ui.stardist.stardist_ui import StarDistUI; from ui.alignment.cell_intensity_ui import CellIntensityUI
+from ui.processing.crop_ui import CropUI; from ui.processing.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
+from ui.alignment.register_ui import RegisterUI
 from ui.view_tab import ImageOverlay
-from ui.AnalysisTab import AnalysisTab
-from ui.gaussian_blur import GaussianBlur
+from ui.analysis.AnalysisTab import AnalysisTab
+from ui.processing.gaussian_blur import GaussianBlur
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self, parent=None):

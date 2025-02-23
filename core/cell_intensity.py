@@ -2,7 +2,7 @@
 from PyQt6.QtCore import pyqtSignal, QThread
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 import numpy as np, cv2 as cv, math, time, pandas as pd, itertools
-from image_processing.canvas import ImageGraphicsView, ImageType
+from core.canvas import ImageGraphicsView, ImageType
 from tqdm import tqdm
 
 # import SimpleITK as sitk

@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup, QGraphicsSimpleTextItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve, QRectF, QSizeF
-import Dialogs, numpy as np, matplotlib as mpl, cv2
-import Dialogs
+import ui.Dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
+import ui.Dialogs as Dialogs
 import numpy as np
 import cv2
-from qt_threading import Worker
+from Worker import Worker
 import utils
 import random
 import pandas as pd
@@ -17,9 +17,9 @@ from PyQt6.QtGui import QPainter, QPen
 from PyQt6.QtCore import QRect, QPoint, Qt, QSize
 
 
-from ui.CircleLasso import CircleLasso
-from ui.RectLasso import RectLasso
-from ui.PolyLasso import PolyLasso
+from ui.lassos.CircleLasso import CircleLasso
+from ui.lassos.RectLasso import RectLasso
+from ui.lassos.PolyLasso import PolyLasso
 
 class ArrowItem(QGraphicsPixmapItem):
     """Arrow with hover effect"""
