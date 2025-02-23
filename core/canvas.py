@@ -348,10 +348,11 @@ class ImageGraphicsView(__BaseGraphicsView):
         print(f"Error: {error_message}")
 
     def updateChannels(self, channels:dict, clear:bool) -> None: #cropsignal will update this
-        self.np_channels = channels #np arrays
 
-        print("in updateChannels method of canvas.py")
-        print("clear channel?", clear)
+        print("updated channels in canvas.py after cropsignal")
+        self.np_channels = channels # replace channels with new, cropped/rotated, etc
+        self.qimage_channels = {k: numpy_to_qimage(v) for k, v in channels.items()}
+  
         self.channelLoaded.emit(self.np_channels, clear)
 
     def swapChannel(self, index):

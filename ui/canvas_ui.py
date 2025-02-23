@@ -290,7 +290,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-            # self.__centerImage(self.pixmapItem)
+            self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
     def saveImage(self):
@@ -613,8 +613,8 @@ class ImageGraphicsViewUI(QGraphicsView):
 
                 self.image_rect = QRect(int(self.starting_x), 
                                         int(self.starting_y), 
-                                        int(image_pos.x()), 
-                                        int(image_pos.y()))
+                                        int(image_pos.x()- self.starting_x), 
+                                        int(image_pos.y() - self.starting_y)).normalized()
                 
                 self.showCroppedImage(self.image_rect)
 
@@ -654,7 +654,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         print("in view.canvas: ", self.currentChannelNum)
         q_im = list(self.channels.values())[self.currentChannelNum]
         pix = QPixmap(q_im)
-        cropped = pix.copy(self.image_rect).toImage()
+        cropped = pix.copy(image_rect).toImage()
         print("converting to pixmap") 
         cropped_pix = QPixmap(cropped)
         self.dialog = Dialogs.ImageDialog(self, cropped_pix)
@@ -667,16 +667,20 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.crop_worker.finished.connect(self.crop_worker.quit)
             self.crop_worker.finished.connect(self.crop_worker.deleteLater)
             self.crop_worker.start()
-            self.endCrop()
         else:
             self.endCrop()
             print("rejected")
 
     def cropImageTask(self, image_rect) -> dict:
         from utils import qimage_to_numpy
+
+        print("in crop image task")
         cropped_arrays = {}
-        left, top, right, bottom = image_rect
-        
+        left = image_rect.x()
+        top = image_rect.y()
+        right = image_rect.right()
+        bottom = image_rect.bottom()        
+
         for channel_name, image_arr in self.np_channels.items():
             cropped_array = image_arr[top:bottom+1, left:right+1]
             cropped_arrays[channel_name] = cropped_array
@@ -689,11 +693,13 @@ class ImageGraphicsViewUI(QGraphicsView):
     cropSignal = pyqtSignal(dict, bool)
     @pyqtSlot(dict)
     def onCropCompleted(self, cropped_images:dict):
-        import cv2
+
+
+        self.cropSignal.emit(cropped_images, False)
+        print("crop signal sent")
 
         self.endCrop()
 
-        self.cropSignal.emit(cropped_images, False)
 
     def startCrop(self):
         self.begin_crop = True
