@@ -324,7 +324,7 @@ class ImageDialog(QDialog):
         self.image_view.setScene(self.image_scene)  # Set the scene on the view
         self.cropped_pixmapItem = QGraphicsPixmapItem(self.cropped_image)
         self.image_view.scene().addItem(self.cropped_pixmapItem)
-        self.image_view.setSceneRect(0, 0, 800, 600)
+        self.image_view.setSceneRect(0, 0, self.cropped_image.width(), self.cropped_image.height())
         item_rect = self.cropped_pixmapItem.boundingRect()
         self.image_view.setSceneRect(item_rect)
         self.image_view.fitInView(self.cropped_pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
