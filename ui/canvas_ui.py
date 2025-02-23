@@ -377,14 +377,12 @@ class ImageGraphicsViewUI(QGraphicsView):
             rubber_band.setGeometry(new_rect)
 
 
-
     # shouldnt be an instance method, rather a class method
     def create_rubber_band(self, rubber_band_class, shape, x, y, parent, origin):
         rubber_band = rubber_band_class(shape, x, y, self)
         rubber_band.setGeometry(QRect(origin, QSize()))
         rubber_band.show()
         return rubber_band
-
 
     def update_starting_position(self, event):
         scene_pos = self.mapToScene(event.pos())
@@ -408,7 +406,6 @@ class ImageGraphicsViewUI(QGraphicsView):
 
                     if not self.rubberBand: 
                         self.rubberBand = RectLasso(self)
-                    
                     
 
                 elif self.select == "rect": 
@@ -599,23 +596,27 @@ class ImageGraphicsViewUI(QGraphicsView):
                 if selectedRect.isEmpty():
                     return
 
-                view_rect = self.viewport().rect()            
-                x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
-                y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
+                # view_rect = self.viewport().rect()            
+                # x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
+                # y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
 
-                left = int(selectedRect.left() * x_ratio)
-                top = int(selectedRect.top() * y_ratio)
+                # left = int(selectedRect.left() * x_ratio)
+                # top = int(selectedRect.top() * y_ratio)
 
-                height = int(selectedRect.height() * y_ratio)
-                width = int(selectedRect.width() * x_ratio)
-                self.__qt_image_rect = QRect(left, top, width, height)
+                # height = int(selectedRect.height() * y_ratio)
+                # width = int(selectedRect.width() * x_ratio)
+                # self.__qt_image_rect = QRect(left, top, width, height)
 
                 scene_pos = self.mapToScene(event.pos())
                 image_pos = self.pixmapItem.mapFromScene(scene_pos)
             
 
-                image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
-                self.showCroppedImage(image_rect)
+                self.image_rect = QRect(int(self.starting_x), 
+                                        int(self.starting_y), 
+                                        int(image_pos.x()), 
+                                        int(image_pos.y()))
+                
+                self.showCroppedImage(self.image_rect)
 
             if self.select:
                 self.select = False
@@ -649,10 +650,11 @@ class ImageGraphicsViewUI(QGraphicsView):
     def showCroppedImage(self, image_rect):
 
         # TODO add if statement to diff. between single page tiffs/jpeg/png and multi-page tiffs
+
         print("in view.canvas: ", self.currentChannelNum)
         q_im = list(self.channels.values())[self.currentChannelNum]
         pix = QPixmap(q_im)
-        cropped = pix.copy(self.__qt_image_rect).toImage()
+        cropped = pix.copy(self.image_rect).toImage()
         print("converting to pixmap") 
         cropped_pix = QPixmap(cropped)
         self.dialog = Dialogs.ImageDialog(self, cropped_pix)
@@ -665,6 +667,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.crop_worker.finished.connect(self.crop_worker.quit)
             self.crop_worker.finished.connect(self.crop_worker.deleteLater)
             self.crop_worker.start()
+            self.endCrop()
         else:
             self.endCrop()
             print("rejected")
