@@ -89,17 +89,16 @@ class Ui_MainWindow(QMainWindow):
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
 
         ####### preprocess tab ###################################
+        
         self.preprocessUISetup() # uses self.canvas #stardist
 
-        self.tabScrollArea.setWidget(self.preprocessing_tab)
-        self.tabScrollArea.setWidgetResizable(True)  # make the scroll area resize with the widget
-        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tabScrollArea.setWidget(self.tabWidget)
+        self.tabScrollArea.setWidgetResizable(True)  
+        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self.tabWidget.addTab(self.preprocessing_tab, "")
+        self.tabWidget.addTab(self.preprocessing_tab, "Preprocessing")
 
-        
- 
         ####### view tab #######################################
 
         self.view_tab = ImageOverlay(self.canvas, enc=self)
