@@ -9,8 +9,6 @@ if __name__ == "__main__":
     import pstats
     import sys
 
-    import sys
-
     __app = QApplication(sys.argv)
     ui = app.Ui_MainWindow()
 

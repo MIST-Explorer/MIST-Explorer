@@ -2,7 +2,6 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, 
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread, QTimer
 import tifffile as tiff, numpy as np
-# from PIL import Image, ImageSequence
 import cv2, matplotlib as mpl
 import time
 from core.Worker import Worker
@@ -139,8 +138,6 @@ class ReferenceGraphicsView(__BaseGraphicsView):
         self.reference_worker.signal.connect(self.filename_to_image_complete)
         self.reference_worker.finished.connect(self.reference_worker.quit)
         self.reference_worker.finished.connect(self.reference_worker.deleteLater)
-
-
 
     def filename_to_image_complete(self):
         arr = self.np_channels["Channel 1"]
@@ -297,11 +294,6 @@ class ImageGraphicsView(__BaseGraphicsView):
                     channel = np.ascontiguousarray(channel, dtype='uint8')
             except Exception as e:
                 print("error: ", str(e))
-                
-            # height, width = channel.shape
-            # center = (int(width/2), int(height/2))
-            # rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
-            # rotated_arr= cv2.warpAffine(channel, rotation_matrix, (width, height))
 
             # rotate image
             h,w = channel.shape
@@ -356,10 +348,11 @@ class ImageGraphicsView(__BaseGraphicsView):
         print(f"Error: {error_message}")
 
     def updateChannels(self, channels:dict, clear:bool) -> None: #cropsignal will update this
-        self.np_channels = channels #np arrays
 
-        print("in updateChannels method of canvas.py")
-        print("clear channel?", clear)
+        print("updated channels in canvas.py after cropsignal")
+        self.np_channels = channels # replace channels with new, cropped/rotated, etc
+        self.qimage_channels = {k: numpy_to_qimage(v) for k, v in channels.items()}
+  
         self.channelLoaded.emit(self.np_channels, clear)
 
     def swapChannel(self, index):

@@ -1,12 +1,12 @@
 
-import ui.app, ui.dialogs as Dialogs, core.canvas, core.stardist, core.cell_intensity, core.register
+import ui.app, ui.Dialogs as Dialogs, core.canvas, core.stardist, core.cell_intensity, core.register
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
 import numpy as np
 import cv2
 from PyQt6.QtCore import pyqtSignal
 from PIL import Image
-from ui.dialogs import ImageDialog
+from ui.Dialogs import ImageDialog
         
 class Controller:
     controllerSignal = pyqtSignal(object)
@@ -65,7 +65,7 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
-        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.channels for further image_processing   
+        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.np_channels so later transformations work on cropped images, not the full image
         
         # crop signals
         self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop) 

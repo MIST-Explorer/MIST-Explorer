@@ -324,7 +324,7 @@ class ImageDialog(QDialog):
         self.image_view.setScene(self.image_scene)  # Set the scene on the view
         self.cropped_pixmapItem = QGraphicsPixmapItem(self.cropped_image)
         self.image_view.scene().addItem(self.cropped_pixmapItem)
-        self.image_view.setSceneRect(0, 0, 800, 600)
+        self.image_view.setSceneRect(0, 0, self.cropped_image.width(), self.cropped_image.height())
         item_rect = self.cropped_pixmapItem.boundingRect()
         self.image_view.setSceneRect(item_rect)
         self.image_view.fitInView(self.cropped_pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
@@ -354,22 +354,3 @@ class ImageDialog(QDialog):
     def cancel(self):
         self.confirm_crop = False
         self.reject()
-
-
-
-# def numpy_to_qimage(array:np.ndarray):
-#     if len(array.shape) == 2:
-#         # Grayscale image
-#         height, width = array.shape
-#         qimage =  QImage(array.data, width, height, QImage.Format.Format_Grayscale8)
-#     elif len(array.shape) == 3:
-#         height, width, channels = array.shape
-#         if channels == 3:
-#             # RGB image
-#             qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGB888)
-#         elif channels == 4:
-#             # RGBA image
-#             qimage = QImage(array.data, width, height, width * channels, QImage.Format.Format_RGBA8888)
-#     else:
-#         raise ValueError("Unsupported array shape: {}".format(array.shape))
-#     return qimage

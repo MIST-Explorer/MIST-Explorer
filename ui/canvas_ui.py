@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItem,  QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup, QGraphicsSimpleTextItem
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor, QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF, QPropertyAnimation, QEasingCurve, QRectF, QSizeF
-import ui.dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
-import ui.dialogs as Dialogs
+import ui.Dialogs as Dialogs, numpy as np, matplotlib as mpl, cv2
+import ui.Dialogs as Dialogs
 import numpy as np
 import cv2
 from core.Worker import Worker
@@ -97,10 +97,10 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         if not self.right_arrow  == None:
             return
         
-        self.right_arrow = ArrowItem(QPixmap("icons/right-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation),
+        self.right_arrow = ArrowItem(QPixmap("assets/icons/right-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation),
                                      QPointF(250, 275))
         
-        self.left_arrow = ArrowItem(QPixmap("icons/left-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation), 
+        self.left_arrow = ArrowItem(QPixmap("assets/icons/left-arrow.png").scaled(25,25, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio, transformMode=Qt.TransformationMode.SmoothTransformation), 
                                     QPointF(10, 275))
         
 
@@ -212,8 +212,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.right_arrow.bg_rect.setRect(0, 0, rw, rh) 
         self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
 
-        self.right_arrow.setPixmap(QPixmap("icons/right-arrow.png").scaled(rw,rh))
-        self.left_arrow.setPixmap(QPixmap("icons/left-arrow.png").scaled(rw,rh))
+        self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw,rh))
+        self.left_arrow.setPixmap(QPixmap("assets/icons/left-arrow.png").scaled(rw,rh))
 
         scene_height = self.scene().height()
         scene_width = self.scene().width()
@@ -263,7 +263,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.rubberBandColors = []  # List to store colors of the rubber bands
         self.begin_crop = False
         self.origin = None
-        self.crop_cursor = QCursor(QPixmap("icons/clicks.png").scaled(30,30, Qt.AspectRatioMode.KeepAspectRatio), 0,0)
+        self.crop_cursor = QCursor(Qt.CursorShape.CrossCursor)
         self.select = False
         self.circle_select = False
         self.zoom = 1
@@ -290,7 +290,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas")
             self.pixmapItem.setPixmap(pixmapItem.pixmap())
-            # self.__centerImage(self.pixmapItem)
+            self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
     def saveImage(self):
@@ -377,14 +377,12 @@ class ImageGraphicsViewUI(QGraphicsView):
             rubber_band.setGeometry(new_rect)
 
 
-
     # shouldnt be an instance method, rather a class method
     def create_rubber_band(self, rubber_band_class, shape, x, y, parent, origin):
         rubber_band = rubber_band_class(shape, x, y, self)
         rubber_band.setGeometry(QRect(origin, QSize()))
         rubber_band.show()
         return rubber_band
-
 
     def update_starting_position(self, event):
         scene_pos = self.mapToScene(event.pos())
@@ -407,15 +405,14 @@ class ImageGraphicsViewUI(QGraphicsView):
                     self.update_starting_position(event)
 
                     if not self.rubberBand: 
-                        self.rubberBand = RectLasso(QRubberBand.Shape.Rectangle, self.starting_x, self.starting_y, self)
-                    return
+                        self.rubberBand = RectLasso(self)
                     
 
                 elif self.select == "rect": 
-                    self.rubberband = RectLasso(self)
+                    self.rubberBand = RectLasso(self)
                 elif self.select == "circle": 
                     self.center = QPoint(self.starting_x, self.starting_y)
-                    self.rubberband = CircleLasso(self)
+                    self.rubberBand = CircleLasso(self)
                 elif self.select == "poly": 
                     # self.rubberband = PolyLasso()
                     if not self.current_polygon:
@@ -440,10 +437,10 @@ class ImageGraphicsViewUI(QGraphicsView):
                     return 
 
 
-                self.rubberBands.append(self.rubberband)
-                self.rubberBandColors.append(self.rubberband.color)
-                self.rubberband.setGeometry(QRect(self.origin, QSize()))
-                self.rubberband.show()
+                self.rubberBands.append(self.rubberBand)
+                self.rubberBandColors.append(self.rubberBand.color)
+                self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                self.rubberBand.show()
 
                 return
                     
@@ -599,23 +596,27 @@ class ImageGraphicsViewUI(QGraphicsView):
                 if selectedRect.isEmpty():
                     return
 
-                view_rect = self.viewport().rect()            
-                x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
-                y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
+                # view_rect = self.viewport().rect()            
+                # x_ratio = self.pixmapItem.pixmap().width() / view_rect.width()
+                # y_ratio = self.pixmapItem.pixmap().height() / view_rect.height()
 
-                left = int(selectedRect.left() * x_ratio)
-                top = int(selectedRect.top() * y_ratio)
+                # left = int(selectedRect.left() * x_ratio)
+                # top = int(selectedRect.top() * y_ratio)
 
-                height = int(selectedRect.height() * y_ratio)
-                width = int(selectedRect.width() * x_ratio)
-                self.__qt_image_rect = QRect(left, top, width, height)
+                # height = int(selectedRect.height() * y_ratio)
+                # width = int(selectedRect.width() * x_ratio)
+                # self.__qt_image_rect = QRect(left, top, width, height)
 
                 scene_pos = self.mapToScene(event.pos())
                 image_pos = self.pixmapItem.mapFromScene(scene_pos)
             
 
-                image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
-                self.showCroppedImage(image_rect)
+                self.image_rect = QRect(int(self.starting_x), 
+                                        int(self.starting_y), 
+                                        int(image_pos.x()- self.starting_x), 
+                                        int(image_pos.y() - self.starting_y)).normalized()
+                
+                self.showCroppedImage(self.image_rect)
 
             if self.select:
                 self.select = False
@@ -649,10 +650,11 @@ class ImageGraphicsViewUI(QGraphicsView):
     def showCroppedImage(self, image_rect):
 
         # TODO add if statement to diff. between single page tiffs/jpeg/png and multi-page tiffs
+
         print("in view.canvas: ", self.currentChannelNum)
         q_im = list(self.channels.values())[self.currentChannelNum]
         pix = QPixmap(q_im)
-        cropped = pix.copy(self.__qt_image_rect).toImage()
+        cropped = pix.copy(image_rect).toImage()
         print("converting to pixmap") 
         cropped_pix = QPixmap(cropped)
         self.dialog = Dialogs.ImageDialog(self, cropped_pix)
@@ -671,9 +673,14 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def cropImageTask(self, image_rect) -> dict:
         from utils import qimage_to_numpy
+
+        print("in crop image task")
         cropped_arrays = {}
-        left, top, right, bottom = image_rect
-        
+        left = image_rect.x()
+        top = image_rect.y()
+        right = image_rect.right()
+        bottom = image_rect.bottom()        
+
         for channel_name, image_arr in self.np_channels.items():
             cropped_array = image_arr[top:bottom+1, left:right+1]
             cropped_arrays[channel_name] = cropped_array
@@ -686,11 +693,13 @@ class ImageGraphicsViewUI(QGraphicsView):
     cropSignal = pyqtSignal(dict, bool)
     @pyqtSlot(dict)
     def onCropCompleted(self, cropped_images:dict):
-        import cv2
+
+
+        self.cropSignal.emit(cropped_images, False)
+        print("crop signal sent")
 
         self.endCrop()
 
-        self.cropSignal.emit(cropped_images, False)
 
     def startCrop(self):
         self.begin_crop = True
