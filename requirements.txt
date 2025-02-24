@@ -17,3 +17,4 @@ pyclesperanto-prototype
 sep
 scikit-learn
 umap
+siphash24
