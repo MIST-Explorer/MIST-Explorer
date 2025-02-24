@@ -464,6 +464,9 @@ class Register(QThread):
             self.imageReady.emit(True)
             print("cycle image updated")
     def cancel(self):
+
+        # self.exit? 
+        # self.quit? 
         self.terminate()
 
 
