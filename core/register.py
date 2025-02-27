@@ -69,6 +69,7 @@ class Register(QThread):
     
             self.finished.connect(self.quit)
             self.finished.connect(self.deleteLater)
+
     def run(self):
 
         m = self.params["max_size"]
@@ -153,6 +154,7 @@ class Register(QThread):
             print("done aligning")
 
             self.tifs[tif_n]["outputs"] = outputs
+            
  
 #########################################################
         # align all layers
