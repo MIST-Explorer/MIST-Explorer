@@ -27,40 +27,8 @@ class Ui_MainWindow(QMainWindow):
         self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         self.save_shortcut.activated.connect(self.save)
         
-        self.setupUI()
+        ### Formerly set up ui
 
-    def select(self):
-        print("selecting")
-        self.canvas.select = "rect"
-
-    def circle_select(self):
-        print("selecting")
-        self.canvas.select = "circle"
-
-    def poly_select(self):
-        print("selecting")
-        if self.canvas.select == "poly":
-            self.canvas.select = False
-        self.canvas.select = "poly"
-    
-    def save(self):
-        from PIL import Image
-        from PyQt6.QtWidgets import QFileDialog
-        import numpy as np
-        
-        file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
-        
-        if file_name:
-            pixmap = self.canvas.grab().toImage()
-            buffer = pixmap.bits().asstring(pixmap.width() * pixmap.height() * pixmap.depth() // 8)
-            image = np.frombuffer(buffer, dtype=np.uint8).reshape((pixmap.height(), pixmap.width(), pixmap.depth() // 8))
-            if image.shape[2] == 4:  # If the image has an alpha channel
-                image = image[:, :, :3]  # Remove the alpha channel
-            image = image[:, :, ::-1]  # Convert BGR to RGB
-            Image.fromarray(image).save(file_name)
-        
-    
-    def setupUI(self):
         self.resize(1280, 800)
         self.setMinimumSize(QSize(1024, 768))
         self.centralwidget = QWidget(self) # central widget inside main window
@@ -90,7 +58,46 @@ class Ui_MainWindow(QMainWindow):
 
         ####### preprocess tab ###################################
         
-        self.preprocessUISetup() # uses self.canvas #stardist
+        self.preprocessing_tab = QWidget(self.tabWidget)
+        self.preprocessing_tab.setMinimumHeight(1000)
+        self.preprocessing_tab.setMaximumWidth(450)
+
+        self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
+
+        self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
+
+        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
+
+        self.save_button = QPushButton('Save Canvas')
+        self.save_button.clicked.connect(self.save_canvas)
+        
+        # crop
+        self.crop_groupbox = CropUI(self.preprocessing_tab)
+        
+        # rotate
+        self.rotate_groupbox = RotateUI(self.preprocessing_tab)
+        
+        self.gaussian_blur = GaussianBlur(self.preprocessing_tab)
+        
+        # layout crop and rotate next to each other
+        self.rotate_crop_hlayout = QHBoxLayout()
+        
+        self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
+        self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
+        self.rotate_crop_hlayout.addWidget(self.gaussian_blur.gaussian_blur)
+        self.rotate_crop_hlayout.setSpacing(3)
+        
+        self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
+        self.register_groupbox = RegisterUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        # stardist UI
+        self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+
+        self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        
+        self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)
+
+        self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
+        self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
 
         self.tabScrollArea.setWidget(self.tabWidget)
         self.tabScrollArea.setWidgetResizable(True)  
@@ -165,14 +172,6 @@ class Ui_MainWindow(QMainWindow):
 
         QMetaObject.connectSlotsByName(self)
         
-    def onChange(self,i): #changed!
-        if i == 0:
-            print("preprocess selected")
-        elif i == 1:
-            print("view selected")
-
-        elif i == 2:
-            print("analysis selected")
 
     def updateMousePositionLabel(self, text):
         self.toolBar.statusLine.setText(text)
@@ -190,48 +189,6 @@ class Ui_MainWindow(QMainWindow):
         print("saving")
         self.saveSignal.emit()
         
-    def preprocessUISetup(self):
-        self.preprocessing_tab = QWidget(self.tabWidget)
-        self.preprocessing_tab.setMinimumHeight(1000)
-        self.preprocessing_tab.setMaximumWidth(450)
-
-        self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
-
-        self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
-
-        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
-
-        self.save_button = QPushButton('Save Canvas')
-        self.save_button.clicked.connect(self.save_canvas)
-        
-        # crop
-        self.crop_groupbox = CropUI(self.preprocessing_tab)
-        
-        # rotate
-        self.rotate_groupbox = RotateUI(self.preprocessing_tab)
-        
-        self.gaussian_blur = GaussianBlur(self.preprocessing_tab)
-        
-        # layout crop and rotate next to each other
-        self.rotate_crop_hlayout = QHBoxLayout()
-        
-        self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
-        self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
-        self.rotate_crop_hlayout.addWidget(self.gaussian_blur.gaussian_blur)
-        self.rotate_crop_hlayout.setSpacing(3)
-        
-        self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
-        self.register_groupbox = RegisterUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-        # stardist UI
-        self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-
-        self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-        
-        self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)
-
-        self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
-        self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
-        
 
     def updateProgressBar(self, value, str):
         if self.progressBar.value() == 100:
@@ -239,3 +196,32 @@ class Ui_MainWindow(QMainWindow):
         self.progressBar.setValue(value)
         self.progressBarLabel.setText(str + " ...")
 
+    def select(self):
+        print("selecting")
+        self.canvas.select = "rect"
+
+    def circle_select(self):
+        print("selecting")
+        self.canvas.select = "circle"
+
+    def poly_select(self):
+        print("selecting")
+        if self.canvas.select == "poly":
+            self.canvas.select = False
+        self.canvas.select = "poly"
+    
+    def save(self):
+        from PIL import Image
+        from PyQt6.QtWidgets import QFileDialog
+        import numpy as np
+        
+        file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
+        
+        if file_name:
+            pixmap = self.canvas.grab().toImage()
+            buffer = pixmap.bits().asstring(pixmap.width() * pixmap.height() * pixmap.depth() // 8)
+            image = np.frombuffer(buffer, dtype=np.uint8).reshape((pixmap.height(), pixmap.width(), pixmap.depth() // 8))
+            if image.shape[2] == 4:  # If the image has an alpha channel
+                image = image[:, :, :3]  # Remove the alpha channel
+            image = image[:, :, ::-1]  # Convert BGR to RGB
+            Image.fromarray(image).save(file_name)

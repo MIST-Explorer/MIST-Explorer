@@ -137,7 +137,7 @@ class Controller:
         
         # tab switched
         self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
-        self.view.tabWidget.currentChanged.connect(self.view.onChange)
+        # self.view.tabWidget.currentChanged.connect(self.view.onChange)
 
         # cancel process
         self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)

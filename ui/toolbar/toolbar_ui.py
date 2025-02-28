@@ -36,6 +36,7 @@ class ToolBarUI(QWidget):
     def __createActions(self, parent):
         self.actionRotate = Action(parent, "actionRotate", "assets/icons/rotate-right.png")
         self.actionReset = Action(parent, "actionReset", "assets/icons/home.png")
+        
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "assets/icons/brightness.png")
         # self.operatorComboBox = QComboBox(parent)
         self.channelSelector = QComboBox(parent)
