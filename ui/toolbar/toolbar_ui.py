@@ -8,6 +8,9 @@ from qtrangeslider import QRangeSlider
 
 class ToolBarUI(QWidget):
 
+    # Add signals for tab changes
+    tabChanged = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__()
         self.toolbar = QToolBar(parent)
@@ -34,6 +37,44 @@ class ToolBarUI(QWidget):
         self.channelSelector.clear()
 
     def __createActions(self, parent):
+        # Create tab selection buttons
+        self.preprocessingButton = QPushButton("Preprocessing")
+        self.viewButton = QPushButton("View")
+        self.analysisButton = QPushButton("Analysis")
+        
+        # Style the buttons
+        button_style = """
+            QPushButton {
+                padding: 8px 16px;
+                border: none;
+                background: transparent;
+            }
+            QPushButton:hover {
+                background: rgba(0, 0, 0, 0.1);
+            }
+            QPushButton:checked {
+                border-bottom: 2px solid #007AFF;
+                font-weight: bold;
+            }
+        """
+        self.preprocessingButton.setStyleSheet(button_style)
+        self.viewButton.setStyleSheet(button_style)
+        self.analysisButton.setStyleSheet(button_style)
+        
+        # Make buttons checkable and exclusive
+        self.preprocessingButton.setCheckable(True)
+        self.viewButton.setCheckable(True) 
+        self.analysisButton.setCheckable(True)
+        
+        # Connect button signals
+        self.preprocessingButton.clicked.connect(lambda: self.onTabButtonClicked(0))
+        self.viewButton.clicked.connect(lambda: self.onTabButtonClicked(1))
+        self.analysisButton.clicked.connect(lambda: self.onTabButtonClicked(2))
+        
+        # Check preprocessing by default
+        self.preprocessingButton.setChecked(True)
+
+        # Create other actions
         self.actionRotate = Action(parent, "actionRotate", "assets/icons/rotate-right.png")
         self.actionReset = Action(parent, "actionReset", "assets/icons/home.png")
         
@@ -94,6 +135,15 @@ class ToolBarUI(QWidget):
             self.cmapSelector.addItem(icon, self.cmap_names[index])
         
     def __addActions(self):
+        # Add tab buttons first
+        self.toolbar.addWidget(self.preprocessingButton)
+        self.toolbar.addWidget(self.viewButton)
+        self.toolbar.addWidget(self.analysisButton)
+        
+        # Add separator
+        self.toolbar.addSeparator()
+        
+        # Add other actions
         self.toolbar.addAction(self.actionReset)
         # self.toolbar.addAction(self.actionOpenBrightnessContrast)
         # self.toolbar.addWidget(self.operatorComboBox)
@@ -140,4 +190,13 @@ class ToolBarUI(QWidget):
         if self.channelSelector.count() != 0:
             print("current cmap str: ", self.cmapSelector.currentText())
             self.cmapChanged.emit(cmap_str)
+
+    def onTabButtonClicked(self, index):
+        # Uncheck other buttons
+        buttons = [self.preprocessingButton, self.viewButton, self.analysisButton]
+        for i, button in enumerate(buttons):
+            if i != index:
+                button.setChecked(False)
+        # Emit signal
+        self.tabChanged.emit(index)
 

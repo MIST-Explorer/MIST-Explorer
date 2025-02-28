@@ -1,4 +1,3 @@
-
 import ui.app, ui.Dialogs as Dialogs, core.canvas, core.stardist, core.cell_intensity, core.register
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
@@ -135,9 +134,8 @@ class Controller:
         self.model_register.progress.connect(self.view.updateProgressBar)
         self.model_cellIntensity.progress.connect(self.view.updateProgressBar)
         
-        # tab switched
-        self.view.tabWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
-        # self.view.tabWidget.currentChanged.connect(self.view.onChange)
+        # tab switched - update small view visibility
+        self.view.stackedWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
 
         # cancel process
         self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)

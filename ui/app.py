@@ -41,13 +41,12 @@ class Ui_MainWindow(QMainWindow):
         # add a toolbar
         self.toolBar = ToolBarUI(self)
         
-        # initialize tabs 
+        # initialize stacked widget for "tabs"
         self.tabScrollArea = QScrollArea(self.centralwidget)
         self.tabScrollArea.setMinimumSize(QSize(400,500))
         self.tabScrollArea.setMaximumWidth(450)
         
-        self.tabWidget = QTabWidget(self.tabScrollArea)
-
+        self.stackedWidget = QStackedWidget(self.tabScrollArea)
         
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
@@ -58,7 +57,7 @@ class Ui_MainWindow(QMainWindow):
 
         ####### preprocess tab ###################################
         
-        self.preprocessing_tab = QWidget(self.tabWidget)
+        self.preprocessing_tab = QWidget(self.stackedWidget)
         self.preprocessing_tab.setMinimumHeight(1000)
         self.preprocessing_tab.setMaximumWidth(450)
 
@@ -99,19 +98,19 @@ class Ui_MainWindow(QMainWindow):
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
 
-        self.tabScrollArea.setWidget(self.tabWidget)
+        self.tabScrollArea.setWidget(self.stackedWidget)
         self.tabScrollArea.setWidgetResizable(True)  
         self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self.tabWidget.addTab(self.preprocessing_tab, "Preprocessing")
+        self.stackedWidget.addWidget(self.preprocessing_tab)
 
         ####### view tab #######################################
 
         self.view_tab = ImageOverlay(self.canvas, enc=self)
         self.view_tab.setObjectName("view_tab")
         self.view_tab.setMaximumWidth(450)
-        self.tabWidget.addTab(self.view_tab, "")
+        self.stackedWidget.addWidget(self.view_tab)
         
         ####### analysis tab #######################################
 
@@ -119,18 +118,12 @@ class Ui_MainWindow(QMainWindow):
         self.analysis_tab.setMaximumWidth(450)
 
         self.analysis_tab.setObjectName("analysis_tab")
-        self.tabWidget.addTab(self.analysis_tab, "")
-        # grid = QGridLayout(self)
-        # grid.addWidget(self.tabWidget)
-        self.setStyleSheet('''
-        QTabWidget::tab-bar {
-            alignment: left;
-        }''')
+        self.stackedWidget.addWidget(self.analysis_tab)
+
         self.main_layout.addWidget(self.tabScrollArea)
 
         ##########################################################
         
-
         self.main_layout.addWidget(self.canvas) 
         self.central_widget_layout.addLayout(self.main_layout)
         self.setCentralWidget(self.centralwidget)
@@ -168,7 +161,10 @@ class Ui_MainWindow(QMainWindow):
         self.progressBar.text
         self.__retranslateUI()
 
-        self.tabWidget.setCurrentIndex(0) # start from preprocessing tab
+        # Connect toolbar tab change signal
+        self.toolBar.tabChanged.connect(self.stackedWidget.setCurrentIndex)
+        # Start with preprocessing tab
+        self.stackedWidget.setCurrentIndex(0)
 
         QMetaObject.connectSlotsByName(self)
         
@@ -179,13 +175,9 @@ class Ui_MainWindow(QMainWindow):
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.preprocessing_tab), _translate("MainWindow", "Preprocessing"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.view_tab), _translate("MainWindow", "View"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.analysis_tab), _translate("MainWindow", "Analysis"))
 
     saveSignal = pyqtSignal()
     def save_canvas(self):
-        
         print("saving")
         self.saveSignal.emit()
         
