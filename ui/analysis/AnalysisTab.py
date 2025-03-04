@@ -338,15 +338,17 @@ class AnalysisTab(QWidget):
                     inside = not inside
                     
             return inside
-        
-        # Convert polygon points to list of tuples
-        poly_points = [(p.x(), p.y()) for p in region]
+
+        # Convert polygon points to list of tuples and scale them to match data coordinates
+        # The data coordinates are 4x the widget coordinates
+        poly_points = [(p.x() * 4, p.y() * 4) for p in region]
         
         # Get x,y coordinates from data
         points = data[['Global X', 'Global Y']].values
         
         # Filter data to only points inside polygon
         mask = [point_in_polygon(point, poly_points) for point in points]
+        
         return data[mask]
     
 

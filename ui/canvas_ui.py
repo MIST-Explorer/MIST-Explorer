@@ -389,6 +389,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
                     # Add the clicked point to the polygon
                     self.current_polygon.add_point(event.pos())
+                    self.current_polygon.im_points.append(self.image_pos)
                     # Force an immediate update for better responsiveness
                     self.viewport().update()
                     return
@@ -415,7 +416,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             if hasattr(self, 'enc') and hasattr(self.enc, 'analysis_tab'):
                 # try:
 
-                self.enc.analysis_tab.analyze_region(self.current_polygon, ("poly", self.current_polygon.points)) 
+                self.enc.analysis_tab.analyze_region(self.current_polygon, ("poly", self.current_polygon.im_points)) 
                 # except Exception as e:
                 #     print(f"Error analyzing polygon region: {e}")
             
