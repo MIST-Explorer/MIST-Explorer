@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem,
     QGraphicsItem, QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup,
-    QGraphicsSimpleTextItem, QApplication, QMainWindow
+    QGraphicsSimpleTextItem, QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton
 )
 from PyQt6.QtGui import (
     QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor,
@@ -273,6 +273,97 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.setScene(QGraphicsScene(self))
         self.setSceneRect(0, 0, 800, 600)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        
+        # Create floating selection buttons
+        self.create_floating_buttons()
+
+    def create_floating_buttons(self):
+        """Create floating selection buttons that appear over the canvas"""
+        # Create a container widget for the buttons
+        self.floating_container = QWidget(self)
+        self.floating_container.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
+        # Create horizontal layout for the buttons
+        button_layout = QHBoxLayout(self.floating_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(10)
+        
+        # Create the selection buttons
+        self.rect_button = QPushButton()
+        self.circle_button = QPushButton()
+        self.poly_button = QPushButton()
+        
+        # Set button sizes and styles
+        for button in [self.rect_button, self.circle_button, self.poly_button]:
+            button.setFixedSize(40, 40)
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(255, 255, 255, 0.8);
+                    border: 1px solid #ccc;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(255, 255, 255, 0.9);
+                }
+                QPushButton:pressed {
+                    background-color: rgba(200, 200, 200, 0.9);
+                }
+            """)
+        
+        # Set icons for the buttons
+        self.rect_button.setIcon(QIcon("assets/icons/crop.png"))
+        self.circle_button.setIcon(QIcon("assets/icons/crop.png"))
+        self.poly_button.setIcon(QIcon("assets/icons/crop.png"))
+        
+        # Connect button signals to selection modes
+        self.rect_button.clicked.connect(lambda: self.set_selection_mode("rect"))
+        self.circle_button.clicked.connect(lambda: self.set_selection_mode("circle"))
+        self.poly_button.clicked.connect(lambda: self.set_selection_mode("poly"))
+        
+        # Add buttons to layout
+        button_layout.addWidget(self.rect_button)
+        button_layout.addWidget(self.circle_button)
+        button_layout.addWidget(self.poly_button)
+        
+        # Position the container at the top of the view
+        self.update_floating_buttons_position()
+
+    def update_floating_buttons_position(self):
+        """Update the position of the floating buttons"""
+        if hasattr(self, 'floating_container'):
+            # Position at the top of the view
+            pos = QPoint(10, 10)
+            self.floating_container.move(pos)
+
+    def resizeEvent(self, event):
+        """Handle resize events to update floating buttons position"""
+        super().resizeEvent(event)
+        self.update_floating_buttons_position()
+
+    def set_selection_mode(self, mode):
+
+        print("set_selection_mode", mode)
+        """Set the current selection mode"""
+        # Reset all modes
+        self.select = False
+        self.circle_select = False
+        self.current_polygon = None
+        
+        # Set the new mode
+        if mode == "rect":
+            self.select = "rect"
+            self.setCursor(Qt.CursorShape.CrossCursor)
+            self.enc.select();
+        elif mode == "circle":
+            self.circle_select = True
+            self.setCursor(Qt.CursorShape.CrossCursor)
+            self.enc.circle_select();
+        elif mode == "poly":
+            self.select = "poly"
+            self.setCursor(Qt.CursorShape.CrossCursor)
+            self.enc.poly_select();
+        else:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def isEmpty(self) -> bool:
         return self.pixmapItem is None

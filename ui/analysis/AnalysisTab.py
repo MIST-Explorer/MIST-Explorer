@@ -1,6 +1,6 @@
 # from PyQt6.QtWidgets import QStyledItemDelegate, QComboBox, QScrollArea, QVBoxLayout, QWidget, QLabel, QApplication, QPushButton, QHBoxLayout
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QPoint
 from PyQt6.QtGui import QColor, QIcon, QTextCursor, QSyntaxHighlighter, QTextCharFormat, QFont
 from PyQt6.QtCore import pyqtSlot, Qt, QRegularExpression
 
@@ -29,53 +29,119 @@ class AnalysisTab(QWidget):
     def __init__(self, pixmap_label, enc):
         super().__init__()
         self.enc = enc
-        
+
         # View management
         self.views = []  # List to hold views
         self.current_view_index = 0
-        
+
         # Graph management
         self.graphs = []  # List of lists to hold graphs for each view
         self.current_graph_index = 0
-        
+
         # Selection management
         self.rubberbands = []
         self.regions = []
         
         # Track open windows
         self.windows = []
-        
+
         self.initUI()
 
     def initUI(self):
         main_layout = QVBoxLayout()
-        
+
         # Navigation controls
         nav_layout = QHBoxLayout()
         self.save_button = QPushButton("Save Plot")
         self.back_button = QPushButton("< Back")
         self.next_button = QPushButton("Next >")
-        
+
         self.save_button.clicked.connect(self.save_current_plot)
         self.back_button.clicked.connect(self.navigate_to_previous_view)
         self.next_button.clicked.connect(self.navigate_to_next_view)
-        
+
         nav_layout.addWidget(self.save_button)
         nav_layout.addWidget(self.back_button)
-        nav_layout.addWidget(self.next_button)
-        
+        nav_layout.addWidget(self.next_button) 
+
         # Content area
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidget(self.scroll_content)
         self.scroll_area.setWidgetResizable(True)
-        
+
         main_layout.addLayout(nav_layout)
         main_layout.addWidget(self.scroll_area)
         self.setLayout(main_layout)
         
+        # Create floating selection buttons
+        # self.create_floating_buttons()
+        
         self.update_navigation_buttons()
+
+    def create_floating_buttons(self):
+        """Create floating selection buttons that appear over the canvas"""
+        # Create a container widget for the buttons
+        self.floating_container = QWidget(self)
+        self.floating_container.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
+        # Create horizontal layout for the buttons
+        button_layout = QHBoxLayout(self.floating_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(10)
+        
+        # Create the selection buttons
+        self.rect_button = QPushButton()
+        self.circle_button = QPushButton()
+        self.poly_button = QPushButton()
+        
+        # Set button sizes and styles
+        for button in [self.rect_button, self.circle_button, self.poly_button]:
+            button.setFixedSize(40, 40)
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(255, 255, 255, 0.8);
+                    border: 1px solid #ccc;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(255, 255, 255, 0.9);
+                }
+                QPushButton:pressed {
+                    background-color: rgba(200, 200, 200, 0.9);
+                }
+            """)
+        
+        # Set icons for the buttons
+        self.rect_button.setIcon(QIcon("ui/graphing/icons/rectangle.png"))
+        self.circle_button.setIcon(QIcon("ui/graphing/icons/circle.png"))
+        self.poly_button.setIcon(QIcon("ui/graphing/icons/polygon.png"))
+        
+        # Connect button signals
+        self.rect_button.clicked.connect(lambda: self.enc.view_tab.set_selection_mode("rect"))
+        self.circle_button.clicked.connect(lambda: self.enc.view_tab.set_selection_mode("circle"))
+        self.poly_button.clicked.connect(lambda: self.enc.view_tab.set_selection_mode("poly"))
+        
+        # Add buttons to layout
+        button_layout.addWidget(self.rect_button)
+        button_layout.addWidget(self.circle_button)
+        button_layout.addWidget(self.poly_button)
+        
+        # Position the container at the top of the scroll area
+        self.update_floating_buttons_position()
+
+    def update_floating_buttons_position(self):
+        """Update the position of the floating buttons"""
+        if hasattr(self, 'floating_container'):
+            # Position at the top of the scroll area
+            pos = self.scroll_area.mapTo(self, QPoint(10, 10))
+            self.floating_container.move(pos)
+
+    def resizeEvent(self, event):
+        """Handle resize events to update floating buttons position"""
+        super().resizeEvent(event)
+        self.update_floating_buttons_position()
 
     def update_navigation_buttons(self):
         """Update the state of navigation buttons based on current indices"""
@@ -206,7 +272,7 @@ class AnalysisTab(QWidget):
         # Store selection data
         self.rubberbands.append(rubberband)
         self.regions.append(region)
-        
+
         # Create result widget
         result_widget = self.create_analysis_result_widget(rubberband, region)
         
@@ -224,7 +290,7 @@ class AnalysisTab(QWidget):
     def create_analysis_result_widget(self, rubberband, region):
         """Create the widget to display analysis results"""
         result_widget = QWidget()
-        result_layout = QVBoxLayout(result_widget)
+        result_layout = QVBoxLayout(result_widget)  
         
         # Create controls
         controls_layout = self.create_analysis_controls(rubberband, region)
@@ -252,7 +318,7 @@ class AnalysisTab(QWidget):
         
         for i in range(len(data.columns[3:])):
             self.multiComboBox.model().item(i).setCheckState(Qt.CheckState.Checked)
-        
+
         # Add buttons
         apply_button = QPushButton("Apply")
         apply_button.clicked.connect(
@@ -289,9 +355,9 @@ class AnalysisTab(QWidget):
         """Create the interface for selecting different graph types"""
         self.icon_list = [
             "Boxplot", "Z-Scores Heatmap", "Spatial Heatmap",
-            "Pi Chart", "Histogram", "UMAP"
+            "Pi Chart", "Histogram", "UMAP" 
         ]
-        
+
         self.icon_paths = [
             "ui/graphing/icons/linechart.png",
             "ui/graphing/icons/heatmap.png",
@@ -313,10 +379,10 @@ class AnalysisTab(QWidget):
             self.open_in_new_window,
             self
         )
-        
+
         self.stacked_widget.addWidget(self.icon_list_page)
         self.stacked_widget.addWidget(self.icon_detail_page)
-        
+
         return self.stacked_widget
     
     def get_poly_data(self, region):
@@ -394,7 +460,7 @@ class AnalysisTab(QWidget):
         layout = QVBoxLayout(result_widget)
         
         filtered_data = data.iloc[:, 3:]
-        
+    
         fig, ax = plt.subplots(figsize=(12, 8))
         filtered_data.boxplot(ax=ax)
         
@@ -403,13 +469,13 @@ class AnalysisTab(QWidget):
         ax.set_ylabel('Expression Level')
         ax.set_title('Protein Expression Box Plot')
         plt.subplots_adjust(bottom=0.3)
-        
+
         canvas = FigureCanvas(fig)
         layout.addWidget(canvas)
         result_widget.figure = fig
         
         return result_widget
-    
+
 
     def get_circle_data(self, region):
         """Get data filtered by the selected circular/oval region"""
@@ -593,7 +659,7 @@ class MultiComboBox(QComboBox):
                 if self.model().item(i).checkState() == Qt.CheckState.Checked]
     
 
-from PyQt6.QtWidgets import (
+    from PyQt6.QtWidgets import (
     QApplication, QWidget, QGridLayout, QPushButton, QLabel, QVBoxLayout, QStackedWidget
 )
 from PyQt6.QtWidgets import (
