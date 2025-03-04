@@ -41,12 +41,30 @@ class Ui_MainWindow(QMainWindow):
         # add a toolbar
         self.toolBar = ToolBarUI(self)
         
-        # initialize stacked widget for "tabs"
-        self.tabScrollArea = QScrollArea(self.centralwidget)
-        self.tabScrollArea.setMinimumSize(QSize(400,500))
-        self.tabScrollArea.setMaximumWidth(450)
+        # Create a container widget for the side panel
+        self.sidePanel = QWidget(self.centralwidget)
+        self.sidePanelLayout = QVBoxLayout(self.sidePanel)
+        self.sidePanelLayout.setContentsMargins(0, 0, 0, 0)
+        self.sidePanelLayout.setSpacing(0)
+        self.sidePanel.setMaximumWidth(500)
         
-        self.stackedWidget = QStackedWidget(self.tabScrollArea)
+        # Add collapse/expand button
+        self.toggleButton = QPushButton("◀", self.sidePanel)
+        self.toggleButton.setFixedSize(20, 60)
+        self.toggleButton.clicked.connect(self.toggleSidePanel)
+        self.toggleButton.setStyleSheet("""
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+        """)
+        
+        # Create a horizontal layout for the side panel and toggle button
+        self.sidePanelContainer = QHBoxLayout()
+        self.sidePanelContainer.setContentsMargins(0, 0, 0, 0)
+        self.sidePanelContainer.setSpacing(0)
+        
+        # Create the stacked widget directly in the side panel
+        self.stackedWidget = QStackedWidget(self.sidePanel)
         
         # canvas
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
@@ -56,16 +74,16 @@ class Ui_MainWindow(QMainWindow):
         self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
 
         ####### preprocess tab ###################################
+        # Create scroll area for preprocessing tab
+        preprocess_scroll = QScrollArea()
+        preprocess_scroll.setWidgetResizable(True)
+        preprocess_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        preprocess_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
-        self.preprocessing_tab = QWidget(self.stackedWidget)
-        self.preprocessing_tab.setMinimumHeight(1000)
-        self.preprocessing_tab.setMaximumWidth(450)
-
+        self.preprocessing_tab = QWidget()
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
-
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
-
-        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout) 
+        self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout)
 
         self.save_button = QPushButton('Save Canvas')
         self.save_button.clicked.connect(self.save_canvas)
@@ -98,33 +116,46 @@ class Ui_MainWindow(QMainWindow):
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
         self.preprocessing_dockwidget_main_vlayout.setContentsMargins(0, 0, 0, 0)
 
-        self.tabScrollArea.setWidget(self.stackedWidget)
-        self.tabScrollArea.setWidgetResizable(True)  
-        self.tabScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.tabScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
-        self.stackedWidget.addWidget(self.preprocessing_tab)
+        preprocess_scroll.setWidget(self.preprocessing_tab)
+        self.stackedWidget.addWidget(preprocess_scroll)
 
         ####### view tab #######################################
-
+        # Create scroll area for view tab
+        view_scroll = QScrollArea()
+        view_scroll.setWidgetResizable(True)
+        view_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        view_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
         self.view_tab = ImageOverlay(self.canvas, enc=self)
         self.view_tab.setObjectName("view_tab")
-        self.view_tab.setMaximumWidth(450)
-        self.stackedWidget.addWidget(self.view_tab)
+        self.view_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        view_scroll.setWidget(self.view_tab)
+        self.stackedWidget.addWidget(view_scroll)
         
         ####### analysis tab #######################################
-
-        self.analysis_tab = AnalysisTab(self.canvas, self)
-        self.analysis_tab.setMaximumWidth(450)
-
-        self.analysis_tab.setObjectName("analysis_tab")
-        self.stackedWidget.addWidget(self.analysis_tab)
-
-        self.main_layout.addWidget(self.tabScrollArea)
-
-        ##########################################################
+        # Create scroll area for analysis tab
+        analysis_scroll = QScrollArea()
+        analysis_scroll.setWidgetResizable(True)
+        analysis_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        analysis_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
-        self.main_layout.addWidget(self.canvas) 
+        self.analysis_tab = AnalysisTab(self.canvas, self)
+        self.analysis_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.analysis_tab.setObjectName("analysis_tab")
+        analysis_scroll.setWidget(self.analysis_tab)
+        self.stackedWidget.addWidget(analysis_scroll)
+
+        # Set up the side panel layout
+        self.sidePanelLayout.addWidget(self.stackedWidget)
+        
+        # Add the side panel and toggle button to the container
+        self.sidePanelContainer.addWidget(self.sidePanel)
+        self.sidePanelContainer.addWidget(self.toggleButton)
+        
+        # Add the container to the main layout
+        self.main_layout.addLayout(self.sidePanelContainer)
+        self.main_layout.addWidget(self.canvas)
+        
         self.central_widget_layout.addLayout(self.main_layout)
         self.setCentralWidget(self.centralwidget)
         
@@ -217,3 +248,11 @@ class Ui_MainWindow(QMainWindow):
                 image = image[:, :, :3]  # Remove the alpha channel
             image = image[:, :, ::-1]  # Convert BGR to RGB
             Image.fromarray(image).save(file_name)
+
+    def toggleSidePanel(self):
+        if self.sidePanel.isVisible():
+            self.sidePanel.hide()
+            self.toggleButton.setText("▶")
+        else:
+            self.sidePanel.show()
+            self.toggleButton.setText("◀")

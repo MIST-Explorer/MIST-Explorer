@@ -10,6 +10,7 @@ class PolyLasso:
         self.completed = False
         self.temp_line_point = None  # To draw a temporary line following the cursor
         self.point_size = 6  # Size of the point markers
+        self.brush = None  # Added for the new set_filled method
 
     def add_point(self, point):
         """Add a point to the polygon"""
@@ -57,7 +58,7 @@ class PolyLasso:
                 painter.drawLine(self.points[-1], self.points[0])
                 
                 # Fill the polygon
-                painter.setBrush(QBrush(self.color))
+                painter.setBrush(self.brush)
                 painter.drawPolygon(self.get_polygon())
             # Otherwise, draw preview line if we have a temp point
             elif self.temp_line_point:
@@ -108,3 +109,19 @@ class PolyLasso:
             return QRect(p.x() - 5, p.y() - 5, 10, 10)
             
         return self.get_polygon().boundingRect()
+    
+    def set_filled(self, filled):
+        """Set whether the polygon should be filled or not"""
+        if filled:
+            # Make color semi-transparent for fill
+            self.color.setAlpha(50)
+            # Set brush for filling
+            self.brush = QBrush(self.color)
+        else:
+            # Make color fully transparent
+            self.color.setAlpha(0)
+            # Clear brush
+            self.brush = None
+            
+        # Force a repaint
+        # self.update()

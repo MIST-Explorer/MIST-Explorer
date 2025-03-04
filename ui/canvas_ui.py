@@ -413,18 +413,11 @@ class ImageGraphicsViewUI(QGraphicsView):
             
             # Get polygon coordinates for analysis if needed
             if hasattr(self, 'enc') and hasattr(self.enc, 'analysis_tab'):
-                try:
-                    poly_rect = self.current_polygon.bounding_rect()
-                    # Use the starting position to create an image rectangle
-                    image_rect = (
-                        self.starting_x, 
-                        self.starting_y, 
-                        self.starting_x + poly_rect.width(), 
-                        self.starting_y + poly_rect.height()
-                    )
-                    self.enc.analysis_tab.analyze_region(None, image_rect)
-                except Exception as e:
-                    print(f"Error analyzing polygon region: {e}")
+                # try:
+
+                self.enc.analysis_tab.analyze_region(self.current_polygon, ("poly", self.current_polygon.points)) 
+                # except Exception as e:
+                #     print(f"Error analyzing polygon region: {e}")
             
             self.current_polygon = None
             # Force a repaint to update the view
@@ -563,15 +556,21 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.showCroppedImage(self.image_rect)
 
             if self.select:
-                self.select = False
+                
                 self.origin = None
 
-                scene_pos = self.mapToScene(event.pos())
-                image_pos = self.pixmapItem.mapFromScene(scene_pos)
-                image_rect = (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y()))
-            
-                self.enc.analysis_tab.analyze_region(rubberband, image_rect)
-                return
+                if self.select == "rect" or self.select == "circle":
+
+                    scene_pos = self.mapToScene(event.pos())
+                    image_pos = self.pixmapItem.mapFromScene(scene_pos)
+                    image_rect = (self.select, (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y())))
+                
+                    self.enc.analysis_tab.analyze_region(rubberband, image_rect)
+
+                    self.select = False
+                    return
+                
+                
 
             if self.circle_select:
                 self.circle_select = False
