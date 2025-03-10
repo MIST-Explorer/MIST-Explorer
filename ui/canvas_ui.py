@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem,
     QGraphicsItem, QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup,
-    QGraphicsSimpleTextItem, QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton
+    QGraphicsSimpleTextItem, QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton, QLabel
 )
 from PyQt6.QtGui import (
     QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor,
@@ -281,12 +281,17 @@ class ImageGraphicsViewUI(QGraphicsView):
         """Create floating selection buttons that appear over the canvas"""
         # Create a container widget for the buttons
         self.floating_container = QWidget(self)
-        self.floating_container.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         
         # Create horizontal layout for the buttons
         button_layout = QHBoxLayout(self.floating_container)
-        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setContentsMargins(10, 5, 10, 5)
         button_layout.setSpacing(10)
+        button_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # Add label
+        label = QLabel("Select region of interest:", self.floating_container)
+        label.setStyleSheet("QLabel { color: white; padding: 5px; border-radius: 3px; }")
+        button_layout.addWidget(label)
         
         # Create the selection buttons
         self.rect_button = QPushButton()
@@ -298,22 +303,22 @@ class ImageGraphicsViewUI(QGraphicsView):
             button.setFixedSize(40, 40)
             button.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(255, 255, 255, 0.8);
+                    background-color: rgba(255, 255, 255, 0.1);
                     border: 1px solid #ccc;
                     border-radius: 5px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(255, 255, 255, 0.9);
+                    background-color: rgba(255, 255, 255, 0.2);
                 }
                 QPushButton:pressed {
-                    background-color: rgba(200, 200, 200, 0.9);
+                    background-color: rgba(200, 200, 200, 0.2);
                 }
             """)
         
         # Set icons for the buttons
-        self.rect_button.setIcon(QIcon("assets/icons/crop.png"))
-        self.circle_button.setIcon(QIcon("assets/icons/crop.png"))
-        self.poly_button.setIcon(QIcon("assets/icons/crop.png"))
+        self.rect_button.setIcon(QIcon("assets/icons/square.png"))
+        self.circle_button.setIcon(QIcon("assets/icons/circle.png"))
+        self.poly_button.setIcon(QIcon("assets/icons/poly.png"))
         
         # Connect button signals to selection modes
         self.rect_button.clicked.connect(lambda: self.set_selection_mode("rect"))
@@ -325,15 +330,17 @@ class ImageGraphicsViewUI(QGraphicsView):
         button_layout.addWidget(self.circle_button)
         button_layout.addWidget(self.poly_button)
         
-        # Position the container at the top of the view
+        # Position the container at the top-right of the view
         self.update_floating_buttons_position()
 
     def update_floating_buttons_position(self):
         """Update the position of the floating buttons"""
         if hasattr(self, 'floating_container'):
-            # Position at the top of the view
-            pos = QPoint(10, 10)
-            self.floating_container.move(pos)
+            # Position at the top-right of the view with some padding
+            self.floating_container.move(
+                self.width() - self.floating_container.width() - 20,
+                10
+            )
 
     def resizeEvent(self, event):
         """Handle resize events to update floating buttons position"""
