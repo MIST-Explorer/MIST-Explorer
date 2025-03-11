@@ -161,11 +161,17 @@ class AnalysisTab(QWidget):
         # Clear current content
         self.clear_scroll_content()
 
+        # Add the view's widget
         self.scroll_layout.addWidget(self.views[index])
         
         # Update rubberband for new view
         if self.rubberbands:
-            self.rubberbands[self.current_view_index].set_filled(True)
+            for i in range(len(self.rubberbands)):
+                self.rubberbands[i].set_filled(False)
+            self.rubberbands[index].set_filled(True)
+        
+        # Update current view index
+        self.current_view_index = index
             
         self.update_navigation_buttons()
         return True
@@ -283,8 +289,18 @@ class AnalysisTab(QWidget):
         # Create controls
         controls_layout = self.create_analysis_controls(rubberband, region)
         
-        # Create graph selection interface
+        # Create graph selection interface for this specific view
         graph_selection = self.create_graph_selection_interface()
+        
+        # Store the graph interface widgets in a dictionary keyed by view index
+        view_index = len(self.views)  # This will be the index of the new view
+        if not hasattr(self, 'view_graph_interfaces'):
+            self.view_graph_interfaces = {}
+        self.view_graph_interfaces[view_index] = {
+            'stacked_widget': graph_selection,
+            'icon_list_page': self.icon_list_page,
+            'icon_detail_page': self.icon_detail_page
+        }
         
         # Add to layout
         result_layout.addLayout(controls_layout)
@@ -358,6 +374,7 @@ class AnalysisTab(QWidget):
         ]
         
         self.stacked_widget = QStackedWidget()
+        
         self.icon_list_page = IconListPage(
             icon_list=self.icon_list, 
             navigate_to_page=self.show_icon_detail_page, 
@@ -518,19 +535,26 @@ class AnalysisTab(QWidget):
     def show_icon_detail_page(self, index):
         print("show_icon_detail_page1,", "current view:", self.current_view_index, "graph:", index)
         
-        # First ensure we're on the correct view
-        self.navigate_to_view(self.current_view_index)
+        # Get the graph interface for the current view
+        if self.current_view_index not in self.view_graph_interfaces:
+            print("Error: No graph interface found for current view")
+            return
+            
+        interface = self.view_graph_interfaces[self.current_view_index]
         
-        # Then set up the graph display
+        # Update the graph index and display
         self.current_graph_index = index
-        self.icon_detail_page.set_icon_index(index)
-        self.stacked_widget.setCurrentWidget(self.icon_detail_page)
-
-
+        interface['icon_detail_page'].set_icon_index(index)
+        interface['stacked_widget'].setCurrentWidget(interface['icon_detail_page'])
 
     def show_icon_grid_page(self):
-
-        self.stacked_widget.setCurrentWidget(self.icon_list_page)
+        # Get the graph interface for the current view
+        if self.current_view_index not in self.view_graph_interfaces:
+            print("Error: No graph interface found for current view")
+            return
+            
+        interface = self.view_graph_interfaces[self.current_view_index]
+        interface['stacked_widget'].setCurrentWidget(interface['icon_list_page'])
 
     def open_in_new_window(self):
         # Create a new window to display the current graph
