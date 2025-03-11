@@ -256,7 +256,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.origin = None
         self.crop_cursor = QCursor(Qt.CursorShape.CrossCursor)
         self.select = False
-        self.circle_select = False
         self.zoom = 1
         self.polygons = []
         self.current_polygon = None
@@ -353,7 +352,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         """Set the current selection mode"""
         # Reset all modes
         self.select = False
-        self.circle_select = False
         self.current_polygon = None
         
         # Set the new mode
@@ -362,7 +360,6 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.setCursor(Qt.CursorShape.CrossCursor)
             self.enc.select();
         elif mode == "circle":
-            self.circle_select = True
             self.setCursor(Qt.CursorShape.CrossCursor)
             self.enc.circle_select();
         elif mode == "poly":
@@ -466,7 +463,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
-            if self.begin_crop or self.select or self.circle_select:
+            if self.begin_crop or self.select:
                 self.origin = event.pos()
                 self.update_starting_position(event)
 
@@ -507,6 +504,8 @@ class ImageGraphicsViewUI(QGraphicsView):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Return and self.current_polygon:
             # Complete the polygon
+
+            self.select = False
             self.current_polygon.completed = True
             self.polygons.append(self.current_polygon)
             
@@ -609,14 +608,14 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.select and self.rubberBands and self.origin is not None:
             self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
 
-        if self.circle_select and self.rubberBands and self.origin is not None:
+        if self.select == "circle" and self.rubberBands and self.origin is not None:
             center = self.origin
             corner = event.pos()
             size = max(abs(center.x() - corner.x()), abs(center.y() - corner.y())) * 2
             self.rubberBands[-1].setGeometry(QRect(center.x() - size // 2, center.y() - size // 2, size, size))
 
         # Propagate event to rubber bands when not in selection mode
-        if not self.select and not self.circle_select:
+        if not self.select:
             for r in self.rubberBands:
                 r.mouseMoveEvent(event)
 
@@ -671,9 +670,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                 
                 
 
-            if self.circle_select:
-                self.circle_select = False
-                self.origin = None
 
     def showCroppedImage(self, image_rect):
         """Show dialog with cropped image preview"""

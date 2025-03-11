@@ -228,9 +228,10 @@ class Ui_MainWindow(QMainWindow):
         self.canvas.select = "circle"
 
     def poly_select(self):
-        print("selecting")
         if self.canvas.select == "poly":
             self.canvas.select = False
+            return
+        
         self.canvas.select = "poly"
     
     def save(self):
