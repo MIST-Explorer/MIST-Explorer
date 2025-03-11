@@ -57,6 +57,7 @@ class AnalysisTab(QWidget):
         self.next_button = QPushButton("Next >")
 
         self.save_button.clicked.connect(self.save_current_plot)
+        
         self.back_button.clicked.connect(self.navigate_to_previous_view)
         self.next_button.clicked.connect(self.navigate_to_next_view)
 
@@ -159,9 +160,7 @@ class AnalysisTab(QWidget):
             
         # Clear current content
         self.clear_scroll_content()
-        
-        # Set new content
-        self.current_view_index = index
+
         self.scroll_layout.addWidget(self.views[index])
         
         # Update rubberband for new view
@@ -174,12 +173,14 @@ class AnalysisTab(QWidget):
     def navigate_to_next_view(self):
         """Navigate to the next view if available"""
         if self.current_view_index < len(self.views) - 1:
-            self.navigate_to_view(self.current_view_index + 1)
+            self.current_view_index += 1
+            self.navigate_to_view(self.current_view_index)
 
     def navigate_to_previous_view(self):
         """Navigate to the previous view if available"""
         if self.current_view_index > 0:
-            self.navigate_to_view(self.current_view_index - 1)
+            self.current_view_index -= 1
+            self.navigate_to_view(self.current_view_index)
 
     def clear_scroll_content(self):
         """Clear all widgets from the scroll area"""
@@ -188,21 +189,7 @@ class AnalysisTab(QWidget):
             if widget:
                 widget.setParent(None)
 
-    def add_new_view(self):
-        """Add a new view and make it current"""
-        new_view = QWidget()
-        self.views.append(new_view)
-        self.graphs.append([])
-        self.current_view_index = len(self.views) - 1
-        self.current_graph_index = 0
-        self.navigate_to_view(self.current_view_index)
-        return new_view
-
-    def delete_current_view(self):
-        """Delete the current view and update navigation"""
-        if not self.views:
-            return False
-            
+    def delete_current_view(self):            
         # Remove view and its associated data
         self.views.pop(self.current_view_index)
         self.graphs.pop(self.current_view_index)
@@ -279,7 +266,8 @@ class AnalysisTab(QWidget):
         # Add to views and navigate
         self.views.append(result_widget)
         self.graphs.append([])
-        self.navigate_to_view(len(self.views) - 1)
+        self.current_view_index = len(self.views) - 1
+        self.navigate_to_view(self.current_view_index)
         
         # Generate and add graphs
         self.generate_analysis_graphs(region)
@@ -324,9 +312,10 @@ class AnalysisTab(QWidget):
         apply_button.clicked.connect(
             lambda: self.handleComboBoxChanged(self.multiComboBox.get_checked_items())
         )
+
         
         delete_button = QPushButton("Delete")
-        delete_button.clicked.connect(self.delete_current_view)
+        delete_button.clicked.connect(lambda: self.delete_current_view)
         
         # Add region info
         bounds_label = QLabel(f"Bounds: {region}")
@@ -347,6 +336,7 @@ class AnalysisTab(QWidget):
         controls_layout.addWidget(QWidget().setLayout(button_layout))
         controls_layout.addWidget(self.multiComboBox)
         controls_layout.addWidget(apply_button)
+        # controls_layout.addWidget(delete_button)
         controls_layout.addWidget(color_label)
         
         return controls_layout
@@ -369,15 +359,15 @@ class AnalysisTab(QWidget):
         
         self.stacked_widget = QStackedWidget()
         self.icon_list_page = IconListPage(
-            self.icon_list, 
-            self.show_icon_detail_page, 
-            self.icon_paths, 
-            None
+            icon_list=self.icon_list, 
+            navigate_to_page=self.show_icon_detail_page, 
+            icon_paths=self.icon_paths, 
+            result_details_layout=None
         )
         self.icon_detail_page = IconDetailPage(
-            self.show_icon_grid_page,
-            self.open_in_new_window,
-            self
+            navigate_back=self.show_icon_grid_page,
+            open_in_new_window=self.open_in_new_window,
+            enclosing=self
         )
 
         self.stacked_widget.addWidget(self.icon_list_page)
@@ -526,9 +516,17 @@ class AnalysisTab(QWidget):
         self.navigate_to_view(self.current_view_index)
 
     def show_icon_detail_page(self, index):
-        print("show_icon_detail_page, index:", index)
+        print("show_icon_detail_page1,", "current view:", self.current_view_index, "graph:", index)
+        
+        # First ensure we're on the correct view
+        self.navigate_to_view(self.current_view_index)
+        
+        # Then set up the graph display
+        self.current_graph_index = index
         self.icon_detail_page.set_icon_index(index)
         self.stacked_widget.setCurrentWidget(self.icon_detail_page)
+
+
 
     def show_icon_grid_page(self):
 
@@ -668,21 +666,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 import sys
 
-class IconGridPage(QWidget):
-    def __init__(self, icon_grid, navigate_to_page):
-        super().__init__()
-        self.icon_grid = icon_grid
-        self.navigate_to_page = navigate_to_page
-        layout = QGridLayout()
-        self.setLayout(layout)
-        for row_idx, row in enumerate(self.icon_grid):
-            for col_idx, icon_name in enumerate(row):
-                if icon_name:
-                    button = QPushButton(icon_name)
-                    button.setFixedSize(100, 100)
-                    index = row_idx * len(row) + col_idx
-                    button.clicked.connect(lambda _, idx=index: self.navigate_to_page(idx))
-                    layout.addWidget(button, row_idx, col_idx)
 
 class IconDetailPage(QWidget):
     def __init__(self, navigate_back, open_in_new_window, enclosing):
@@ -730,7 +713,6 @@ class IconListPage(QWidget):
     def __init__(self, icon_list, navigate_to_page, icon_paths, result_details_layout):
         super().__init__()
         self.icon_list = icon_list
-        self.navigate_to_page = navigate_to_page
         self.icon_paths = icon_paths  # List of file paths for the icons
 
         layout = QVBoxLayout()
@@ -753,7 +735,7 @@ class IconListPage(QWidget):
                 button.setStyleSheet(" text-align:left; padding: 10px; margin-top: 10px;")
                 button.setIcon(QIcon(self.icon_paths[index]))  # Set icon for the button
                 
-                button.clicked.connect(lambda _, idx=index: self.navigate_to_page(idx))
+                button.clicked.connect(lambda _, idx=index: navigate_to_page(idx))
                 layout.addWidget(button)
 
         layout.addStretch()  # Add stretch to push the status layout to the bottom
@@ -763,31 +745,9 @@ class IconListPage(QWidget):
         add_chart_button.setFixedHeight(70)
         add_chart_button.setStyleSheet("text-align:left; padding: 10px; margin-top: 10px;")
         add_chart_button.setIcon(QIcon("/Users/clark/Desktop/wang/protein_visualization_app/ui/graphing/icons/addchart.png"))
-        add_chart_button.clicked.connect(self.navigate_to_page)
+        add_chart_button.clicked.connect(navigate_to_page)
         layout.addWidget(add_chart_button)
-        
-    def navigate_to_page(self):
-        pass
-        # Call the parent's custom plot method
-        # self.parent().open_custom_plot_dialog()
-
-        # Add status box at the bottom
-        # status_layout = QHBoxLayout()
-
-        # delete_button = QPushButton("Delete")
-        # status_layout.addWidget(delete_button)
-
-        # color_label = QLabel()
-        # color_label.setFixedSize(100, 50)
-        # color_label.setStyleSheet("background-color: blue;")
-        
-
-        # coordinates_label = QLabel("400, 200 to 700, 550")
-        # status_layout.addWidget(coordinates_label)
-        # status_layout.addWidget(color_label)
-
-        # layout.addLayout(result_details_layout)
-
+ 
 
 class RegenerateOnCloseWindow(QWidget):
     def __init__(self, regenerate_callback):
@@ -936,12 +896,6 @@ fig  # This figure will be displayed
         # Buttons
         button_layout = QHBoxLayout()
         
-        self.run_button = QPushButton("Run Code")
-        self.run_button.clicked.connect(self.run_code)
-        
-        self.insert_button = QPushButton("Insert Plot")
-        self.insert_button.clicked.connect(self.insert_plot)
-        
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self.reject)
         
@@ -954,105 +908,4 @@ fig  # This figure will be displayed
         main_layout.addWidget(output_group, 1)
         main_layout.addWidget(plot_group, 3)
         main_layout.addLayout(button_layout)
-        
-    def run_code(self):
-        """Execute the matplotlib code and display the resulting figure"""
-        # Clear previous output
-        self.output_text.clear()
-        self.figure.clear()
-        
-        # Get the code from the text editor
-        code = self.code_edit.toPlainText()
-        
-        # Create a namespace for execution
-        namespace = {
-            'plt': plt,
-            'pd': pd,
-            'np': np,
-            'Figure': Figure,
-            'sns': sns
-        }
-        
-        # Capture stdout
-        output_buffer = io.StringIO()
-        
-        try:
-            # Execute the code and capture output
-            with redirect_stdout(output_buffer):
-                exec(code, namespace)
-            
-            # Check if a figure object was created or used from plt
-            if 'fig' in namespace:
-                fig = namespace['fig']
-                
-                # Clear our figure and copy the content from the generated figure
-                self.figure.clear()
-                for ax in fig.get_axes():
-                    # Copy the Axes object to our figure
-                    new_ax = self.figure.add_axes(ax.get_position())
-                    # Copy the content
-                    for line in ax.get_lines():
-                        new_ax.plot(line.get_xdata(), line.get_ydata(), 
-                                     color=line.get_color(),
-                                     linestyle=line.get_linestyle(),
-                                     marker=line.get_marker())
-                    
-                    # Copy other properties
-                    new_ax.set_title(ax.get_title())
-                    new_ax.set_xlabel(ax.get_xlabel())
-                    new_ax.set_ylabel(ax.get_ylabel())
-                    
-                    # Copy legend if exists
-                    if ax.get_legend():
-                        new_ax.legend()
-                    
-                    # Copy bars if this is a bar chart
-                    for patch in ax.patches:
-                        new_ax.add_patch(patch)
-                
-                # Copy the tight layout if used
-                self.figure.tight_layout()
-                self.canvas.draw()
-                
-                # Store the generated figure for later use
-                self.generated_figure = fig
-                
-                # Display success message
-                self.output_text.appendPlainText("Code executed successfully!")
-            else:
-                # If no figure was found, show a message
-                self.output_text.appendPlainText("No figure object named 'fig' found in the code. Make sure your code creates a matplotlib figure named 'fig'.")
-        
-        except Exception as e:
-            # Handle exceptions and display error message
-            self.output_text.appendPlainText(f"Error: {str(e)}")
-            self.output_text.appendPlainText(traceback.format_exc())
-        
-        # Display any stdout output
-        stdout_output = output_buffer.getvalue()
-        if stdout_output:
-            self.output_text.appendPlainText("\nOutput:")
-            self.output_text.appendPlainText(stdout_output)
-    
-    def insert_plot(self):
-        """Insert the current plot into the parent AnalysisTab"""
-        if hasattr(self, 'generated_figure'):
-            # Create a widget to hold the canvas
-            plot_widget = QWidget()
-            layout = QVBoxLayout(plot_widget)
-            
-            # Create a new canvas with the generated figure
-            canvas = FigureCanvas(self.generated_figure)
-            layout.addWidget(canvas)
-            
-            # Save reference to the figure for saving
-            plot_widget.figure = self.generated_figure
-            
-            # Add the widget to the parent's view
-            parent = self.parent()
-            parent.add_graph_to_current_view(plot_widget)
-            
-            # Close the dialog
-            self.accept()
-        else:
-            QMessageBox.warning(self, "No Plot", "Please run your code first to generate a plot.")
+       
