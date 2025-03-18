@@ -190,7 +190,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         else:
             raise ValueError("there was an error")
 
-        self.changeSlider.emit((image_uint8.min(), image_uint8.max()))
+        # self.changeSlider.emit((image_uint8.min(), image_uint8.max()))
         
         self.canvasUpdated.emit(self.pixmapItem)
         
@@ -310,10 +310,10 @@ class ImageGraphicsView(__BaseGraphicsView):
             #append to rotated array list
             rotated_arrays.append(rotated_arr)
         # convert to qimage
-        rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
+        # rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
-        return dict(zip(channels.keys(), rotated_images)), dict(zip(channels.keys(), rotated_arrays))
-
+        # return dict(zip(channels.keys(), rotated_images)), dict(zip(channels.keys(), rotated_arrays))
+        return  dict(zip(channels.keys(), rotated_arrays))
     def rotateImage(self, angle_text: str):
         try:
             angle = float(angle_text)
@@ -331,13 +331,12 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     @pyqtSlot(object)
     def onRotationCompleted(self, rotated_channels:dict):
-        self.np_channels = rotated_channels[1]
+        self.np_channels = rotated_channels
         print("rotation curr channel num: ", self.currentChannelNum)
 
         channel_image = list(self.np_channels.values())[self.currentChannelNum]
         channel_image = scale_adjust(channel_image)
         channel_qimage = numpy_to_qimage(channel_image)
-        print(type(channel_qimage))
         channel_pixmap = QPixmap(channel_qimage)
         rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
         self.canvasUpdated.emit(rotated_pixmapItem)
@@ -355,17 +354,23 @@ class ImageGraphicsView(__BaseGraphicsView):
   
         self.channelLoaded.emit(self.np_channels, clear)
 
+
+    def updateCurrentImage(self, data_dict):
+        self.image = data_dict[f"Channel {self.currentChannelNum + 1}"]
+        print("self.image updated")
+
+
     def swapChannel(self, index):
-        
+        '''swaps between channels of a multi-layered tiff image'''
         channel_num = f'Channel {index+1}'
         self.image = self.np_channels[channel_num]
-        if channel_num in self.qimage_channels.keys():
-            qimage = self.qimage_channels[channel_num]
+        if channel_num in self.np_channels.keys():
+            qimage = numpy_to_qimage(self.np_channels[channel_num])
             channel_pixmap = QPixmap.fromImage(qimage)
-        else:
-            qimage = numpy_to_qimage(self.image)
-            self.qimage_channels[channel_num] = qimage
-            channel_pixmap = QPixmap.fromImage(qimage)
+        # else:
+        #     qimage = numpy_to_qimage(self.image)
+        #     self.qimage_channels[channel_num] = qimage
+        #     channel_pixmap = QPixmap.fromImage(qimage)
 
         self.toPixmapItem(channel_pixmap)
 
@@ -423,8 +428,9 @@ class ImageGraphicsView(__BaseGraphicsView):
         new_min= np.argmax(cumulative_hist > lower)  
         new_max = np.argmax(cumulative_hist > upper)  
 
-
+        print(new_min, new_max)
         self.update_contrast((new_min, new_max))
+        self.changeSlider.emit((new_min, new_max))
 
     def apply_contrast(self, new_min, new_max):
 

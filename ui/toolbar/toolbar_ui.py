@@ -162,8 +162,8 @@ class ToolBarUI(QWidget):
 
         print("the min is, " f'{min}')
         print("the max is, " f'{max}')
-        self.contrastSlider.setMinimum(min)
-        self.contrastSlider.setMaximum(max)
+        self.contrastSlider.setValue((min, max))
+        print("slider updated")
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate

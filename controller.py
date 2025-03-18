@@ -65,7 +65,8 @@ class Controller:
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
         self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.np_channels so later transformations work on cropped images, not the full image
-        
+        self.view.canvas.cropSignal.connect(self.model_canvas.updateCurrentImage) #need to update self.np_channels so later transformations work on cropped images, not the full image
+
         # crop signals
         self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop) 
         self.view.crop_groupbox.cancel_crop_button.triggered.connect(self.view.canvas.endCrop)
