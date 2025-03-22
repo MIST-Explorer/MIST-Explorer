@@ -1,15 +1,18 @@
 from PyQt6.QtWidgets import (
     QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem,
     QGraphicsItem, QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup,
-    QGraphicsSimpleTextItem, QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton, QLabel
+    QGraphicsSimpleTextItem, QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton, QLabel,
+    QMenu, QMessageBox
+
 )
 from PyQt6.QtGui import (
     QDragEnterEvent, QDropEvent, QPixmap, QDragMoveEvent, QMouseEvent, QCursor,
-    QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon
+    QImage, QPalette, QPainter, QBrush, QColor, QPen, QIcon, QAction
+
 )
 from PyQt6.QtCore import (
     Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF,
-    QPropertyAnimation, QEasingCurve, QRectF, QSizeF
+    QPropertyAnimation, QEasingCurve, QRectF, QSizeF,
 )
 import numpy as np
 import cv2
@@ -714,6 +717,28 @@ class ImageGraphicsViewUI(QGraphicsView):
 
         return cropped_arrays_cont
     
+
+
+    def contextMenuEvent(self, event):
+        # Create the menu
+        menu = QMenu(self)
+
+        # Add actions
+        action1 = QAction("Option 1", self)
+        action1.triggered.connect(lambda: self.show_message("Option 1 selected"))
+
+        action2 = QAction("Option 2", self)
+        action2.triggered.connect(lambda: self.show_message("Option 2 selected"))
+
+        menu.addAction(action1)
+        menu.addAction(action2)
+
+        # Show the menu at the cursor position
+        menu.exec(event.globalPos())
+
+    def show_message(self, message):
+        QMessageBox.information(self, "Selection", message)
+
     @pyqtSlot(dict)
     def onCropCompleted(self, cropped_images: dict):
         """Handle completed crop operation"""

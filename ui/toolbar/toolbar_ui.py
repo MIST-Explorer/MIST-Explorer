@@ -76,7 +76,7 @@ class ToolBarUI(QWidget):
 
         # Create other actions
         self.actionRotate = Action(parent, "actionRotate", "assets/icons/rotate-right.png")
-        self.actionReset = Action(parent, "actionReset", "assets/icons/home.png")
+        self.actionReset = Action(parent, "actionReset", "assets/icons/reset.png")
         
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "assets/icons/brightness.png")
         # self.operatorComboBox = QComboBox(parent)

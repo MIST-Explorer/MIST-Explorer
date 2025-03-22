@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import  QHBoxLayout, QGroupBox, QPushButton, QWidget, QComboBox, QSpinBox
+from PyQt6.QtWidgets import  QHBoxLayout, QGroupBox, QPushButton, QWidget, QComboBox, QDoubleSpinBox
 from PyQt6.QtCore import pyqtSignal, QCoreApplication
 
 class GaussianBlur(QWidget):
@@ -11,7 +11,8 @@ class GaussianBlur(QWidget):
         self.gaussian_blur.setMaximumHeight(80)
         self.hor_layout = QHBoxLayout(self.gaussian_blur)
         self.components_layout = QHBoxLayout()
-        self.spin_box = QSpinBox()
+        self.spin_box = QDoubleSpinBox()
+        self.spin_box.setMaximum(100)
         self.combo_box = QComboBox()
         self.combo_box.setMinimumWidth(80)
         self.confirm = QPushButton()

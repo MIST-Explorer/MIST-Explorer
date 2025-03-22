@@ -33,6 +33,7 @@ class __BaseGraphicsView(QWidget):
         self.pixmap = None
         self.pixmapItem=None
         self.np_channels = {}
+        self.reset_np_channels = {}
 
     # drag and drog has issue with some tiff images, need to fix
     def dragEnterEvent(self, event: QDragEnterEvent):
@@ -84,12 +85,11 @@ class __BaseGraphicsView(QWidget):
 
                         print("my dtype is", image_adjusted.dtype)
                         self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
-
+                        self.reset_np_channels[channel_name] = image_adjusted # keep another copy for resetting
                         # qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                         # self.channels[channel_name] = qimage_channel # for displaying on canvas
 
-                        self.reset_np_channels = {key: img.copy() for key, img in self.np_channels.items()} #deep copy
-                        # self.reset_channels = {key: img.copy() for key, img in self.channels.items()} #deep copy
+                        # self.reset_np_channels = {key: img.copy() for key, img in self.np_channels.items()} #deep copy
 
                     channel_one_image = next(iter(self.np_channels.values()))
                     self.channelLoaded.emit(self.np_channels, True)
@@ -460,7 +460,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def blur_layer(self):
         """
-        Applies Gaussian blur to the 4th layer (index 3) of the image stack and subtracts
+        Applies Gaussian blur chosen of the image stack and subtracts
         the specified percentage of the blurred image from the original.
         """
         self.updateProgress.emit(0, "Starting to blur layer")
@@ -469,12 +469,26 @@ class ImageGraphicsView(__BaseGraphicsView):
         layer_key = f'Channel {layer}'
         layer_4 = self.np_channels[layer_key]
         self.updateProgress.emit(50, "blurring layer")
+
+
         blurred_mask = cv2.GaussianBlur(layer_4, (101, 101), 0)
-        blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
+        blurred_mask_adjusted = (blurred_mask * 0.8).astype(np.uint16)
         corrected_layer_4 = cv2.subtract(layer_4, blurred_mask_adjusted)
         corrected_layer_4 = np.clip(corrected_layer_4, 0, 65535).astype(np.uint16)
         self.np_channels[layer_key] = corrected_layer_4 # Replace the 4th layer with the corrected version
         self.channelLoaded.emit(self.np_channels, False)
         self.updateProgress.emit(100, "Done")
-        
+        blurred_pixmap = QPixmap(numpy_to_qimage(corrected_layer_4))
+
+        self.toPixmapItem(blurred_pixmap)
+
+
+class Image:
+    def __init__(self):
+        self.name = None
+        self.cmap = None
+        self.data = None
+
+
+
 
