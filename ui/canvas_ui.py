@@ -14,6 +14,8 @@ from PyQt6.QtCore import (
     Qt, QRect, QSize, QPoint, pyqtSignal, pyqtSlot, QPointF,
     QPropertyAnimation, QEasingCurve, QRectF, QSizeF,
 )
+
+from core.canvas import ImageWrapper
 import numpy as np
 import cv2
 import pandas as pd
@@ -680,9 +682,10 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def showCroppedImage(self, image_rect):
         """Show dialog with cropped image preview"""
-        q_im = list(self.channels.values())[self.currentChannelNum]
-        pix = QPixmap(q_im)
-        cropped = pix.copy(image_rect).toImage()
+        pixmap = self.pixmapItem.pixmap()
+        # q_im = list(self.np_channels.values())[self.currentChannelNum]
+        # pix = QPixmap(utils.numpy_to_qimage(q_im))
+        cropped = pixmap.copy(image_rect).toImage()
         cropped_pix = QPixmap(cropped)
         self.dialog = Dialogs.ImageDialog(self, cropped_pix)
         self.dialog.exec()
@@ -705,15 +708,18 @@ class ImageGraphicsViewUI(QGraphicsView):
         bottom = image_rect.bottom()        
 
         for channel_name, image_arr in self.np_channels.items():
-            cropped_array = image_arr[top:bottom+1, left:right+1]
+            print(type(image_arr.data))
+            cropped_array = image_arr.data[top:bottom+1, left:right+1]
+            print(type(cropped_array))
             cropped_arrays[channel_name] = cropped_array
 
         # Ensure arrays are contiguous for further processing
         cropped_arrays_cont = {
-            key: np.ascontiguousarray(a, dtype="uint16") 
+            key: ImageWrapper(np.ascontiguousarray(a, dtype="uint16"))
             for key, a in cropped_arrays.items() 
             if not a.data.contiguous
         }
+        print("cropped type: ", type(cropped_arrays_cont.get("Channel 1")))
 
         return cropped_arrays_cont
     
@@ -758,7 +764,7 @@ class ImageGraphicsViewUI(QGraphicsView):
     def loadChannels(self, np_channels):
         """Load channel data"""
         self.np_channels = np_channels
-        self.channels = self.__numpy2QImageDict(self.np_channels)
+        # self.channels = self.__numpy2QImageDict(self.np_channels)
         
     def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
         """Convert numpy arrays to QImage objects"""

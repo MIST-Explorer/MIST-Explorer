@@ -8,6 +8,18 @@ from core.Worker import Worker
 from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
 
 
+class ImageWrapper:
+    def __init__(self, data, name="", cmap="gray"):
+        if not isinstance(data, np.ndarray):
+            raise TypeError("Data must be a numpy array.")
+        
+        self.name = name
+        self.cmap = cmap
+        self.data = data
+        self.contrast_min = 0
+        self.contrast_max = 255
+
+## this needs to be deleted later
 class ImageType:
     def __init__(self, name: str, arr):
         self.name = name
@@ -74,7 +86,7 @@ class __BaseGraphicsView(QWidget):
 
                         channel_name = f'Channel {channel_num + 1}'
                         height, width = image.shape
-                        image_adjusted =image
+                        image_adjusted = image
 
                         if adjust_contrast:
                             __scaled = scale_adjust(image) 
@@ -84,14 +96,14 @@ class __BaseGraphicsView(QWidget):
                         format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
 
                         print("my dtype is", image_adjusted.dtype)
-                        self.np_channels[channel_name] = image_adjusted # for stardist and other image processing, maybe consider keeping it as uint16
-                        self.reset_np_channels[channel_name] = image_adjusted # keep another copy for resetting
+                        im = ImageWrapper(image_adjusted)
+                        self.np_channels[channel_name] = im # for stardist and other image processing, maybe consider keeping it as uint16
+                        self.reset_np_channels[channel_name] = im # keep another copy for resetting
                         # qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                         # self.channels[channel_name] = qimage_channel # for displaying on canvas
 
-                        # self.reset_np_channels = {key: img.copy() for key, img in self.np_channels.items()} #deep copy
 
-                    channel_one_image = next(iter(self.np_channels.values()))
+                    channel_one_image = next(iter(self.np_channels.values())).data
                     self.channelLoaded.emit(self.np_channels, True)
                 else: # num of channels is 1, single page
                     print("not multilayer")
@@ -140,7 +152,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
         self.reference_worker.finished.connect(self.reference_worker.deleteLater)
 
     def filename_to_image_complete(self):
-        arr = self.np_channels["Channel 1"]
+        arr = self.np_channels["Channel 1"].data
         qimage = numpy_to_qimage(arr)
         self.pixmap =QPixmap(qimage)
         self.pixmapItem =  QGraphicsPixmapItem(self.pixmap)
@@ -167,7 +179,8 @@ class ImageGraphicsView(__BaseGraphicsView):
         # self.contrast_worker_running = False 
         # self.timer = QTimer()
         self.contrast_worker = None
-        self.qimage_channels = {}
+        self.currentChannelNum = 0
+        # self.qimage_channels = {}
 
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
@@ -184,29 +197,22 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # create a new item if it doesn't exist
         
         print("changing slider")
-        if not self.image is None and not self.image.dtype == np.uint8:
-            print("debug here")
-            image_uint8 = scale_adjust(self.image)
-        else:
-            raise ValueError("there was an error")
+        # if not self.image is None and not self.image.dtype == np.uint8:
+        #     print("debug here")
+        #     image_uint8 = scale_adjust(self.image)
+        # else:
+        #     raise ValueError("there was an error")
 
         # self.changeSlider.emit((image_uint8.min(), image_uint8.max()))
         
         self.canvasUpdated.emit(self.pixmapItem)
         
     def change_cmap(self, cmap_text: str):
-        print("generating lut...")
         lut = self.generate_lut(cmap_text)
-        print("converting label to rgb...")
         adjusted_uint8 = scale_adjust(self.image)
-        # if adjusted_uint8.shape[2] >= 3:
-        #     r = adjusted_uint8[:,:,0]
-        #     g = adjusted_uint8[:,:,1]
-        #     b = adjusted_uint8[:,:,2]
-
+        print("cmap current channel num: ", self.currentChannelNum)
+        self.np_channels[f"Channel {self.currentChannelNum + 1}"].cmap = cmap_text
         rgb = self.label2rgb(adjusted_uint8, lut).astype(np.uint8)
-        # self.progress.emit(99, "converting to rgb")
-        # convert to pixmap
         self.toPixmapItem(rgb)
     
     def generate_lut(self, cmap:str):
@@ -229,8 +235,6 @@ class ImageGraphicsView(__BaseGraphicsView):
     
     def addImage(self, file:str):
         '''add a new image'''
-
-        self.qimage_channels.clear()
         self.np_channels.clear()
         self.scene.resetTransform()
 
@@ -280,23 +284,25 @@ class ImageGraphicsView(__BaseGraphicsView):
             # self.channels = self.reset_channels
             self.np_channels = self.reset_np_channels
             self.channelLoaded.emit(self.np_channels, True)
+            self.reset_pixmap = QPixmap(numpy_to_qimage(self.np_channels.get(f"Channel {self.currentChannelNum + 1}").data))
             self.toPixmapItem(self.reset_pixmap)
 
     def rotate_image_task(self, channels:dict, angle):
         t = time.time()
         rotated_arrays = []
-        print("rotation channel dtype", list(channels.values())[0].dtype)
+        print("rotation channel dtype", list(channels.values())[0].data.dtype)
 
-        for channel in channels.values():
+        for wrapper in channels.values():
             try:
-                if not channel.data.contiguous:
+                arr = wrapper.data
+                if not arr.data.contiguous:
                     print("converting to contiguous array")
                     channel = np.ascontiguousarray(channel, dtype='uint8')
             except Exception as e:
                 print("error: ", str(e))
 
             # rotate image
-            h,w = channel.shape
+            h,w = arr.shape
             center = (w/2, h/2)
             rotation_matrix = cv2.getRotationMatrix2D(center, -angle, 1)
             cos = np.abs(rotation_matrix[0,0])
@@ -305,10 +311,10 @@ class ImageGraphicsView(__BaseGraphicsView):
             updated_h = int((h*cos) + (w*sin))
             rotation_matrix[0,2] += (updated_w/2) - w/2
             rotation_matrix[1,2] += (updated_h/2) - h/2
-            rotated_arr = cv2.warpAffine(channel, rotation_matrix, (updated_h, updated_h))
+            rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
 
             #append to rotated array list
-            rotated_arrays.append(rotated_arr)
+            rotated_arrays.append(ImageWrapper(rotated_arr))
         # convert to qimage
         # rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
@@ -332,10 +338,10 @@ class ImageGraphicsView(__BaseGraphicsView):
     @pyqtSlot(object)
     def onRotationCompleted(self, rotated_channels:dict):
         self.np_channels = rotated_channels
-        print("rotation curr channel num: ", self.currentChannelNum)
 
-        channel_image = list(self.np_channels.values())[self.currentChannelNum]
+        channel_image = list(self.np_channels.values())[self.currentChannelNum].data
         channel_image = scale_adjust(channel_image)
+        self.image = channel_image
         channel_qimage = numpy_to_qimage(channel_image)
         channel_pixmap = QPixmap(channel_qimage)
         rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
@@ -348,31 +354,37 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def updateChannels(self, channels:dict, clear:bool) -> None: #cropsignal will update this
 
-        print("updated channels in canvas.py after cropsignal")
+        print("update_channels", type(self.np_channels["Channel 1"].data))
         self.np_channels = channels # replace channels with new, cropped/rotated, etc
-        self.qimage_channels = {k: numpy_to_qimage(v) for k, v in channels.items()}
-  
+        # self.qimage_channels = {k: numpy_to_qimage(v) for k, v in channels.items()}
         self.channelLoaded.emit(self.np_channels, clear)
 
 
     def updateCurrentImage(self, data_dict):
-        self.image = data_dict[f"Channel {self.currentChannelNum + 1}"]
+        self.image = data_dict[f"Channel {self.currentChannelNum + 1}"].data
+        print(type(self.image))
+
         print("self.image updated")
 
 
     def swapChannel(self, index):
         '''swaps between channels of a multi-layered tiff image'''
         channel_num = f'Channel {index+1}'
-        self.image = self.np_channels[channel_num]
+        self.currentChannelNum = index
+        self.image = self.np_channels.get(channel_num).data
+        
         if channel_num in self.np_channels.keys():
-            qimage = numpy_to_qimage(self.np_channels[channel_num])
-            channel_pixmap = QPixmap.fromImage(qimage)
+            self.change_cmap(self.np_channels.get(channel_num).cmap)
+
+            # qimage = numpy_to_qimage(self.image)
+            # channel_pixmap = QPixmap.fromImage(qimage)
+            # self.pixmap = channel_pixmap
         # else:
         #     qimage = numpy_to_qimage(self.image)
         #     self.qimage_channels[channel_num] = qimage
         #     channel_pixmap = QPixmap.fromImage(qimage)
 
-        self.toPixmapItem(channel_pixmap)
+        # self.toPixmapItem(channel_pixmap)
 
     def setCurrentChannel(self, index):
         self.currentChannelNum = index
@@ -417,7 +429,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def auto_contrast(self, lower = 0.1, upper=.9):
         num = self.currentChannelNum + 1
-        channel = scale_adjust(self.np_channels[f"Channel {num}"])
+        channel = scale_adjust(self.np_channels[f"Channel {num}"].data)
 
 
         flat_channel = channel.flatten()
@@ -472,7 +484,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
 
         blurred_mask = cv2.GaussianBlur(layer_4, (101, 101), 0)
-        blurred_mask_adjusted = (blurred_mask * 0.8).astype(np.uint16)
+        blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
         corrected_layer_4 = cv2.subtract(layer_4, blurred_mask_adjusted)
         corrected_layer_4 = np.clip(corrected_layer_4, 0, 65535).astype(np.uint16)
         self.np_channels[layer_key] = corrected_layer_4 # Replace the 4th layer with the corrected version
@@ -483,12 +495,13 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.toPixmapItem(blurred_pixmap)
 
 
-class Image:
-    def __init__(self):
-        self.name = None
-        self.cmap = None
-        self.data = None
 
+
+
+    
+
+
+    
 
 
 
