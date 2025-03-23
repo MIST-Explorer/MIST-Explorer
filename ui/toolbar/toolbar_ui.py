@@ -21,8 +21,8 @@ class ToolBarUI(QWidget):
         self.__addActions()
         self.__retranslateUI()
 
-    def updateChannels(self, channels):
-        self.np_channels = channels
+    # def updateChannels(self, channels):
+    #     self.np_channels = channels
 
     def updateChannelSelector(self, channels:dict, clear=False):
         print("in toolbar, clearing?", clear)

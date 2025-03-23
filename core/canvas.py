@@ -96,9 +96,8 @@ class __BaseGraphicsView(QWidget):
                         format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
 
                         print("my dtype is", image_adjusted.dtype)
-                        im = ImageWrapper(image_adjusted)
-                        self.np_channels[channel_name] = im # for stardist and other image processing, maybe consider keeping it as uint16
-                        self.reset_np_channels[channel_name] = im # keep another copy for resetting
+                        self.np_channels[channel_name] = ImageWrapper(image_adjusted) # for stardist and other image processing, maybe consider keeping it as uint16
+                        self.reset_np_channels[channel_name] = ImageWrapper(image_adjusted.copy())  # keep another copy for resetting
                         # qimage_channel = QImage(image_adjusted, width, height, width*bytesPerPixel, format)
                         # self.channels[channel_name] = qimage_channel # for displaying on canvas
 
@@ -161,7 +160,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
 ##########################################################
 class ImageGraphicsView(__BaseGraphicsView):
     
-    canvasUpdated = pyqtSignal(QGraphicsPixmapItem)
+    canvasUpdated = pyqtSignal(QPixmap)
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
     # need some dead code analysis
     saveImage = pyqtSignal(QGraphicsPixmapItem)  
@@ -179,24 +178,28 @@ class ImageGraphicsView(__BaseGraphicsView):
         # self.contrast_worker_running = False 
         # self.timer = QTimer()
         self.contrast_worker = None
-        self.currentChannelNum = 0
+        self.currentChannelNum = None
         # self.qimage_channels = {}
 
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
         if type(data) == QPixmap:
             self.pixmap = data
+            print("data is a pixmap")
         elif type(data) == QImage:
+            print("data is a QImage")
             self.pixmap = QPixmap(data)
         else:
+            print("data is a numpy array")
             self.pixmap = QPixmap(numpy_to_qimage(data))
-            
-        if hasattr(self, 'pixmapItem') and self.pixmapItem:
-            self.pixmapItem.setPixmap(self.pixmap)  # update the pixmap of the existing item
-        else:
-            self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # create a new item if it doesn't exist
         
-        print("changing slider")
+        # if hasattr(self, 'pixmapItem') and self.pixmapItem:
+        #     print("pixmapItem already exists")
+        #     self.pixmapItem.setPixmap(self.pixmap)  # update the pixmap of the existing item
+        # else:
+        #     print('creating new pixmap item')
+        #     self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # create a new item if it doesn't exist
+        
         # if not self.image is None and not self.image.dtype == np.uint8:
         #     print("debug here")
         #     image_uint8 = scale_adjust(self.image)
@@ -205,7 +208,8 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         # self.changeSlider.emit((image_uint8.min(), image_uint8.max()))
         
-        self.canvasUpdated.emit(self.pixmapItem)
+        print("type of self.pixmap is: ", type(self.pixmap))
+        self.canvasUpdated.emit(self.pixmap)
         
     def change_cmap(self, cmap_text: str):
         lut = self.generate_lut(cmap_text)
@@ -281,10 +285,16 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def resetImage(self):
         if self.pixmapItem: 
+
+            print("resetting image changes")
             # self.channels = self.reset_channels
-            self.np_channels = self.reset_np_channels
-            self.channelLoaded.emit(self.np_channels, True)
-            self.reset_pixmap = QPixmap(numpy_to_qimage(self.np_channels.get(f"Channel {self.currentChannelNum + 1}").data))
+            import copy
+            self.np_channels = copy.deepcopy(self.reset_np_channels)
+            self.channelLoaded.emit(self.np_channels, False)
+            # self.currentChannelNum = 1
+            print("current channel: ", self.currentChannelNum + 1)
+            layered_data = self.reset_np_channels.get(f"Channel {self.currentChannelNum + 1}").data
+            self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
             self.toPixmapItem(self.reset_pixmap)
 
     def rotate_image_task(self, channels:dict, angle):
@@ -345,7 +355,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         channel_qimage = numpy_to_qimage(channel_image)
         channel_pixmap = QPixmap(channel_qimage)
         rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
-        self.canvasUpdated.emit(rotated_pixmapItem)
+        self.canvasUpdated.emit(channel_pixmap)
         self.channelLoaded.emit(self.np_channels, False)
 
     @pyqtSlot(str)
@@ -371,6 +381,9 @@ class ImageGraphicsView(__BaseGraphicsView):
         '''swaps between channels of a multi-layered tiff image'''
         channel_num = f'Channel {index+1}'
         self.currentChannelNum = index
+        print("swap channel current channel num ", self.currentChannelNum)
+
+        # print("swap channels curren channel num ", self.currentChannelNum)
         self.image = self.np_channels.get(channel_num).data
         
         if channel_num in self.np_channels.keys():
@@ -386,8 +399,8 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         # self.toPixmapItem(channel_pixmap)
 
-    def setCurrentChannel(self, index):
-        self.currentChannelNum = index
+    # def setCurrentChannel(self, index):
+    #     self.currentChannelNum = index
 
 
     def update_contrast(self, values):
@@ -408,9 +421,9 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         contrast_image = self.apply_contrast(min_val, max_val)
         
-        contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(contrast_image)))
+        contrastPixmap = QPixmap(numpy_to_qimage(contrast_image))
 
-        self.canvasUpdated.emit(contrastPix)
+        self.canvasUpdated.emit(contrastPixmap)
     # def contrast_complete(self, data):
     #     self.contrast_worker_running = False
     #     contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(data)))

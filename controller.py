@@ -34,8 +34,8 @@ class Controller:
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
         # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
         self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
-        self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
-        self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
+        # self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
+        # self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
         # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
@@ -51,7 +51,7 @@ class Controller:
         self._small_view.channelLoaded.connect(self.view.small_view.load_channels)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
-        self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
+        # self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channels
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
         self.model_canvas.channelLoaded.connect(self.view.register_groupbox.updateChannelSelector) #update stardist channel combobox

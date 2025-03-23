@@ -380,10 +380,11 @@ class ImageGraphicsViewUI(QGraphicsView):
     def isEmpty(self) -> bool:
         return self.pixmapItem is None
     
-    def updateCanvas(self, pixmapItem: QGraphicsPixmapItem):
+    def updateCanvas(self, pixmap: QPixmap):
         """Updates canvas when current image is operated on"""
         if self.pixmapItem:
-            self.pixmapItem.setPixmap(pixmapItem.pixmap())
+            print("updating canvas and setting pixmap")
+            self.pixmapItem.setPixmap(pixmap)
             self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
