@@ -191,7 +191,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
     def update_slide(self):
         """Update displayed image"""
-        self.pixmap = QPixmap(utils.numpy_to_qimage(self.np_channels[f"Channel {self.current_index}"]))
+        self.pixmap = QPixmap(utils.numpy_to_qimage(self.np_channels[f"Channel {self.current_index}"].data))
         self.pixmapItem.setPixmap(self.pixmap)
         item_rect = self.pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
