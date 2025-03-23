@@ -64,12 +64,13 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
-        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.np_channels so later transformations work on cropped images, not the full image
-        self.view.canvas.cropSignal.connect(self.model_canvas.updateCurrentImage) #need to update self.np_channels so later transformations work on cropped images, not the full image
+        self.view.canvas.showCrop.connect(self.model_canvas.showCroppedImage)
+        self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status) #need to update self.np_channels so later transformations work on cropped images, not the full image
+    #need to update self.np_channels so later transformations work on cropped images, not the full image
 
         # crop signals
-        self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop) 
-        self.view.crop_groupbox.cancel_crop_button.triggered.connect(self.view.canvas.endCrop)
+        self.view.crop_groupbox.crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(True)) 
+        self.view.crop_groupbox.cancel_crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(False))
         
         # confirm rotate signal
 

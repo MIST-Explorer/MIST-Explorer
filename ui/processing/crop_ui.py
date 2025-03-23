@@ -13,10 +13,10 @@ class CropUI(QWidget):
         cropAction = Action(self.crop_groupbox, "cropAction", "assets/icons/crop.png")
         self.crop_button.setDefaultAction(cropAction)
         self.crop_button.setIconSize(QSize(40,40))
-
         self.cancel_crop_button = QToolButton(self.crop_groupbox)
         cancel_cropAction = Action(self.crop_groupbox, "cancelCropAction", "assets/icons/cross.png")
         self.cancel_crop_button.setDefaultAction(cancel_cropAction)
+
         self.cancel_crop_button.setIconSize(QSize(40,40))
 
         croplayout = QHBoxLayout(self.crop_groupbox)

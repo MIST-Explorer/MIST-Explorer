@@ -6,6 +6,7 @@ from PIL import Image, ImageSequence
 import cv2
 import time
 
+
 def numpy_to_qimage(array:np.ndarray) -> QImage:
 
     if not array.data.contiguous:

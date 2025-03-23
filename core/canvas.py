@@ -6,7 +6,7 @@ import cv2, matplotlib as mpl
 import time
 from core.Worker import Worker
 from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
-
+from ui.Dialogs import ImageDialog
 
 class ImageWrapper:
     def __init__(self, data, name="", cmap="gray"):
@@ -293,7 +293,11 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.channelLoaded.emit(self.np_channels, False)
             # self.currentChannelNum = 1
             print("current channel: ", self.currentChannelNum + 1)
-            layered_data = self.reset_np_channels.get(f"Channel {self.currentChannelNum + 1}").data
+
+            channel_num = f"Channel {self.currentChannelNum + 1}"
+            self.image = self.np_channels.get(channel_num).data
+
+            layered_data = self.reset_np_channels.get(channel_num).data
             self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
             self.toPixmapItem(self.reset_pixmap)
 
@@ -305,9 +309,11 @@ class ImageGraphicsView(__BaseGraphicsView):
         for wrapper in channels.values():
             try:
                 arr = wrapper.data
+                cmap = wrapper.cmap
+                print("cmap: ", cmap)
                 if not arr.data.contiguous:
                     print("converting to contiguous array")
-                    channel = np.ascontiguousarray(channel, dtype='uint8')
+                    arr = np.ascontiguousarray(arr, dtype='uint16')
             except Exception as e:
                 print("error: ", str(e))
 
@@ -322,9 +328,9 @@ class ImageGraphicsView(__BaseGraphicsView):
             rotation_matrix[0,2] += (updated_w/2) - w/2
             rotation_matrix[1,2] += (updated_h/2) - h/2
             rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
-
+            rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
             #append to rotated array list
-            rotated_arrays.append(ImageWrapper(rotated_arr))
+            rotated_arrays.append(rotated_wrapper)
         # convert to qimage
         # rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
@@ -350,12 +356,13 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.np_channels = rotated_channels
 
         channel_image = list(self.np_channels.values())[self.currentChannelNum].data
+        channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
         channel_image = scale_adjust(channel_image)
         self.image = channel_image
-        channel_qimage = numpy_to_qimage(channel_image)
-        channel_pixmap = QPixmap(channel_qimage)
-        rotated_pixmapItem = QGraphicsPixmapItem(channel_pixmap)
-        self.canvasUpdated.emit(channel_pixmap)
+        # channel_qimage = numpy_to_qimage(channel_image)
+        # channel_pixmap = QPixmap(channel_qimage)
+        # self.canvasUpdated.emit(channel_pixmap)
+        self.change_cmap(channel_cmap)
         self.channelLoaded.emit(self.np_channels, False)
 
     @pyqtSlot(str)
@@ -507,10 +514,60 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         self.toPixmapItem(blurred_pixmap)
 
+    def showCroppedImage(self, image_rect):
+        """Show dialog with cropped image preview"""
+        pixmap = self.pixmap 
+        # q_im = list(self.np_channels.values())[self.currentChannelNum]
+        # pix = QPixmap(utils.numpy_to_qimage(q_im))
+        cropped = pixmap.copy(image_rect).toImage()
+        cropped_pixmap = QPixmap(cropped)
+        self.crop_dialog = ImageDialog(self, cropped_pixmap)
+        self.crop_dialog.exec()
 
+        if self.crop_dialog.confirm_crop:
+            self.crop_worker = Worker(self.cropImageTask, image_rect)
+            self.crop_worker.signal.connect(self.onCropCompleted) 
+            self.crop_worker.finished.connect(self.crop_worker.quit)
+            self.crop_worker.finished.connect(self.crop_worker.deleteLater)
+            self.crop_worker.start()
+        else:
+            self.cropSignal.emit(False)
 
+    cropSignal = pyqtSignal(bool)
+    @pyqtSlot(dict)
+    def onCropCompleted(self, cropped_images: dict):
+        """Handle completed crop operation"""
+        # self.cropSignal.emit(cropped_images, False)
+        self.np_channels = cropped_images
+        self.image = self.np_channels.get(f"Channel {self.currentChannelNum + 1}").data
+        self.cropSignal.emit(True)
 
+    def cropImageTask(self, image_rect) -> dict:
+        """Process crop in background thread"""
+        cropped_wrapper = {}
+        left = image_rect.x()
+        top = image_rect.y()
+        right = image_rect.right()
+        bottom = image_rect.bottom()        
 
+        for channel_name, image_arr in self.np_channels.items():
+            arr = image_arr.data
+            cmap = image_arr.cmap
+            cropped_array = arr[top:bottom+1, left:right+1]
+            if not cropped_array.data.contiguous:
+                cropped_array = np.ascontiguousarray(cropped_array, dtype="uint16")
+
+            cropped_wrapper[channel_name] = ImageWrapper(cropped_array, cmap=cmap)
+
+        # # Ensure arrays are contiguous for further processing
+        # cropped_arrays_cont = {
+        #     key: np.ascontiguousarray(a, dtype="uint16")
+        #     for key, a in cropped_arrays.items() 
+        #     if not a.data.contiguous
+        # }
+
+        return cropped_wrapper
+    
     
 
 

@@ -15,7 +15,6 @@ from PyQt6.QtCore import (
     QPropertyAnimation, QEasingCurve, QRectF, QSizeF,
 )
 
-from core.canvas import ImageWrapper
 import numpy as np
 import cv2
 import pandas as pd
@@ -245,7 +244,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 class ImageGraphicsViewUI(QGraphicsView):
     """Main image view with support for selection, cropping and other operations"""
     imageDropped = pyqtSignal(str)
-    cropSignal = pyqtSignal(dict, bool)
+    showCrop = pyqtSignal(QRect)
     
     def __init__(self, parent=None, enc=None):
         super().__init__(parent)
@@ -658,7 +657,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                     int(image_pos.y() - self.starting_y)
                 ).normalized()
                 
-                self.showCroppedImage(self.image_rect)
+                self.showCrop.emit(self.image_rect)
 
             if self.select:
                 
@@ -681,48 +680,48 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.circle_select = False
                 self.origin = None
 
-    def showCroppedImage(self, image_rect):
-        """Show dialog with cropped image preview"""
-        pixmap = self.pixmapItem.pixmap()
-        # q_im = list(self.np_channels.values())[self.currentChannelNum]
-        # pix = QPixmap(utils.numpy_to_qimage(q_im))
-        cropped = pixmap.copy(image_rect).toImage()
-        cropped_pix = QPixmap(cropped)
-        self.dialog = Dialogs.ImageDialog(self, cropped_pix)
-        self.dialog.exec()
+    # def showCroppedImage(self, image_rect):
+    #     """Show dialog with cropped image preview"""
+    #     pixmap = self.pixmapItem.pixmap()
+    #     # q_im = list(self.np_channels.values())[self.currentChannelNum]
+    #     # pix = QPixmap(utils.numpy_to_qimage(q_im))
+    #     cropped = pixmap.copy(image_rect).toImage()
+    #     cropped_pix = QPixmap(cropped)
+    #     self.dialog = Dialogs.ImageDialog(self, cropped_pix)
+    #     self.dialog.exec()
 
-        if self.dialog.confirm_crop:
-            self.crop_worker = Worker(self.cropImageTask, image_rect)
-            self.crop_worker.signal.connect(self.onCropCompleted) 
-            self.crop_worker.finished.connect(self.crop_worker.quit)
-            self.crop_worker.finished.connect(self.crop_worker.deleteLater)
-            self.crop_worker.start()
-        else:
-            self.endCrop()
+    #     if self.dialog.confirm_crop:
+    #         self.crop_worker = Worker(self.cropImageTask, image_rect)
+    #         self.crop_worker.signal.connect(self.onCropCompleted) 
+    #         self.crop_worker.finished.connect(self.crop_worker.quit)
+    #         self.crop_worker.finished.connect(self.crop_worker.deleteLater)
+    #         self.crop_worker.start()
+    #     else:
+    #         self.endCrop()
 
-    def cropImageTask(self, image_rect) -> dict:
-        """Process crop in background thread"""
-        cropped_arrays = {}
-        left = image_rect.x()
-        top = image_rect.y()
-        right = image_rect.right()
-        bottom = image_rect.bottom()        
+    # def cropImageTask(self, image_rect) -> dict:
+    #     """Process crop in background thread"""
+    #     cropped_arrays = {}
+    #     left = image_rect.x()
+    #     top = image_rect.y()
+    #     right = image_rect.right()
+    #     bottom = image_rect.bottom()        
 
-        for channel_name, image_arr in self.np_channels.items():
-            print(type(image_arr.data))
-            cropped_array = image_arr.data[top:bottom+1, left:right+1]
-            print(type(cropped_array))
-            cropped_arrays[channel_name] = cropped_array
+    #     for channel_name, image_arr in self.np_channels.items():
+    #         print(type(image_arr.data))
+    #         cropped_array = image_arr.data[top:bottom+1, left:right+1]
+    #         print(type(cropped_array))
+    #         cropped_arrays[channel_name] = cropped_array
 
-        # Ensure arrays are contiguous for further processing
-        cropped_arrays_cont = {
-            key: ImageWrapper(np.ascontiguousarray(a, dtype="uint16"))
-            for key, a in cropped_arrays.items() 
-            if not a.data.contiguous
-        }
-        print("cropped type: ", type(cropped_arrays_cont.get("Channel 1")))
+    #     # Ensure arrays are contiguous for further processing
+    #     cropped_arrays_cont = {
+    #         key: ImageWrapper(np.ascontiguousarray(a, dtype="uint16"))
+    #         for key, a in cropped_arrays.items() 
+    #         if not a.data.contiguous
+    #     }
+    #     print("cropped type: ", type(cropped_arrays_cont.get("Channel 1")))
 
-        return cropped_arrays_cont
+    #     return cropped_arrays_cont
     
 
 
@@ -746,30 +745,29 @@ class ImageGraphicsViewUI(QGraphicsView):
     def show_message(self, message):
         QMessageBox.information(self, "Selection", message)
 
-    @pyqtSlot(dict)
-    def onCropCompleted(self, cropped_images: dict):
-        """Handle completed crop operation"""
-        self.cropSignal.emit(cropped_images, False)
-        self.endCrop()
+    # @pyqtSlot(dict)
+    # def onCropCompleted(self, cropped_images: dict):
+    #     """Handle completed crop operation"""
+    #     self.cropSignal.emit(cropped_images, False)
+    #     self.endCrop()
 
-    def startCrop(self):
-        """Enter crop mode"""
-        self.begin_crop = True
-        self.setCursor(self.crop_cursor)
+    def set_crop_status(self, status):
+        """Enter and exit crop mode"""
+        if status:
+            self.begin_crop = True
+            self.setCursor(self.crop_cursor)
+        else:
+            self.begin_crop = False
+            self.unsetCursor()
         
-    def endCrop(self):
-        """Exit crop mode"""
-        self.begin_crop = False
-        self.unsetCursor()
+    # def endCrop(self):
+    #     """Exit crop mode"""
+    #     self.begin_crop = False
+    #     self.unsetCursor()
         
     def loadChannels(self, np_channels):
         """Load channel data"""
         self.np_channels = np_channels
-        # self.channels = self.__numpy2QImageDict(self.np_channels)
-        
-    def __numpy2QImageDict(self, numpy_channels_dict: dict) -> dict:
-        """Convert numpy arrays to QImage objects"""
-        return {key: utils.numpy_to_qimage(arr) for key, arr in numpy_channels_dict.items()} 
     
     def setCurrentChannel(self, channel_num: int) -> None:
         """Set the current channel to display"""
