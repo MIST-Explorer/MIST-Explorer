@@ -1,22 +1,23 @@
 from PyQt6.QtGui import QPainter, QPen, QColor, QPolygon, QBrush, QPainterPath, QPolygonF
 from PyQt6.QtCore import Qt, QPoint, QRect, QPointF, QRectF
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPolygonItem
+import random
 
 class PolyLasso(QGraphicsPolygonItem):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.points = []  # Store scene coordinates
-        self.color = QColor(0, 0, 255, 100)  # Fill color (semi-transparent)
-        self.line_color = QColor(0, 0, 255)  # Line color (solid)
+        col = self._get_random_color()[:3]
+        self.color = QColor(*col, 100)
+        self.line_color = QColor(*col)  # Line color (solid)
         self.point_color = QColor(255, 0, 0)  # Point marker color (red)
         self.completed = False
         self.temp_line_point = None  # To draw a temporary line following the cursor
-        self.point_size = 6  # Size of the point markers
+        self.point_size = 10  # Size of the point markers
         self.im_points = []  # Store image coordinates
-
-        # Set flags to make the polygon selectable and movable
+        
+        # Only make it selectable, not movable since it should move with the image
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         
         # Set the Z value to ensure it's drawn above the image
         self.setZValue(1)
@@ -24,6 +25,12 @@ class PolyLasso(QGraphicsPolygonItem):
         # Set up the appearance
         self.setPen(QPen(self.line_color, 2))
         self.setBrush(QBrush(self.color))
+
+       
+        
+    def _get_random_color(self):
+        return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
+    
 
     def add_point(self, scene_point, image_point=None):
         """Add a point to the polygon in scene coordinates"""
@@ -133,3 +140,13 @@ class PolyLasso(QGraphicsPolygonItem):
         max_y = max(ys) + self.point_size
         
         return QRectF(min_x, min_y, max_x - min_x, max_y - min_y)
+
+    def set_filled(self, filled):
+        """Toggle the fill state of the polygon"""
+        if self.completed:
+            if filled:
+                self.color.setAlpha(100)  # Fill with semi-transparency
+            else:
+                self.color.setAlpha(0)  # Make completely transparent
+            self.setBrush(QBrush(self.color))  # Update the brush with new color
+            self.update()  # Force a redraw
