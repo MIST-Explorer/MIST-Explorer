@@ -21,8 +21,8 @@ class ToolBarUI(QWidget):
         self.__addActions()
         self.__retranslateUI()
 
-    def updateChannels(self, channels):
-        self.np_channels = channels
+    # def updateChannels(self, channels):
+    #     self.np_channels = channels
 
     def updateChannelSelector(self, channels:dict, clear=False):
         print("in toolbar, clearing?", clear)
@@ -76,7 +76,7 @@ class ToolBarUI(QWidget):
 
         # Create other actions
         self.actionRotate = Action(parent, "actionRotate", "assets/icons/rotate-right.png")
-        self.actionReset = Action(parent, "actionReset", "assets/icons/home.png")
+        self.actionReset = Action(parent, "actionReset", "assets/icons/reset.png")
         
         self.actionOpenBrightnessContrast = Action(parent, "actionBC", "assets/icons/brightness.png")
         # self.operatorComboBox = QComboBox(parent)
@@ -162,8 +162,8 @@ class ToolBarUI(QWidget):
 
         print("the min is, " f'{min}')
         print("the max is, " f'{max}')
-        self.contrastSlider.setMinimum(min)
-        self.contrastSlider.setMaximum(max)
+        self.contrastSlider.setValue((min, max))
+        print("slider updated")
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate

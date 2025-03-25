@@ -34,8 +34,8 @@ class Controller:
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
         # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
         self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
-        self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
-        self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
+        # self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
+        # self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
         # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
@@ -51,7 +51,7 @@ class Controller:
         self._small_view.channelLoaded.connect(self.view.small_view.load_channels)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
-        self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channel combobox
+        # self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channels
         self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
         self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
         self.model_canvas.channelLoaded.connect(self.view.register_groupbox.updateChannelSelector) #update stardist channel combobox
@@ -64,11 +64,13 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
-        self.view.canvas.cropSignal.connect(self.model_canvas.updateChannels) #need to update self.np_channels so later transformations work on cropped images, not the full image
-        
+        self.view.canvas.showCrop.connect(self.model_canvas.showCroppedImage)
+        self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status) #need to update self.np_channels so later transformations work on cropped images, not the full image
+    #need to update self.np_channels so later transformations work on cropped images, not the full image
+
         # crop signals
-        self.view.crop_groupbox.crop_button.triggered.connect(self.view.canvas.startCrop) 
-        self.view.crop_groupbox.cancel_crop_button.triggered.connect(self.view.canvas.endCrop)
+        self.view.crop_groupbox.crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(True)) 
+        self.view.crop_groupbox.cancel_crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(False))
         
         # confirm rotate signal
 

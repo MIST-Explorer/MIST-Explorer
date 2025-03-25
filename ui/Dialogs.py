@@ -348,7 +348,7 @@ class ImageDialog(QDialog):
 
     def confirm(self):
         self.confirm_crop = True
-        self.canvas.updateCanvas(self.cropped_pixmapItem)
+        self.canvas.toPixmapItem(self.cropped_image)
         self.accept()
 
     def cancel(self):
