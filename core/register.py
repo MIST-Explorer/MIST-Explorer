@@ -38,20 +38,10 @@ class Register(QThread):
         self.tifs = (
             { 
                 "image_dict": self.cycle_channels,
-                # "path": r"testing/test/protein signal.ome.tif", 
-                # "flor_layers": [2, 3],   # this actually does not do anything in this program
-                # "alignment_layer": 0, #alignment layer
-                # "pystack_transforms" : [],
-                # "sitk_transforms": [] 
             },
 
             {
                 "image_dict": self.np_channels,
-                # "path": r"testing/test/cycle_1.ome.tif", 
-                # "flor_layers": [3, 4, 5], # this actually doesnot do anything in this program
-                # "alignment_layer": 0,
-                # "pystack_transforms" : [],
-                # "sitk_transforms": []
             },
         )
     def runRegister(self):
@@ -181,23 +171,14 @@ class Register(QThread):
                 bf = file[f'Channel {layer_number + 1}'] # channels are index 1
                 bf1 = bf1_f[f'Channel {layer_number + 1}']  #channels are index 1 # this is the basis
              
-                # bf1_f.seek(layer_number)
-                
-
-                # file.seek(layer_number) 
-                # bf = np.array(file)
-                # bf1 = np.array(bf1_f)
-
 
                 if bf.shape[0] < m:
                     raise Exception("too small! only", bf.shape[0], m)
                     continue
 
-                # bf = sc(bf)
-                # bf1 = sc(bf1)
+
                 
                 bf = bf[0:m, 0:m]
-                # bf = adjust_contrast(bf, 50, 99)
                 
                 dest = Image.fromarray(np.zeros((m, m), dtype="float"))  #need to determine the final bit size
                 
@@ -207,7 +188,6 @@ class Register(QThread):
                     corresponding_tile = None
                     
                     if transforms == None:
-                        # print("transforms is none")
                         corresponding_tile = moving_map.get_tile_by_center(bf, x, y)[ymin: ymin + radius * 2, xmin: xmin + radius * 2]
             
                     else:
@@ -220,7 +200,6 @@ class Register(QThread):
                         source = moving_map.get_tile_by_center(bf, x, y).astype(float)
                         target = moving_map.get_tile_by_center(bf1, x, y).astype(float)
 
-                        # registered = source
                         
                         
                         registered, footprint = aa.apply_transform(transf, source, target)
@@ -242,22 +221,13 @@ class Register(QThread):
             
                 dest_arr = np.array(dest)
                 new_registered_tif.append(dest_arr)
-                # print(dest_arr.shape)
-                # testing!
-            #     dest.convert("L").save(f"layer{i}registered.png")
-
-            #     print(f"saved layer{i}registered.png")
-
-            #     break
-
-            # continue
+ 
 
             new_registered_tif = [x.astype("uint16") for x in new_registered_tif]
             new_registered_tif = np.stack(new_registered_tif)
 
             print(new_registered_tif.shape)
             aligned_protein_signal = new_registered_tif
-            # skimage.io.imsave(f"C:\\Users\\Administrator\\Desktop\\Clark Fischer's Files\\test_{i}.tif", new_registered_tif)
 
         self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
         # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
@@ -343,14 +313,6 @@ class Register(QThread):
         source = moving_img.copy()
         target = fixed_img.copy()
 
-        # check source and target data type
-        # if target.dtype != "uint8":
-        #     target = scale(target)
-
-        # if source.dtype != "uint8":
-        #     source = scale(source)
-        # source = convert_to_rgb_image(source)
-        # target = convert_to_rgb_image(target)
 
         source = np.clip(source,128, 255 )-128  # to remove most gradient of background
         target = np.clip(target, 128, 255)-128  # to remove most gradient of background
@@ -430,9 +392,6 @@ class Register(QThread):
                 return sitk.Resample(image, reference_image, transform,
                                     interpolator, default_value)
 
-    # def remove_large_blobs(self, image):
-    #     out = inputs[24][0] - np.array(dip.AreaOpening(inputs[24][0], filterSize=150, connectivity=2))
-    #     return np.array(out)
 
 
     def equalize_shape(self, cy1_rescale, cy2_rescale):
@@ -465,6 +424,7 @@ class Register(QThread):
         if not self.np_channels is None:
             self.imageReady.emit(True)
             print("cycle image updated")
+            
     def cancel(self):
 
         # self.exit? 

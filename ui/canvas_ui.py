@@ -596,6 +596,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 else:                    
                     QToolTip.showText(global_pos, f"R: {r}, G: {g}, B: {b}", self)
 
+                combined_layers = None
                 # Update position display in main window
                 if combined_layers:
                     combined_layers = combined_layers.replace("\n", ", ")

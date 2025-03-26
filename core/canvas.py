@@ -191,23 +191,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         else:
             print("data is a numpy array")
             self.pixmap = QPixmap(numpy_to_qimage(data))
-        
-        # if hasattr(self, 'pixmapItem') and self.pixmapItem:
-        #     print("pixmapItem already exists")
-        #     self.pixmapItem.setPixmap(self.pixmap)  # update the pixmap of the existing item
-        # else:
-        #     print('creating new pixmap item')
-        #     self.pixmapItem = QGraphicsPixmapItem(self.pixmap)  # create a new item if it doesn't exist
-        
-        # if not self.image is None and not self.image.dtype == np.uint8:
-        #     print("debug here")
-        #     image_uint8 = scale_adjust(self.image)
-        # else:
-        #     raise ValueError("there was an error")
-
-        # self.changeSlider.emit((image_uint8.min(), image_uint8.max()))
-        
-        print("type of self.pixmap is: ", type(self.pixmap))
+    
         self.canvasUpdated.emit(self.pixmap)
     
     update_cmap = pyqtSignal(str)
@@ -215,7 +199,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         '''updates the current image using the current colormap and contrast settings'''
         lut = self.generate_lut(cmap_text)
         adjusted_uint8 = scale_adjust(self.image)
-        print("cmap current channel num: ", self.currentChannelNum)
         channel_num = f"Channel {self.currentChannelNum + 1}"
         self.np_channels[channel_num].cmap = cmap_text
         rgb = self.label2rgb(adjusted_uint8, lut).astype(np.uint8)
@@ -265,7 +248,6 @@ class ImageGraphicsView(__BaseGraphicsView):
             image = scale_adjust(image)
 
         qimage = numpy_to_qimage(image)
-        print("file", qimage.format())
         pixmap = QPixmap(qimage)
         self.reset_pixmap=pixmap
         self.reset_pixmapItem = QGraphicsPixmapItem(pixmap)
@@ -295,12 +277,9 @@ class ImageGraphicsView(__BaseGraphicsView):
         '''resets the image to original state'''
         if self.pixmapItem: 
 
-            print("resetting image changes")
             import copy
             self.np_channels = copy.deepcopy(self.reset_np_channels)
             self.channelLoaded.emit(self.np_channels, False)
-            # self.currentChannelNum = 1
-            print("current channel: ", self.currentChannelNum + 1)
 
             channel_num = f"Channel {self.currentChannelNum + 1}"
             self.image = self.np_channels.get(channel_num).data
@@ -334,16 +313,12 @@ class ImageGraphicsView(__BaseGraphicsView):
             rotation_matrix[1,2] += (updated_h/2) - h/2
             rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
 
-            # create new wrapper object if not exists, else just set new cmap:
             self.rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
-
 
             #append to rotated array list
             rotated_arrays.append(self.rotated_wrapper)
         # convert to qimage
-        # rotated_images = [numpy_to_qimage(array) for array in rotated_arrays]
         print(time.time()-t)
-        # return dict(zip(channels.keys(), rotated_images)), dict(zip(channels.keys(), rotated_arrays))
         return  dict(zip(channels.keys(), rotated_arrays))
     def rotateImage(self, angle_text: str):
         try:
@@ -379,24 +354,18 @@ class ImageGraphicsView(__BaseGraphicsView):
         print(f"Error: {error_message}")
 
     def updateChannels(self, channels:dict, clear:bool) -> None: #cropsignal will update this
-
-        print("update_channels", type(self.np_channels["Channel 1"].data))
         self.np_channels = channels # replace channels with new, cropped/rotated, etc
         self.channelLoaded.emit(self.np_channels, clear)
 
 
     def updateCurrentImage(self, data_dict):
         self.image = data_dict[f"Channel {self.currentChannelNum + 1}"].data
-        print(type(self.image))
-
-        print("self.image updated")
 
 
     def swapChannel(self, index):
         '''swaps between channels of a multi-layered tiff image'''
         channel_num = f'Channel {index+1}'
         self.currentChannelNum = index
-        print("swap channel current channel num ", self.currentChannelNum)
 
         self.image = self.np_channels.get(channel_num).data # self.image always needs to be updated. this is the current image that is being operated on
         
@@ -416,9 +385,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.np_channels.get(channel_num).contrast_min = min_val
         self.np_channels.get(channel_num).contrast_max = max_val
 
-        # self.contrast_worker = Worker(self.apply_contrast, min_val, max_val)
-        # self.contrast_worker.start()
-        # self.contrast_worker.signal.connect(self.contrast_complete)
 
         contrast_image = self.apply_contrast(min_val, max_val)
         
@@ -426,16 +392,8 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         self.canvasUpdated.emit(contrastPixmap)
 
-        print("emitting change slider")
         self.changeSlider.emit((min_val, max_val))
 
-
-    # def contrast_complete(self, data):
-    #     self.contrast_worker_running = False
-    #     contrastPix = QGraphicsPixmapItem(QPixmap(numpy_to_qimage(data)))
-    #     self.canvasUpdated.emit(contrastPix)
-    #     self.contrast_worker.finished.connect(self.contrast_worker.wait)
-    #     self.contrast_worker.finished.connect(self.contrast_worker.deleteLater)
 
     def auto_contrast(self, lower = 0.1, upper=.9):
         channel_num = f"Channel {self.currentChannelNum + 1}"
@@ -450,7 +408,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         new_min= np.argmax(cumulative_hist > lower)  
         new_max = np.argmax(cumulative_hist > upper)  
 
-        print(new_min, new_max)
         self.update_contrast((new_min, new_max))
 
     def apply_contrast(self, new_min, new_max):
@@ -469,43 +426,41 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         return lut
     
-    def set_blur_layer(self, layer):
-        self._blur_layer = layer
-        print("blur layer: ", layer+1)
+    # def set_blur_layer(self, layer):
+    #     self._blur_layer = layer
 
-    def set_blur_percentage(self, blur_percentage):
-        self._blur_percentage = blur_percentage
-        print("blur percentage: ", self._blur_percentage)
+    # def set_blur_percentage(self, blur_percentage):
+    #     self._blur_percentage = blur_percentage
+    #     print("blur percentage: ", self._blur_percentage)
 
-    def blur_layer(self):
+    def blur_layer(self, blur_percentage:float, confirm=False):
         """
         Applies Gaussian blur chosen of the image stack and subtracts
         the specified percentage of the blurred image from the original.
         """
-        self.updateProgress.emit(0, "Starting")
-        blur_percentage = self._blur_percentage
-        layer = self._blur_layer
-        layer_key = f'Channel {layer + 1}'
-        layer_to_blur = self.np_channels[layer_key].data
-        self.updateProgress.emit(50, "blurring layer")
-        print("blur layer: ", layer_key)
+        self._blur_layer = f'Channel {self.currentChannelNum+ 1}'
+        if not confirm:
+            
+            # blur_percentage = self._blur_percentage
+            layer_to_blur = self.np_channels[self._blur_layer].data
 
-        blurred_mask = cv2.GaussianBlur(layer_to_blur, (101, 101), 0)
-        blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
-        corrected_layer = cv2.subtract(layer_to_blur, blurred_mask_adjusted)
-        corrected_layer = np.clip(corrected_layer, 0, 65535).astype(np.uint16)
-        self.image = corrected_layer
-        cmap = self.np_channels[layer_key].cmap
-        if not self.np_channels.get(layer_key) == None:
-            self.np_channels[layer_key].data = corrected_layer # Replace with the corrected version
-
-            self.channelLoaded.emit(self.np_channels, False)
-            self.updateProgress.emit(100, "Done")
-            # blurred_pixmap = QPixmap(numpy_to_qimage(corrected_layer_4))
-
+            blurred_mask = cv2.GaussianBlur(layer_to_blur, (101, 101), 0)
+            blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
+            self.corrected_layer = cv2.subtract(layer_to_blur, blurred_mask_adjusted)
+            self.corrected_layer = np.clip(self.corrected_layer, 0, 65535).astype(np.uint16)
+            cmap = self.np_channels[self._blur_layer].cmap
+            self.image = self.corrected_layer
             self.change_cmap(cmap)
+
         else:
             print("Error from gaussian blur")
+
+
+        if confirm and hasattr(self, "corrected_layer") and (not self.np_channels.get(self._blur_layer) == None):
+            self.np_channels[self._blur_layer].data = self.corrected_layer # Replace with the corrected version
+            self.channelLoaded.emit(self.np_channels, False)
+            self.updateProgress.emit(100, f"Replaced {self._blur_layer}")
+            
 
     def showCroppedImage(self, image_rect):
         """Show dialog with cropped image preview"""
@@ -529,14 +484,8 @@ class ImageGraphicsView(__BaseGraphicsView):
     def onCropCompleted(self, cropped_wrappers: dict):
         """Handle completed crop operation"""
         self.np_channels = cropped_wrappers
-
-
-
         channel_num = f"Channel {self.currentChannelNum + 1}"
         self.image = self.np_channels.get(channel_num).data
-
-        #update contrast
-
         self.cropSignal.emit(False)
 
     def cropImageTask(self, image_rect) -> dict:
@@ -553,24 +502,15 @@ class ImageGraphicsView(__BaseGraphicsView):
             if not cropped_array.data.contiguous:
                 cropped_array = np.ascontiguousarray(cropped_array, dtype="uint16")
 
-
             if not hasattr(self, "cropped_wrappers"):
                 self.cropped_wrappers = {}
-
 
             self.crop_wrapper = ImageWrapper(cropped_array, cmap=cmap)
             min, max = self.np_channels[channel_name].contrast_min, self.np_channels[channel_name].contrast_max
             self.crop_wrapper.contrast_min = min
             self.crop_wrapper.contrast_max = max
             self.update_contrast((min, max))
-            print("contrast: ", min, max) # at this point changes to 0 255
-
-
-
-
-
             self.cropped_wrappers[channel_name] = self.crop_wrapper
-
 
         return self.cropped_wrappers
     

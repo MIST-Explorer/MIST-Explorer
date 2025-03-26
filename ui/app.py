@@ -99,24 +99,23 @@ class Ui_MainWindow(QMainWindow):
         # rotate
         self.rotate_groupbox = RotateUI(self.preprocessing_tab)
         
-        self.gaussian_blur = GaussianBlur(self.preprocessing_tab)
         
         # layout crop and rotate next to each other
         self.rotate_crop_hlayout = QHBoxLayout()
         
         self.rotate_crop_hlayout.addWidget(self.crop_groupbox.crop_groupbox)
         self.rotate_crop_hlayout.addWidget(self.rotate_groupbox.rotate_groupbox)
-        self.rotate_crop_hlayout.addWidget(self.gaussian_blur.gaussian_blur)
+        # self.rotate_crop_hlayout.addWidget(self.gaussian_blur.gaussian_blur)
         self.rotate_crop_hlayout.setSpacing(3)
         
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
         self.register_groupbox = RegisterUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+        self.gaussian_blur = GaussianBlur(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
         self.cellIntensity_groupbox = CellIntensityUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
-        
         self.preprocessing_dockwidget_main_vlayout.addWidget(self.save_button)
 
         self.preprocessing_dockwidget_main_vlayout.setSpacing(5)
@@ -264,8 +263,3 @@ class Ui_MainWindow(QMainWindow):
             self.sidePanel.show()
             self.toggleButton.setText("◀")
 
-
-    # def reposition(self):
-    #     bigView_pos = self.canvas.mapTo(self.canvas.window(), QPoint(0, 0))
-
-        # Move smallView to the top-left corner of bigView

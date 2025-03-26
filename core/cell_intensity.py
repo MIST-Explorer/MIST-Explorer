@@ -173,8 +173,6 @@ class CellIntensity(QThread):
                 median_values_for_cell_data_dict[cell_id] = array_of_subarrays_medians
 
 
-
-
             # drop rows with NaN that pandas includes for some reason lol
             self.color_code = self.color_code.dropna(how='all', axis=1).dropna(how='all', axis=0)
             self.color_code = self.color_code.to_numpy()
@@ -252,27 +250,10 @@ class CellIntensity(QThread):
         
         radius_bg = self.params['radius_bg']
         radius_fg = self.params['radius_fg']
-        #     # get entire 13x13 region (or whatever size)
-        #     region = self.protein_signal_array[bead_y-radius_bg:bead_y+radius_bg+1, bead_x-radius_bg:bead_x+radius_bg+1]
-        #     # use boolean indexing to only get outside ring (donut)
-        #     bg_pixels = region[self.__background_bool_arr]
-        #     # use boolean indexing to only get inside (donut hole)
-        #     bead_pixels = region[self.__bead_bool_arr]
-
-        #     # find 80th percentile 
-        #     percentile_bg = np.percentile(bg_pixels, 80)
-        #     # adjust bead intensity relative to
-        #     return np.median(bg_pixels)- percentile_bg*0.3
-        # else:
-        #     return False
 
 
          # Extract the 5x5 region around the bead
         bead_region = self.protein_signal_array[bead_y-radius_fg:bead_y+radius_fg+1, bead_x-radius_fg:bead_x+radius_fg+1]
-
-        # Ensure the 5x5 region is valid
-        # if bead_region.shape != (5, 5):
-        #     return np.nan  # Handle invalid regions
 
         # Calculate the mean and median intensity of the 5x5 bead region
         mean_5x5 = np.mean(bead_region)
@@ -309,7 +290,6 @@ class CellIntensity(QThread):
 
         # Return the final adjusted bead median
         return bead_median
-
 
 
     # Define the linear function for the correction equation

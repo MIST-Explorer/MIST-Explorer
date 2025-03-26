@@ -80,9 +80,11 @@ class Controller:
 
         self.view.rotate_groupbox.rotate_confirm.pressed.connect(lambda: self.model_canvas.rotateImage(self.view.rotate_groupbox.rotate_line_edit.text()))
 
-        self.view.gaussian_blur.combo_box.currentIndexChanged.connect(self.model_canvas.set_blur_layer)
-        self.view.gaussian_blur.spin_box.valueChanged.connect(self.model_canvas.set_blur_percentage)
-        self.view.gaussian_blur.confirm.clicked.connect(self.model_canvas.blur_layer)
+        # self.view.gaussian_blur.combo_box.currentIndexChanged.connect(self.model_canvas.set_blur_layer)
+        # self.view.gaussian_blur.spin_box.valueChanged.connect(self.model_canvas.set_blur_percentage)
+        self.view.gaussian_blur.confirm.clicked.connect(lambda: self.model_canvas.blur_layer(0, confirm=True))
+        self.view.gaussian_blur.slider.doubleValueChanged.connect(self.view.gaussian_blur.update_slider_label)
+        self.view.gaussian_blur.slider.doubleValueChanged.connect(self.model_canvas.blur_layer)
 
         #stardist signals
         #change params

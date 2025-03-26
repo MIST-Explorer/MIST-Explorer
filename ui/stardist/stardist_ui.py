@@ -12,8 +12,6 @@ class StarDistUI(QWidget):
         # self.stardist_groupbox.setMinimumSize(QSize(300, 400))
         # self.stardist_groupbox.setMaximumSize(QSize(500, 300))
 
-
-        self.stardist_groupbox.setObjectName("stardist_groupbox")
         self.horizontalLayout_4 = QHBoxLayout(self.stardist_groupbox)
         self.stardist_components_vlayout = QVBoxLayout()
         self.stardist_components_vlayout.setSpacing(0)
@@ -121,7 +119,7 @@ class StarDistUI(QWidget):
 
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
-        self.stardist_groupbox.setTitle(_translate("MainWindow", "Stardist"))
+        self.stardist_groupbox.setTitle(_translate("MainWindow", "StarDist Cell Segmentation"))
         self.stardist_label1.setText(_translate("MainWindow", "Pre-trained 2D Model"))
         self.stardist_label2.setText(_translate("MainWindow", "Percentile Low"))
         self.stardist_label3.setText(_translate("MainWindow", "Percentile High"))
