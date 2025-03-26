@@ -240,6 +240,10 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.right_arrow.setZValue(2)
         self.left_arrow.setZValue(2)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        # self.move(int(self.parent.width() - 2*self.parent.width()), 10)
 
 class ImageGraphicsViewUI(QGraphicsView):
     """Main image view with support for selection, cropping and other operations"""
@@ -345,7 +349,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.width() - self.floating_container.width() - 20,
                 10
             )
-
+    
     def resizeEvent(self, event):
         """Handle resize events to update floating buttons position"""
         super().resizeEvent(event)
@@ -384,7 +388,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmapItem:
             print("updating canvas and setting pixmap")
             self.pixmapItem.setPixmap(pixmap)
-            self.__centerImage(self.pixmapItem)
+            # self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
     def saveImage(self):
@@ -680,50 +684,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                 self.circle_select = False
                 self.origin = None
 
-    # def showCroppedImage(self, image_rect):
-    #     """Show dialog with cropped image preview"""
-    #     pixmap = self.pixmapItem.pixmap()
-    #     # q_im = list(self.np_channels.values())[self.currentChannelNum]
-    #     # pix = QPixmap(utils.numpy_to_qimage(q_im))
-    #     cropped = pixmap.copy(image_rect).toImage()
-    #     cropped_pix = QPixmap(cropped)
-    #     self.dialog = Dialogs.ImageDialog(self, cropped_pix)
-    #     self.dialog.exec()
-
-    #     if self.dialog.confirm_crop:
-    #         self.crop_worker = Worker(self.cropImageTask, image_rect)
-    #         self.crop_worker.signal.connect(self.onCropCompleted) 
-    #         self.crop_worker.finished.connect(self.crop_worker.quit)
-    #         self.crop_worker.finished.connect(self.crop_worker.deleteLater)
-    #         self.crop_worker.start()
-    #     else:
-    #         self.endCrop()
-
-    # def cropImageTask(self, image_rect) -> dict:
-    #     """Process crop in background thread"""
-    #     cropped_arrays = {}
-    #     left = image_rect.x()
-    #     top = image_rect.y()
-    #     right = image_rect.right()
-    #     bottom = image_rect.bottom()        
-
-    #     for channel_name, image_arr in self.np_channels.items():
-    #         print(type(image_arr.data))
-    #         cropped_array = image_arr.data[top:bottom+1, left:right+1]
-    #         print(type(cropped_array))
-    #         cropped_arrays[channel_name] = cropped_array
-
-    #     # Ensure arrays are contiguous for further processing
-    #     cropped_arrays_cont = {
-    #         key: ImageWrapper(np.ascontiguousarray(a, dtype="uint16"))
-    #         for key, a in cropped_arrays.items() 
-    #         if not a.data.contiguous
-    #     }
-    #     print("cropped type: ", type(cropped_arrays_cont.get("Channel 1")))
-
-    #     return cropped_arrays_cont
-    
-
 
     def contextMenuEvent(self, event):
         # Create the menu
@@ -745,11 +705,6 @@ class ImageGraphicsViewUI(QGraphicsView):
     def show_message(self, message):
         QMessageBox.information(self, "Selection", message)
 
-    # @pyqtSlot(dict)
-    # def onCropCompleted(self, cropped_images: dict):
-    #     """Handle completed crop operation"""
-    #     self.cropSignal.emit(cropped_images, False)
-    #     self.endCrop()
 
     def set_crop_status(self, status):
         """Enter and exit crop mode"""

@@ -71,7 +71,12 @@ class Ui_MainWindow(QMainWindow):
         self.canvas.setMinimumSize(QSize(800, 500))
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
-        self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
+        # canvas_pos = self.canvas.mapTo(self.canvas.parent(), QPoint(50, 20))
+        self.small_view.setParent(self.canvas)
+        # self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
+
+        # # move small_view to the top left
+        # self.small_view.move(canvas_pos)
 
         ####### preprocess tab ###################################
         # Create scroll area for preprocessing tab
@@ -106,6 +111,7 @@ class Ui_MainWindow(QMainWindow):
         
         self.preprocessing_dockwidget_main_vlayout.addLayout(self.rotate_crop_hlayout)
         self.register_groupbox = RegisterUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
+
         # stardist UI
         self.stardist_groupbox = StarDistUI(self.preprocessing_tab, self.preprocessing_dockwidget_main_vlayout)
 
@@ -256,3 +262,9 @@ class Ui_MainWindow(QMainWindow):
         else:
             self.sidePanel.show()
             self.toggleButton.setText("◀")
+
+
+    # def reposition(self):
+    #     bigView_pos = self.canvas.mapTo(self.canvas.window(), QPoint(0, 0))
+
+        # Move smallView to the top-left corner of bigView

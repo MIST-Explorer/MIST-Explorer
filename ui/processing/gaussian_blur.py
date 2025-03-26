@@ -12,7 +12,8 @@ class GaussianBlur(QWidget):
         self.hor_layout = QHBoxLayout(self.gaussian_blur)
         self.components_layout = QHBoxLayout()
         self.spin_box = QDoubleSpinBox()
-        self.spin_box.setMaximum(100)
+        self.spin_box.setMaximum(1)
+        self.spin_box.setSingleStep(0.1)
         self.combo_box = QComboBox()
         self.combo_box.setMinimumWidth(80)
         self.confirm = QPushButton()
@@ -23,11 +24,6 @@ class GaussianBlur(QWidget):
         self.components_layout.setSpacing(0)
         self.hor_layout.addLayout(self.components_layout)
 
-        # self.__retranslateUI()
-
-    # def __retranslateUI(self):
-    #     _translate = QCoreApplication.translate
-    #     self.rotate_line_edit.setToolTip(_translate("MainWindow", "Enter degrees of rotation"))
     def updateChannelSelector(self, channels:dict):
         if self.combo_box.count() == 0:
             self.combo_box.addItems(list(channels.keys()))

@@ -40,8 +40,9 @@ class Controller:
         self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
         # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
         self.view.toolBar.auto_contrast_button.clicked.connect(self.model_canvas.auto_contrast)
-        self.model_canvas.changeSlider.connect(self.view.toolBar.updateContrastSlider)
+        # self.model_canvas.changeSlider.connect(self.view.toolBar.update_contrast_slider)
 
+        # self.view.canvas.resizeSignal.connect(self.view.reposition)
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
         self.view.small_view.imageDropped.connect(self._small_view.addImage)
         self._small_view.referenceViewAdded.connect(self.view.small_view.display)
@@ -65,8 +66,9 @@ class Controller:
         self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
         self.view.canvas.showCrop.connect(self.model_canvas.showCroppedImage)
-        self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status) #need to update self.np_channels so later transformations work on cropped images, not the full image
-    #need to update self.np_channels so later transformations work on cropped images, not the full image
+        self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status)
+        self.model_canvas.update_cmap.connect(self.view.toolBar.update_cmap_selector)
+        self.model_canvas.changeSlider.connect(self.view.toolBar.update_contrast_slider)
 
         # crop signals
         self.view.crop_groupbox.crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(True)) 

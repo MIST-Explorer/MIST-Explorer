@@ -17,12 +17,8 @@ class ToolBarUI(QWidget):
         parent.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
         self.__createActions(parent)
         self.__addCmaps()
-        # self.__addAllOps() #not used right now
         self.__addActions()
         self.__retranslateUI()
-
-    # def updateChannels(self, channels):
-    #     self.np_channels = channels
 
     def updateChannelSelector(self, channels:dict, clear=False):
         print("in toolbar, clearing?", clear)
@@ -157,13 +153,20 @@ class ToolBarUI(QWidget):
         self.toolbar.addWidget(self.auto_contrast_button)
         self.toolbar.addWidget(self.contrastSlider)
 
-    def updateContrastSlider(self, values):
+    def update_contrast_slider(self, values):
         min, max = values
 
-        print("the min is, " f'{min}')
-        print("the max is, " f'{max}')
-        self.contrastSlider.setValue((min, max))
+        print("the min is: " f'{min}')
+        print("the max is: " f'{max}')
+        self.contrastSlider.blockSignals(True)
+
+        self.contrastSlider.setValue(values)
+        self.contrastSlider.blockSignals(False)
+
         print("slider updated")
+
+    def update_cmap_selector(self, cmap_value):
+        self.cmapSelector.setCurrentText(cmap_value)
 
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
