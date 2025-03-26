@@ -264,7 +264,6 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.origin = None
         self.crop_cursor = QCursor(Qt.CursorShape.CrossCursor)
         self.select = False
-        self.circle_select = False
         self.zoom = 1
         self.polygons = []
         self.current_polygon = None
@@ -331,7 +330,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         # Connect button signals to selection modes
         self.rect_button.clicked.connect(lambda: self.set_selection_mode("rect"))
         self.circle_button.clicked.connect(lambda: self.set_selection_mode("circle"))
-        self.poly_button.clicked.connect(lambda: self.set_selection_mode("poly"))
+        self.poly_button.clicked.connect(lambda: self.enc.poly_select())
         
         # Add buttons to layout
         button_layout.addWidget(self.rect_button)
@@ -361,24 +360,21 @@ class ImageGraphicsViewUI(QGraphicsView):
         """Set the current selection mode"""
         # Reset all modes
         self.select = False
-        self.circle_select = False
         self.current_polygon = None
         
         # Set the new mode
         if mode == "rect":
             self.select = "rect"
-            self.setCursor(Qt.CursorShape.CrossCursor)
+            # self.setCursor(Qt.CursorShape.CrossCursor)
             self.enc.select();
         elif mode == "circle":
-            self.circle_select = True
-            self.setCursor(Qt.CursorShape.CrossCursor)
+            # self.setCursor(Qt.CursorShape.CrossCursor)
             self.enc.circle_select();
         elif mode == "poly":
             self.select = "poly"
-            self.setCursor(Qt.CursorShape.CrossCursor)
+            # self.setCursor(Qt.CursorShape.CrossCursor)
             self.enc.poly_select();
-        else:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
+        
 
     def isEmpty(self) -> bool:
         return self.pixmapItem is None
@@ -459,6 +455,9 @@ class ImageGraphicsViewUI(QGraphicsView):
             new_rect = QRect(new_top_left_view, new_bottom_right_view)
             rubber_band.setGeometry(new_rect)
 
+        # Force redraw to update polygon positions
+        self.viewport().update()
+
     def create_rubber_band(self, rubber_band_class, shape, x, y, parent, origin):
         """Create a rubber band of the specified class"""
         rubber_band = rubber_band_class(shape, x, y, self)
@@ -475,7 +474,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
-            if self.begin_crop or self.select or self.circle_select:
+            if self.begin_crop or self.select:
                 self.origin = event.pos()
                 self.update_starting_position(event)
 
@@ -485,27 +484,40 @@ class ImageGraphicsViewUI(QGraphicsView):
                 
                 elif self.select == "rect":
                     self.rubberBand = RectLasso(self)
+                    self.rubberBands.append(self.rubberBand)
+                    self.rubberBandColors.append(self.rubberBand.color)
+                    self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                    self.rubberBand.show()
+                    return
                 elif self.select == "circle":
                     self.center = QPoint(self.starting_x, self.starting_y)
                     self.rubberBand = CircleLasso(self)
+                    self.rubberBands.append(self.rubberBand)
+                    self.rubberBandColors.append(self.rubberBand.color)
+                    self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                    self.rubberBand.show()
+                    return
                 elif self.select == "poly":
                     if not self.current_polygon:
-                        self.current_polygon = PolyLasso()
+                        self.current_polygon = PolyLasso(self.pixmapItem)  # Set pixmapItem as parent
+                        self.scene().addItem(self.current_polygon)
                         # Enable mouse tracking for live preview
                         self.setMouseTracking(True)
 
-                    # Add the clicked point to the polygon
-                    self.current_polygon.add_point(event.pos())
-                    self.current_polygon.im_points.append(self.image_pos)
-                    # Force an immediate update for better responsiveness
-                    self.viewport().update()
+                    # Add point in scene coordinates, but relative to the image
+                    scene_pos = self.mapToScene(event.pos())
+                    image_pos = self.pixmapItem.mapFromScene(scene_pos)
+                    # Convert image_pos to scene coordinates relative to the image
+                    polygon_pos = self.pixmapItem.mapToScene(image_pos)
+                    self.current_polygon.add_point(polygon_pos, image_pos)
                     return
 
-                self.rubberBands.append(self.rubberBand)
-                self.rubberBandColors.append(self.rubberBand.color)
-                self.rubberBand.setGeometry(QRect(self.origin, QSize()))
-                self.rubberBand.show()
-                return
+                if self.begin_crop:
+                    self.rubberBands.append(self.rubberBand)
+                    self.rubberBandColors.append(self.rubberBand.color)
+                    self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                    self.rubberBand.show()
+                    return
             
         super().mousePressEvent(event)
         
@@ -516,63 +528,46 @@ class ImageGraphicsViewUI(QGraphicsView):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Return and self.current_polygon:
             # Complete the polygon
-            self.current_polygon.completed = True
-            self.polygons.append(self.current_polygon)
-            
-            # Get polygon coordinates for analysis if needed
-            if hasattr(self, 'enc') and hasattr(self.enc, 'analysis_tab'):
-                # try:
-
-                self.enc.analysis_tab.analyze_region(self.current_polygon, ("poly", self.current_polygon.im_points)) 
-                # except Exception as e:
-                #     print(f"Error analyzing polygon region: {e}")
-            
-            self.current_polygon = None
-            # Force a repaint to update the view
-            self.viewport().update()
+            if self.current_polygon.complete():
+                self.select = False
+                self.polygons.append(self.current_polygon)
+                
+                # Get polygon coordinates for analysis if needed
+                if hasattr(self, 'enc') and hasattr(self.enc, 'analysis_tab'):
+                    self.enc.analysis_tab.analyze_region(self.current_polygon, ("poly", self.current_polygon.im_points))
+                
+                self.current_polygon = None
+                
         # Handle escape key to cancel polygon drawing
         elif event.key() == Qt.Key.Key_Escape and self.current_polygon:
+            self.scene().removeItem(self.current_polygon)
             self.current_polygon = None
-            self.viewport().update()
 
     def paintEvent(self, event):
         super().paintEvent(event)
         
         # Create a painter for the viewport
-        painter = QPainter()
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Important: begin the painter properly
-        if painter.begin(self.viewport()):
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            
-            # Draw completed polygons
-            for polygon in self.polygons:
-                polygon.draw(painter)
-            
-            # Draw current polygon if it exists
-            if self.current_polygon:
-                # Update temporary preview point
-                if hasattr(self, 'last_mouse_pos') and self.last_mouse_pos:
-                    self.current_polygon.set_temp_point(self.last_mouse_pos)
-                self.current_polygon.draw(painter)
-                
-            painter.end()
+        # Draw rubber bands if needed
+        for rubber_band in self.rubberBands:
+            if rubber_band.isVisible():
+                # Trigger the rubber band's own paintEvent
+                rubber_band.paintEvent(event)
+        
+        painter.end()
 
     def mouseMoveEvent(self, event: QMouseEvent):
         super().mouseMoveEvent(event)
         
-        self.rubber_band_positions = []
-        combined_layers = ""
-        
         # Store current mouse position for polygon preview
-        self.last_mouse_pos = event.pos()
-        
-        # Force redraw for polygon preview if needed
         if self.current_polygon and len(self.current_polygon.points) > 0:
-            # Update temp point and ensure immediate redraw
-            self.current_polygon.set_temp_point(self.last_mouse_pos)
-            # Use a direct viewport repaint for better responsiveness 
-            self.viewport().update()
+            # Update temp point in scene coordinates relative to the image
+            scene_pos = self.mapToScene(event.pos())
+            image_pos = self.pixmapItem.mapFromScene(scene_pos)
+            polygon_pos = self.pixmapItem.mapToScene(image_pos)
+            self.current_polygon.set_temp_point(polygon_pos)
         
         # Handle pixel info display
         if self.pixmapItem:
@@ -615,17 +610,17 @@ class ImageGraphicsViewUI(QGraphicsView):
         if not self.isEmpty() and self.begin_crop and self.rubberBand:
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
                 
-        if self.select and self.rubberBands and self.origin is not None:
-            self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
-
-        if self.circle_select and self.rubberBands and self.origin is not None:
-            center = self.origin
-            corner = event.pos()
-            size = max(abs(center.x() - corner.x()), abs(center.y() - corner.y())) * 2
-            self.rubberBands[-1].setGeometry(QRect(center.x() - size // 2, center.y() - size // 2, size, size))
+        if (self.select == "rect" or self.select == "circle") and self.rubberBands and self.origin is not None:
+            if self.select == "circle":
+                center = self.origin
+                corner = event.pos()
+                size = max(abs(center.x() - corner.x()), abs(center.y() - corner.y())) * 2
+                self.rubberBands[-1].setGeometry(QRect(center.x() - size // 2, center.y() - size // 2, size, size))
+            else:
+                self.rubberBands[-1].setGeometry(QRect(self.origin, event.pos()).normalized())
 
         # Propagate event to rubber bands when not in selection mode
-        if not self.select and not self.circle_select:
+        if not self.select:
             for r in self.rubberBands:
                 r.mouseMoveEvent(event)
 
@@ -680,9 +675,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                 
                 
 
-            if self.circle_select:
-                self.circle_select = False
-                self.origin = None
 
 
     def contextMenuEvent(self, event):

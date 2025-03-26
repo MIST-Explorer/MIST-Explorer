@@ -12,7 +12,7 @@ class Lasso(QRubberBand):
         self.mouse_press_pos = None
         self.mouse_move_pos = None
         self.is_dragging = False
-    
+
     def _get_random_color(self):
         return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 50)
     

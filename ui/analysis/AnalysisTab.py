@@ -1,8 +1,38 @@
-# from PyQt6.QtWidgets import QStyledItemDelegate, QComboBox, QScrollArea, QVBoxLayout, QWidget, QLabel, QApplication, QPushButton, QHBoxLayout
+"""
+The `AnalysisTab` class is a QWidget that manages multiple views and associated
+graphs for data analysis, allowing navigation between views, selection of regions for analysis, and
+creation of various types of graphs based on selected regions and protein data.
+
+Features: 
+    ROI management: 
+        Here you will find the code that extracts the actual region of either the rect, circle, or poly lasso.
+        The data is filtered and passed to the graphing modules (which are lazy loaded)
+        Display of the ROIs (data about position, rubberband color, ) is managed here
+
+    And a crutial feature, NAVIGATION between the ROIs:
+        This code can be a little tricky. Essentially, we have the ROIS in self.rois which correspond to user selected regions of interest.
+        (sometimes, earlier in development, we called an ROI a "view" so if you see this in an analysis context it may be an ROI!)
+        For each ROI, there many be many graphs for that ROI in particular. 
+        As such, we track two indicies: the current graph # and the current ROI #.
+        The code to navigate between the ROIs is a little complex
+"""
+
+
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import pyqtSignal, QPoint
 from PyQt6.QtGui import QColor, QIcon, QTextCursor, QSyntaxHighlighter, QTextCharFormat, QFont
 from PyQt6.QtCore import pyqtSlot, Qt, QRegularExpression
+
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QGridLayout, QPushButton, QLabel, QVBoxLayout, QStackedWidget, QHBoxLayout
+)
+
+from PyQt6.QtGui import QStandardItemModel, QStandardItem
+from PyQt6.QtWidgets import QComboBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt
+import sys
+
 
 import sys
 import pandas as pd
@@ -30,12 +60,12 @@ class AnalysisTab(QWidget):
         super().__init__()
         self.enc = enc
 
-        # View management
-        self.views = []  # List to hold views
+        # roi management
+        self.rois = []  # List to hold views
         self.current_view_index = 0
 
         # Graph management
-        self.graphs = []  # List of lists to hold graphs for each view
+        self.graphs = []  # List of lists to hold graphs for each roi
         self.current_graph_index = 0
 
         # Selection management
@@ -58,8 +88,8 @@ class AnalysisTab(QWidget):
 
         self.save_button.clicked.connect(self.save_current_plot)
         
-        self.back_button.clicked.connect(self.navigate_to_previous_view)
-        self.next_button.clicked.connect(self.navigate_to_next_view)
+        self.back_button.clicked.connect(self.navigate_to_previous_roi)
+        self.next_button.clicked.connect(self.navigate_to_next_roi)
 
         nav_layout.addWidget(self.save_button)
         nav_layout.addWidget(self.back_button)
@@ -82,7 +112,9 @@ class AnalysisTab(QWidget):
         self.update_navigation_buttons()
 
     def create_floating_buttons(self):
-        """Create floating selection buttons that appear over the canvas"""
+        """
+        These are the buttons that float above the screen that allow the user to select a circle/rect/polygon lasso for ROI.
+        """
         # Create a container widget for the buttons
         self.floating_container = QWidget(self)
         self.floating_container.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -147,11 +179,21 @@ class AnalysisTab(QWidget):
     def update_navigation_buttons(self):
         """Update the state of navigation buttons based on current indices"""
         self.back_button.setEnabled(self.current_view_index > 0)
-        self.next_button.setEnabled(self.current_view_index < len(self.views) - 1)
+        self.next_button.setEnabled(self.current_view_index < len(self.rois) - 1)
 
-    def navigate_to_view(self, index):
-        """Navigate to a specific view by index"""
-        if not self.views or index < 0 or index >= len(self.views):
+    def navigate_to_roi(self, index):
+        """
+        The function `navigate_to_roi` navigates to a specific roi by index, updating the displayed
+        content and rubberband visibility accordingly.
+        
+        :param index: The `index` parameter in the `navigate_to_roi` method represents the position of
+        the roi that you want to navigate to within a list of views. It is used to determine which roi
+        should be displayed based on its index in the list of views
+        :return: The function `navigate_to_roi` returns a boolean value - `True` if the navigation to
+        the specific roi by index was successful, and `False` if the views list is empty or the index
+        is out of bounds.
+        """
+        if not self.rois or index < 0 or index >= len(self.rois):
             return False
             
         # Update rubberband visibility
@@ -161,32 +203,32 @@ class AnalysisTab(QWidget):
         # Clear current content
         self.clear_scroll_content()
 
-        # Add the view's widget
-        self.scroll_layout.addWidget(self.views[index])
+        # Add the roi's widget
+        self.scroll_layout.addWidget(self.rois[index])
         
-        # Update rubberband for new view
+        # Update rubberband for new roi
         if self.rubberbands:
             for i in range(len(self.rubberbands)):
                 self.rubberbands[i].set_filled(False)
             self.rubberbands[index].set_filled(True)
         
-        # Update current view index
+        # Update current roi index
         self.current_view_index = index
             
         self.update_navigation_buttons()
         return True
 
-    def navigate_to_next_view(self):
-        """Navigate to the next view if available"""
-        if self.current_view_index < len(self.views) - 1:
+    def navigate_to_next_roi(self):
+        """Navigate to the next roi if available"""
+        if self.current_view_index < len(self.rois) - 1:
             self.current_view_index += 1
-            self.navigate_to_view(self.current_view_index)
+            self.navigate_to_roi(self.current_view_index)
 
-    def navigate_to_previous_view(self):
-        """Navigate to the previous view if available"""
+    def navigate_to_previous_roi(self):
+        """Navigate to the previous roi if available"""
         if self.current_view_index > 0:
             self.current_view_index -= 1
-            self.navigate_to_view(self.current_view_index)
+            self.navigate_to_roi(self.current_view_index)
 
     def clear_scroll_content(self):
         """Clear all widgets from the scroll area"""
@@ -196,8 +238,8 @@ class AnalysisTab(QWidget):
                 widget.setParent(None)
 
     def delete_current_view(self):            
-        # Remove view and its associated data
-        self.views.pop(self.current_view_index)
+        # Remove roi and its associated data
+        self.rois.pop(self.current_view_index)
         self.graphs.pop(self.current_view_index)
         
         if self.rubberbands:
@@ -208,27 +250,27 @@ class AnalysisTab(QWidget):
             self.regions.pop(self.current_view_index)
         
         # Update navigation
-        if len(self.views) == 0:
+        if len(self.rois) == 0:
             self.clear_scroll_content()
             self.current_view_index = 0
         else:
             new_index = max(0, self.current_view_index - 1)
-            self.navigate_to_view(new_index)
+            self.navigate_to_roi(new_index)
             
         return True
 
     def add_graph_to_current_view(self, graph_widget):
-        """Add a graph to the current view"""
-        if not self.views:
+        """Add a graph to the current roi"""
+        if not self.rois:
             return False
             
         self.graphs[self.current_view_index].append(graph_widget)
-        self.navigate_to_view(self.current_view_index)
+        self.navigate_to_roi(self.current_view_index)
         return True
 
     def get_current_graph(self):
-        """Get the current graph from the current view"""
-        if not self.views or not self.graphs[self.current_view_index]:
+        """Get the current graph from the current roi"""
+        if not self.rois or not self.graphs[self.current_view_index]:
             return None
             
         graph = self.graphs[self.current_view_index][self.current_graph_index]
@@ -270,10 +312,10 @@ class AnalysisTab(QWidget):
         result_widget = self.create_analysis_result_widget(rubberband, region)
         
         # Add to views and navigate
-        self.views.append(result_widget)
+        self.rois.append(result_widget)
         self.graphs.append([])
-        self.current_view_index = len(self.views) - 1
-        self.navigate_to_view(self.current_view_index)
+        self.current_view_index = len(self.rois) - 1
+        self.navigate_to_roi(self.current_view_index)
         
         # Generate and add graphs
         self.generate_analysis_graphs(region)
@@ -289,11 +331,11 @@ class AnalysisTab(QWidget):
         # Create controls
         controls_layout = self.create_analysis_controls(rubberband, region)
         
-        # Create graph selection interface for this specific view
+        # Create graph selection interface for this specific roi
         graph_selection = self.create_graph_selection_interface()
         
-        # Store the graph interface widgets in a dictionary keyed by view index
-        view_index = len(self.views)  # This will be the index of the new view
+        # Store the graph interface widgets in a dictionary keyed by roi index
+        view_index = len(self.rois)  # This will be the index of the new roi
         if not hasattr(self, 'view_graph_interfaces'):
             self.view_graph_interfaces = {}
         self.view_graph_interfaces[view_index] = {
@@ -375,16 +417,16 @@ class AnalysisTab(QWidget):
         
         self.stacked_widget = QStackedWidget()
         
-        self.icon_list_page = IconListPage(
+        self.icon_list_page = GraphsList(
             icon_list=self.icon_list, 
             navigate_to_page=self.show_icon_detail_page, 
             icon_paths=self.icon_paths, 
             result_details_layout=None
         )
-        self.icon_detail_page = IconDetailPage(
+        self.icon_detail_page = GraphInDetail(
             navigate_back=self.show_icon_grid_page,
             open_in_new_window=self.open_in_new_window,
-            enclosing=self
+            parent=self
         )
 
         self.stacked_widget.addWidget(self.icon_list_page)
@@ -392,6 +434,86 @@ class AnalysisTab(QWidget):
 
         return self.stacked_widget
     
+
+    
+
+    def generate_analysis_graphs(self, region):
+        # Get filtered data
+        if self.regions[self.current_view_index][0] == "rect":
+            data = self.get_rect_data(region[1])
+        if self.regions[self.current_view_index][0] == "circle":
+            data = self.get_circle_data(region[1])
+        if self.regions[self.current_view_index][0] == "poly":
+            data = self.get_poly_data(region[1])
+        
+        # Create and add graphs
+        box_plot = self.create_box_plot(data)
+        self.add_graph_to_current_view(box_plot)
+        
+        graph_generators = [
+            lambda: ZScoreHeatmapWindow(data),
+            lambda: HeatmapWindow(data),
+            lambda: PieChartCanvas(data),
+            lambda: DistributionViewer(data),
+            lambda: UMAPVisualizer()
+        ]
+        
+        for generator in graph_generators:
+            self.add_graph_to_current_view(generator)
+
+
+    def create_box_plot(self, data):
+        """Create a box plot widget"""
+        result_widget = QWidget()
+        layout = QVBoxLayout(result_widget)
+        
+        filtered_data = data.iloc[:, 3:]
+    
+        fig, ax = plt.subplots(figsize=(12, 8))
+        filtered_data.boxplot(ax=ax)
+        
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+        ax.set_xlabel('Protein')
+        ax.set_ylabel('Expression Level')
+        ax.set_title('Protein Expression Box Plot')
+        plt.subplots_adjust(bottom=0.3)
+
+        canvas = FigureCanvas(fig)
+        layout.addWidget(canvas)
+        result_widget.figure = fig
+        
+        return result_widget
+
+
+    def get_rect_data(self, region):
+        """Get data filtered by the selected region"""
+        data = self.enc.view_tab.load_df()
+        x_min, y_min, x_max, y_max = [i * 4 for i in region]
+        
+        return data[
+            (data['Global X'] >= x_min) & 
+            (data['Global X'] <= x_max) &
+            (data['Global Y'] >= y_min) & 
+            (data['Global Y'] <= y_max)
+        ]
+
+    def get_circle_data(self, region):
+        """Get data filtered by the selected circular/oval region"""
+        data = self.enc.view_tab.load_df()
+        x_min, y_min, x_max, y_max = [i * 4 for i in region]
+
+        # Calculate circle center and radius
+        center_x = (x_min + x_max) / 2
+        center_y = (y_min + y_max) / 2
+        radius_x = (x_max - x_min) / 2
+        radius_y = (y_max - y_min) / 2
+
+        # Apply elliptical equation filter
+        return data[
+            ((data['Global X'] - center_x) ** 2 / radius_x ** 2) +
+            ((data['Global Y'] - center_y) ** 2 / radius_y ** 2) <= 1
+        ]
+     
     def get_poly_data(self, region):
         """Get data filtered by the selected polygon region using ray casting algorithm"""
         data = self.enc.view_tab.load_df()
@@ -423,88 +545,9 @@ class AnalysisTab(QWidget):
         mask = [point_in_polygon(point, poly_points) for point in points]
         
         return data[mask]
-    
-
-    def generate_analysis_graphs(self, region):
-        # Get filtered data
-        if self.regions[self.current_view_index][0] == "rect":
-            data = self.get_rect_data(region[1])
-        if self.regions[self.current_view_index][0] == "circle":
-            data = self.get_circle_data(region[1])
-        if self.regions[self.current_view_index][0] == "poly":
-            data = self.get_poly_data(region[1])
-        
-        # Create and add graphs
-        box_plot = self.create_box_plot(data)
-        self.add_graph_to_current_view(box_plot)
-        
-        graph_generators = [
-            lambda: ZScoreHeatmapWindow(data),
-            lambda: HeatmapWindow(data),
-            lambda: PieChartCanvas(data),
-            lambda: DistributionViewer(data),
-            lambda: UMAPVisualizer()
-        ]
-        
-        for generator in graph_generators:
-            self.add_graph_to_current_view(generator)
-
-    def get_rect_data(self, region):
-        """Get data filtered by the selected region"""
-        data = self.enc.view_tab.load_df()
-        x_min, y_min, x_max, y_max = [i * 4 for i in region]
-        
-        return data[
-            (data['Global X'] >= x_min) & 
-            (data['Global X'] <= x_max) &
-            (data['Global Y'] >= y_min) & 
-            (data['Global Y'] <= y_max)
-        ]
-
-    def create_box_plot(self, data):
-        """Create a box plot widget"""
-        result_widget = QWidget()
-        layout = QVBoxLayout(result_widget)
-        
-        filtered_data = data.iloc[:, 3:]
-    
-        fig, ax = plt.subplots(figsize=(12, 8))
-        filtered_data.boxplot(ax=ax)
-        
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-        ax.set_xlabel('Protein')
-        ax.set_ylabel('Expression Level')
-        ax.set_title('Protein Expression Box Plot')
-        plt.subplots_adjust(bottom=0.3)
-
-        canvas = FigureCanvas(fig)
-        layout.addWidget(canvas)
-        result_widget.figure = fig
-        
-        return result_widget
-
-
-    def get_circle_data(self, region):
-        """Get data filtered by the selected circular/oval region"""
-        data = self.enc.view_tab.load_df()
-        x_min, y_min, x_max, y_max = [i * 4 for i in region]
-
-        # Calculate circle center and radius
-        center_x = (x_min + x_max) / 2
-        center_y = (y_min + y_max) / 2
-        radius_x = (x_max - x_min) / 2
-        radius_y = (y_max - y_min) / 2
-
-        # Apply elliptical equation filter
-        return data[
-            ((data['Global X'] - center_x) ** 2 / radius_x ** 2) +
-            ((data['Global Y'] - center_y) ** 2 / radius_y ** 2) <= 1
-        ]
-    
-    
 
     def handleComboBoxChanged(self, checked_items):
-        """Handle changes in protein selection"""
+        """Handle changes in protein selection. """
         if not checked_items:
             QMessageBox.warning(
                 self,
@@ -516,28 +559,29 @@ class AnalysisTab(QWidget):
         # Clear current graphs
         self.graphs[self.current_view_index] = []
         
-        # # Get filtered data
-        # if self.regions[self.current_view_index][0] == "rect":
-        #     data = self.get_filtered_data(self.regions[self.current_view_index])
-        # if self.regions[self.current_view_index][0] == "circle":
-        #     data = self.get_circle_data(self.regions[self.current_view_index])
-        # if self.regions[self.current_view_index][0] == "poly":
-        #     data = self.get_poly_data(self.regions[self.current_view_index])
+        # Get filtered data
+        region = self.regions[self.current_view_index]
+        if self.regions[self.current_view_index][0] == "rect":
+            data = self.get_rect_data(region)
+        if self.regions[self.current_view_index][0] == "circle":
+            data = self.get_circle_data(region)
+        if self.regions[self.current_view_index][0] == "poly":
+            data = self.get_poly_data(region)
 
         data = data.drop(columns=list(set(data.columns[3:]) - set(checked_items)))
         
         # Regenerate graphs
         self.generate_analysis_graphs(self.regions[self.current_view_index])
         
-        # Update view
-        self.navigate_to_view(self.current_view_index)
+        # Update roi
+        self.navigate_to_roi(self.current_view_index)
 
     def show_icon_detail_page(self, index):
-        print("show_icon_detail_page1,", "current view:", self.current_view_index, "graph:", index)
+        print("show_icon_detail_page1,", "current roi:", self.current_view_index, "graph:", index)
         
-        # Get the graph interface for the current view
+        # Get the graph interface for the current roi
         if self.current_view_index not in self.view_graph_interfaces:
-            print("Error: No graph interface found for current view")
+            print("Error: No graph interface found for current roi")
             return
             
         interface = self.view_graph_interfaces[self.current_view_index]
@@ -548,15 +592,18 @@ class AnalysisTab(QWidget):
         interface['stacked_widget'].setCurrentWidget(interface['icon_detail_page'])
 
     def show_icon_grid_page(self):
-        # Get the graph interface for the current view
+        # Get the graph interface for the current roi
         if self.current_view_index not in self.view_graph_interfaces:
-            print("Error: No graph interface found for current view")
+            print("Error: No graph interface found for current roi")
             return
             
         interface = self.view_graph_interfaces[self.current_view_index]
         interface['stacked_widget'].setCurrentWidget(interface['icon_list_page'])
 
     def open_in_new_window(self):
+        """
+        Allows us the ability to pop out a graph and view it in a new window.  
+        """
         # Create a new window to display the current graph
         new_window = RegenerateOnCloseWindow(
             regenerate_callback=self._on_new_window_closed
@@ -585,6 +632,9 @@ class AnalysisTab(QWidget):
 
     @pyqtSlot()
     def _on_new_window_closed(self):
+        """
+        As of writing this, this is the regenerate_callback called in open_in_new_window that the RegenerateOnCloseWindowCalls.
+        """
         # When the new window is closed, regenerate the graph in the main window
         index = self.current_graph_index
         new_graph = self.get_current_graph()
@@ -598,9 +648,21 @@ class AnalysisTab(QWidget):
         self.icon_detail_page.content_layout.addWidget(new_graph)
 
     def get_graph(self, index):
+        """
+        The function `get_graph` retrieves a graph widget based on the provided index, handling lazy
+        loading for callable graphs.
+        
+        :param index: The `index` parameter in the `get_graph` method is used to specify which graph
+        widget to retrieve from the list of graphs. It is an integer value that represents the position
+        of the graph widget within the list of graphs associated with the current view index
+        :return: The `get_graph` method returns a graph widget based on the provided index. If there are
+        no regions of interest (`rois`) or if there are no graphs available for the current view index,
+        it returns a QLabel widget with the message "No graphs available". If the index is out of range
+        for the graphs list, it returns a QLabel widget with the message "Graph index out of range".
+        """
         """Get a graph widget based on the index."""
         self.current_graph_index = index
-        if not self.views or not self.graphs[self.current_view_index]:
+        if not self.rois or not self.graphs[self.current_view_index]:
             return QLabel("No graphs available")
             
         if index >= len(self.graphs[self.current_view_index]):
@@ -615,9 +677,6 @@ class AnalysisTab(QWidget):
         
         return graph
 
-from PyQt6.QtGui import QStandardItemModel, QStandardItem
-from PyQt6.QtWidgets import QComboBox
-from PyQt6.QtCore import Qt
 
 class MultiComboBox(QComboBox):
     
@@ -632,7 +691,13 @@ class MultiComboBox(QComboBox):
         # Connect to the dataChanged signal to update the text and emit our signal
         self.model().dataChanged.connect(self.onItemStateChanged)
 
-    def addItem(self, text: str, data=None):
+    def addItem(self, text: str):
+        """
+        Add a single choice to the MCB.
+
+        Args:
+            text (str): the items we want to be made available as choices in our dropdown.
+        """
         item = QStandardItem()
         item.setText(text)
         item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
@@ -640,15 +705,29 @@ class MultiComboBox(QComboBox):
         self.model().appendRow(item)
 
     def addItems(self, items_list: list):
+        """
+         Useful for when we have to add a lot of items to a MCB, like populating all the proteins, for example.
+
+        Args:
+            items_list (list): the items we want to be made available as choices in our dropdown.
+        """
         for text in items_list:
             self.addItem(text)
 
     def updateText(self):
+        """
+        The function `updateText` retrieves the text of checked items in a model and sets it as the text
+        of a line edit widget, separated by commas.
+        """
         selected_items = [self.model().item(i).text() for i in range(self.model().rowCount())
                           if self.model().item(i).checkState() == Qt.CheckState.Checked]
         self.lineEdit().setText(", ".join(selected_items))
 
     def onItemStateChanged(self):
+        """
+        The function `onItemStateChanged` updates displayed text and checks all items except "Deselect
+        All" when "Select All" is checked, and deselects all items when "Deselect All" is checked.
+        """
         # Update the displayed text
         self.updateText()
 
@@ -670,13 +749,22 @@ class MultiComboBox(QComboBox):
         # self.itemsCheckedChanged.emit()
     
     def get_checked_items(self):
+        """
+        This function retrieves checked items from a model, excluding "Select All" and "Deselect All"
+        items.
+        :return: The function `get_checked_items` returns a list of items that are checked in the model,
+        excluding the items "Select All" and "Deselect All".
+        """
         items = [self.model().item(i).text() for i in range(self.model().rowCount())
                 if self.model().item(i).checkState() == Qt.CheckState.Checked]
         
         return [item for item in items if item not in ["Select All", "Deselect All"]]   
     
-    # stupid backwards compatability issue 
+    # stupid 
     def get_checked_items2(self):
+        """
+        Started as a result of some backwards compatability issue, not sure if this is still needed....
+        """
         return [self.model().item(i).text() for i in range(self.model().rowCount())
                 if self.model().item(i).checkState() == Qt.CheckState.Checked]
     
@@ -684,19 +772,17 @@ class MultiComboBox(QComboBox):
     from PyQt6.QtWidgets import (
     QApplication, QWidget, QGridLayout, QPushButton, QLabel, QVBoxLayout, QStackedWidget
 )
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QGridLayout, QPushButton, QLabel, QVBoxLayout, QStackedWidget, QHBoxLayout
-)
-from PyQt6.QtCore import Qt
-import sys
 
 
-class IconDetailPage(QWidget):
-    def __init__(self, navigate_back, open_in_new_window, enclosing):
+class GraphInDetail(QWidget):
+    """
+    This is the actual pane that comes up when you select a graph. 
+    """
+    def __init__(self, navigate_back, open_in_new_window, parent):
         super().__init__()
         self.navigate_back = navigate_back
         self.open_in_new_window = open_in_new_window
-        self.enc = enclosing
+        self.enc = parent
         layout = QVBoxLayout()
         self.setLayout(layout)
 
@@ -733,7 +819,16 @@ class IconDetailPage(QWidget):
         self.content_layout.addWidget(widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
 
-class IconListPage(QWidget):
+
+class GraphsList(QWidget):
+    """
+    The `GraphsList` class creates a widget displaying a list of icons with buttons that can be clicked to navigate to different graphs.
+    This is mostly a UI class -- just plugs into stuff from the analysis tab.
+    One per ROI.
+
+    Args:
+        QWidget (_type_): _description_
+    """
     def __init__(self, icon_list, navigate_to_page, icon_paths, result_details_layout):
         super().__init__()
         self.icon_list = icon_list
@@ -772,9 +867,20 @@ class IconListPage(QWidget):
         add_chart_button.clicked.connect(navigate_to_page)
         layout.addWidget(add_chart_button)
  
-
 class RegenerateOnCloseWindow(QWidget):
+    """
+    Essentially, this is used for one very specific feature -- the ability to pop out a graph and view it in a new window. 
+
+    Once that window is closed, the graph should return into the frame of the analysis tab.
+    
+    """
     def __init__(self, regenerate_callback):
+        """
+        Initalizes a new window.
+
+        Args:
+            regenerate_callback (func): called when the window is closed.
+        """
         super().__init__()
         self.regenerate_callback = regenerate_callback
 
@@ -785,151 +891,3 @@ class RegenerateOnCloseWindow(QWidget):
         super().closeEvent(event)
 
 
-class PythonSyntaxHighlighter(QSyntaxHighlighter):
-    def __init__(self, document):
-        super().__init__(document)
-        
-        self.highlighting_rules = []
-        
-        # Keywords
-        keyword_format = QTextCharFormat()
-        keyword_format.setForeground(QColor(120, 120, 250))
-        keyword_format.setFontWeight(QFont.Weight.Bold)
-        keywords = [
-            r'\bimport\b', r'\bfrom\b', r'\bdef\b', r'\bclass\b', r'\bfor\b', r'\bwhile\b',
-            r'\bif\b', r'\belif\b', r'\belse\b', r'\btry\b', r'\bexcept\b', r'\bfinally\b',
-            r'\breturn\b', r'\bpass\b', r'\bcontinue\b', r'\bbreak\b', r'\bin\b', r'\bas\b',
-            r'\bglobal\b', r'\bwith\b', r'\braise\b', r'\bTrue\b', r'\bFalse\b', r'\bNone\b'
-        ]
-        for pattern in keywords:
-            regex = QRegularExpression(pattern)
-            self.highlighting_rules.append((regex, keyword_format))
-        
-        # Functions
-        function_format = QTextCharFormat()
-        function_format.setForeground(QColor(40, 170, 40))
-        function_regex = QRegularExpression(r'\b[A-Za-z0-9_]+(?=\()')
-        self.highlighting_rules.append((function_regex, function_format))
-        
-        # String literals
-        string_format = QTextCharFormat()
-        string_format.setForeground(QColor(220, 120, 70))
-        string_regex1 = QRegularExpression(r'"[^"\\]*(\\.[^"\\]*)*"')
-        string_regex2 = QRegularExpression(r"'[^'\\]*(\\.[^'\\]*)*'")
-        self.highlighting_rules.append((string_regex1, string_format))
-        self.highlighting_rules.append((string_regex2, string_format))
-        
-        # Comments
-        comment_format = QTextCharFormat()
-        comment_format.setForeground(QColor(120, 120, 120))
-        comment_format.setFontItalic(True)
-        comment_regex = QRegularExpression(r'#[^\n]*')
-        self.highlighting_rules.append((comment_regex, comment_format))
-        
-    def highlightBlock(self, text):
-        for regex, format in self.highlighting_rules:
-            match_iterator = regex.globalMatch(text)
-            while match_iterator.hasNext():
-                match = match_iterator.next()
-                self.setFormat(match.capturedStart(), match.capturedLength(), format)
-
-
-class CustomPlotDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Custom Matplotlib Plot")
-        self.setMinimumSize(800, 600)
-        
-        self.setup_ui()
-        
-        # Default sample code
-        sample_code = """# Sample code for a bar graph from cell_data.csv
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Load the data
-data = pd.read_csv('/Users/clark/Desktop/wang/protein_visualization_app/assets/sample_data/cell_data.csv')
-
-# Create figure and axes
-fig, ax = plt.subplots(figsize=(10, 6))
-
-# Select first 5 rows and some protein columns for the bar chart
-sample_data = data.iloc[:5, 3:8]
-
-# Transpose so proteins become the index
-sample_data = sample_data.transpose()
-
-# Create the bar chart
-sample_data.plot(kind='bar', ax=ax)
-
-# Customize the plot
-ax.set_title('Protein Expression Levels in First 5 Cells')
-ax.set_xlabel('Proteins')
-ax.set_ylabel('Expression Level')
-ax.legend(title='Cell ID', bbox_to_anchor=(1.05, 1), loc='upper left')
-
-# Adjust layout
-plt.tight_layout()
-
-# Return the figure for display
-fig  # This figure will be displayed
-"""
-        
-        self.code_edit.setPlainText(sample_code)
-        
-    def setup_ui(self):
-        main_layout = QVBoxLayout(self)
-        
-        # Code editor
-        code_group = QGroupBox("Python Code:")
-        code_layout = QVBoxLayout()
-        
-        self.code_edit = QPlainTextEdit()
-        self.code_edit.setFont(QFont("Courier New", 10))
-        self.code_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        code_layout.addWidget(self.code_edit)
-        
-        # Setup syntax highlighter
-        self.highlighter = PythonSyntaxHighlighter(self.code_edit.document())
-        
-        code_group.setLayout(code_layout)
-        
-        # Output area
-        output_group = QGroupBox("Output:")
-        output_layout = QVBoxLayout()
-        
-        self.output_text = QPlainTextEdit()
-        self.output_text.setReadOnly(True)
-        self.output_text.setFont(QFont("Courier New", 10))
-        self.output_text.setMaximumHeight(100)
-        output_layout.addWidget(self.output_text)
-        
-        output_group.setLayout(output_layout)
-        
-        # Plot area
-        plot_group = QGroupBox("Plot Preview:")
-        plot_layout = QVBoxLayout()
-        
-        self.figure = Figure(figsize=(5, 4), dpi=100)
-        self.canvas = FigureCanvas(self.figure)
-        plot_layout.addWidget(self.canvas)
-        
-        plot_group.setLayout(plot_layout)
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
-        
-        button_layout.addWidget(self.run_button)
-        button_layout.addWidget(self.insert_button)
-        button_layout.addWidget(self.cancel_button)
-        
-        # Add all components to main layout
-        main_layout.addWidget(code_group, 3)
-        main_layout.addWidget(output_group, 1)
-        main_layout.addWidget(plot_group, 3)
-        main_layout.addLayout(button_layout)
-       
