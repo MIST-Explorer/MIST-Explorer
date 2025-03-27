@@ -1,4 +1,4 @@
-# Protein Visualization App
+# MIST-Explorer
 
 Our application is a powerful and intuitive tool designed for researchers and scientists in the field of single-cell proteomics. It allows users to load, visualize, and analyze protein distribution at the single-cell level. By providing a user-friendly interface, the app enables seamless exploration of protein expression data, helping to uncover insights into cellular functions, interactions, and heterogeneity.
 
