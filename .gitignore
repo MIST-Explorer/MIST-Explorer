@@ -1,7 +1,6 @@
-ui files/
 __pycache__/
 testing/
 env/
 .venv/
-
+build/
 local/
