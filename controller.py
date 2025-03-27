@@ -31,7 +31,7 @@ class Controller:
         # self.view.connect()
         self.view.register_groupbox.has_blue_color.currentTextChanged.connect(self.model_register.hasBlueColor)
         #toolbar signals
-        self.view.toolBar.actionReset.triggered.connect(self.model_canvas.resetImage)
+        self.view.toolBar.actionReset.triggered.connect(self.model_canvas.reset_image)
         # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
         self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
         # self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
@@ -63,7 +63,7 @@ class Controller:
         self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
         self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
-        self.model_canvas.updateProgress.connect(self.view.updateProgressBar) # loading image progress bar
+        self.model_canvas.updateProgress.connect(self.view.update_progress_bar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
         self.view.canvas.showCrop.connect(self.model_canvas.showCroppedImage)
         self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status)
@@ -106,8 +106,8 @@ class Controller:
         self.model_stardist.stardistDone.connect(self.model_canvas.loadStardistLabels) #probably better to use a super class for all model classes so we don't repeat this code
         self.model_stardist.stardistDone.connect(self.model_cellIntensity.loadStardistLabels)
         self.model_stardist.errorSignal.connect(self.handleError)
-        self.model_stardist.progress.connect(self.view.updateProgressBar)
-        self.view.view_tab.progress.connect(self.view.updateProgressBar)
+        self.model_stardist.progress.connect(self.view.update_progress_bar)
+        self.view.view_tab.progress.connect(self.view.update_progress_bar)
         self.view.stardist_groupbox.save_button.clicked.connect(self.model_stardist.saveImage)
 
 
@@ -119,7 +119,7 @@ class Controller:
         self.view.register_groupbox.overlap.valueChanged.connect(self.model_register.setOverlap)
         self.view.register_groupbox.max_size.valueChanged.connect(self.model_register.setMaxSize)
         self.view.register_groupbox.num_tiles.valueChanged.connect(self.model_register.setNumTiles)
-        self.view.register_groupbox.run_button.clicked.connect(self.model_register.runRegister)
+        self.view.register_groupbox.run_button.clicked.connect(self.model_register.run_registration)
         self.model_register.cell_image_signal.connect(self.model_stardist.loadCellImage)
         self.model_register.protein_signal_arr_signal.connect(self.model_cellIntensity.loadProteinSignalArray)
 
@@ -137,8 +137,8 @@ class Controller:
         self.model_cellIntensity.errorSignal.connect(self.handleError)
         self.view.cellIntensity_groupbox.save_button.clicked.connect(self.model_cellIntensity.saveCellData)        
 
-        self.model_register.progress.connect(self.view.updateProgressBar)
-        self.model_cellIntensity.progress.connect(self.view.updateProgressBar)
+        self.model_register.progress.connect(self.view.update_progress_bar)
+        self.model_cellIntensity.progress.connect(self.view.update_progress_bar)
         
         # tab switched - update small view visibility
         self.view.stackedWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))

@@ -24,7 +24,7 @@ class StarDist(QObject):
 
     def __init__(self):
         super().__init__()
-        self.np_channels = None
+        self.protein_channels = None
         self.np_image = None
         self.params = {
         'channel': 'Channel 1',
@@ -43,13 +43,13 @@ class StarDist(QObject):
         self.aligned = True
 
     def runStarDist(self):
-        print(self.np_channels, self.np_image)
+        print(self.protein_channels, self.np_image)
         # case: image not loaded
-        if self.np_channels is None and self.np_image is None:
+        if self.protein_channels is None and self.np_image is None:
             self.errorSignal.emit("please load image first")  # emit error message
             print("debug here")
             return
-        elif self.np_channels and self.np_image:
+        elif self.protein_channels and self.np_image:
             self.errorSignal.emit("unknown error, canvas has both single channel image and multi-channel image initiated")  # emit error message
             return
         
@@ -66,18 +66,18 @@ class StarDist(QObject):
             self.stardist_worker.start()
             
             self.stardist_worker.signal.connect(self.onStarDistCompleted)
-    def getCellImage(self):
+    def __get_cell_image(self):
         if self.aligned:
             return self.cell_image
         # case: image has one channel
-        elif self.np_channels is None and self.np_image:
+        elif self.protein_channels is None and self.np_image:
             return self.np_image
         #
-        elif self.np_channels and self.np_image is None:
-            return self.np_channels[self.params['channel']] 
+        elif self.protein_channels and self.np_image is None:
+            return self.protein_channels[self.params['channel']].data
         
     def stardistTask(self):
-        cell_image = self.getCellImage()
+        cell_image = self.__get_cell_image()
 
         # if self.aligned:
         #     self.setChannel()
@@ -163,12 +163,12 @@ class StarDist(QObject):
     def label2rgb(self, labels, lut):
         return cv.LUT(cv.merge((labels, labels, labels)), lut)
 
-    def updateChannels(self, np_channels, _):
+    def updateChannels(self, protein_channels, _):
         self.np_image = None
-        self.np_channels = np_channels
+        self.protein_channels = protein_channels
         
     def setImageToProcess(self, np_image):
-        self.np_channels = None
+        self.protein_channels = None
         self.np_image = np_image
 
     def setChannel(self, channel):

@@ -273,7 +273,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         return array
 
-    def resetImage(self):
+    def reset_image(self):
         '''resets the image to original state'''
         if self.pixmapItem: 
 
@@ -285,8 +285,9 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.image = self.np_channels.get(channel_num).data
 
             layered_data = self.reset_np_channels.get(channel_num).data
-            self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
-            self.toPixmapItem(self.reset_pixmap)
+            # self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
+            # self.toPixmapItem(self.reset_pixmap)
+            self.change_cmap("gray")
 
     def rotate_image_task(self, channels:dict, angle):
         t = time.time()

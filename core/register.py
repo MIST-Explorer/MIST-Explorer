@@ -23,8 +23,11 @@ class Register(QThread):
     def __init__(self):
         super().__init__()
         Image.MAX_IMAGE_PIXELS = 99999999999  
-        self.np_channels = None 
-        self.cycle_channels = None
+
+        # initialize variables
+
+        self.protein_channels = None 
+        self.reference_channels = None
         self.protein_signal_array = None
         self.has_blue = True  
         self.params = { 
@@ -37,15 +40,16 @@ class Register(QThread):
         }
         self.tifs = (
             { 
-                "image_dict": self.cycle_channels,
+                "image_dict": self.reference_channels,
             },
 
             {
-                "image_dict": self.np_channels,
+                "image_dict": self.protein_channels,
             },
         )
-    def runRegister(self):
+    def run_registration(self):
         
+        # run on gpu if possible
         import tensorflow as tf
         gpu = len(tf.config.list_physical_devices('GPU')) > 0
         if gpu:
@@ -61,6 +65,7 @@ class Register(QThread):
             self.finished.connect(self.deleteLater)
 
     def run(self):
+        
 
         m = self.params["max_size"]
         self.OVERLAP = self.params["overlap"]
@@ -70,10 +75,8 @@ class Register(QThread):
         self.progress.emit(0, "preparing alignment")
         print(basis["image_dict"] is None)
         bf1_f = basis["image_dict"]
-        bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer']  + 1}"] # 0 index so add 1 to avoid key error
-        # bf1_f = Image.open(basis["path"])
-        # bf1_f.seek(basis["alignment_layer"])
-        # bf1 = np.array(bf1_f)
+        bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer']  + 1}"].data # 0 index so add 1 to avoid key error
+
         bf1 = self.adjust_contrast(bf1,50, 99)
         bf1 = bf1[0:m, 0:m]
 
@@ -87,7 +90,7 @@ class Register(QThread):
                 self.tifs[tif_n]["outputs"] = None
                 continue
             
-            bf2_f = self.tifs[tif_n]["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"]
+            bf2_f = self.tifs[tif_n]["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"].data
 
             bf2 = self.adjust_contrast(bf2_f, 50, 99)
             bf2 = bf2[0:m, 0:m]
@@ -110,8 +113,6 @@ class Register(QThread):
                 radius = int(fixed_map.tile_size)
             
                 inputs.append((fixed_img, moving_img, ymin, xmin, radius, x, y))
-
-            # 
 
             
             # Select the inputs number
@@ -137,10 +138,9 @@ class Register(QThread):
                         continue
                     outputs.append(result)
                 except Exception as e:
-                    print("ERROE!")
+                    print("ERROR!")
                     raise e
                     
-                    print(e)
             print("done aligning")
 
             self.tifs[tif_n]["outputs"] = outputs
@@ -168,16 +168,13 @@ class Register(QThread):
                 progress_update = int(((layer_number+1)/n_frames)*100)
                 self.progress.emit(progress_update, f"Layer Number: {layer_number+1} for tif {i+1}")
                 
-                bf = file[f'Channel {layer_number + 1}'] # channels are index 1
-                bf1 = bf1_f[f'Channel {layer_number + 1}']  #channels are index 1 # this is the basis
+                bf = file[f'Channel {layer_number + 1}'].data# channels are index 1
+                bf1 = bf1_f[f'Channel {layer_number + 1}'].data  #channels are index 1 # this is the basis
              
 
                 if bf.shape[0] < m:
-                    raise Exception("too small! only", bf.shape[0], m)
-                    continue
+                    raise Exception("too small! only", bf.shape[0], m) # should be a QMessageBox error
 
-
-                
                 bf = bf[0:m, 0:m]
                 
                 dest = Image.fromarray(np.zeros((m, m), dtype="float"))  #need to determine the final bit size
@@ -410,18 +407,18 @@ class Register(QThread):
     
     def updateChannels(self, channels) -> None:
         print("debugging", channels)
-        self.np_channels = channels
+        self.protein_channels = channels
         self.tifs[1]["image_dict"] = channels
         # print("protein signal images sent to register", self.tifs[0]["image_dict"] is None)
-        if not self.cycle_channels is None:
+        if not self.reference_channels is None:
             self.imageReady.emit(True)
             print("protein signal image updated")
 
-    def updateCycleImage(self, cycle_channels:dict) -> None:
-        self.cycle_channels = cycle_channels
-        self.tifs[0]["image_dict"] = cycle_channels
+    def updateCycleImage(self, reference_channels:dict) -> None:
+        self.reference_channels = reference_channels
+        self.tifs[0]["image_dict"] = reference_channels
         # print("cycle images sent to register", self.tifs[1]["image_dict"] is None)
-        if not self.np_channels is None:
+        if not self.protein_channels is None:
             self.imageReady.emit(True)
             print("cycle image updated")
             

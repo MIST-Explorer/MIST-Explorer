@@ -71,12 +71,7 @@ class Ui_MainWindow(QMainWindow):
         self.canvas.setMinimumSize(QSize(800, 500))
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
-        # canvas_pos = self.canvas.mapTo(self.canvas.parent(), QPoint(50, 20))
         self.small_view.setParent(self.canvas)
-        # self.small_view.setGeometry(520, 85, 200, 150)  # Position over the large view
-
-        # # move small_view to the top left
-        # self.small_view.move(canvas_pos)
 
         ####### preprocess tab ###################################
         # Create scroll area for preprocessing tab
@@ -218,7 +213,7 @@ class Ui_MainWindow(QMainWindow):
         self.saveSignal.emit()
         
 
-    def updateProgressBar(self, value, str):
+    def update_progress_bar(self, value, str):
         if self.progressBar.value() == 100:
             self.progressBar.reset()
         self.progressBar.setValue(value)

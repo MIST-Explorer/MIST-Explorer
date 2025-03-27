@@ -379,7 +379,11 @@ class ImageGraphicsViewUI(QGraphicsView):
     def isEmpty(self) -> bool:
         return self.pixmapItem is None
     
-    def updateCanvas(self, pixmap: QPixmap):
+    def mouseDoubleClickEvent(self, event):
+        self.__centerImage(self.pixmapItem)
+
+    
+    def updateCanvas(self, pixmap: QPixmap, reset=False, crop=False):
         """Updates canvas when current image is operated on"""
         if self.pixmapItem:
             print("updating canvas and setting pixmap")
@@ -588,7 +592,10 @@ class ImageGraphicsViewUI(QGraphicsView):
                 
                 # Get layer values if available
                 layers = self.enc.view_tab.get_layer_values_at(x, y)
-                
+
+
+                combined_layers = None # added this so we don't get reference error
+
                 if layers:
                     layers = [f"{layer}: {value[0]}\n" for layer, value in layers]
                     combined_layers = ''.join(layers)[:-1]
@@ -596,7 +603,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                 else:                    
                     QToolTip.showText(global_pos, f"R: {r}, G: {g}, B: {b}", self)
 
-                combined_layers = None
                 # Update position display in main window
                 if combined_layers:
                     combined_layers = combined_layers.replace("\n", ", ")
