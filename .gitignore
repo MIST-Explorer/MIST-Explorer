@@ -3,4 +3,6 @@ testing/
 env/
 .venv/
 local/
-build/
+docs/build
+Makefile
+make.bat
