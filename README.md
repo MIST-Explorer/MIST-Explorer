@@ -4,7 +4,7 @@ Our application is a powerful and intuitive tool designed for researchers and sc
 
 ## Key Features
 - **Easy Viewer**: Easily import protein expression data of any size, and interactively explore detailed protein distributions within specific regions of interest at both single-cell and group levels.
-- **Alignment & Registration**: Align and register protein expression data across multiple layers/cycles within a few pixels of accuracy by using our registration pipelin.
+- **Alignment & Registration**: Align and register protein expression data across multiple layers/cycles within a few pixels of accuracy by using our registration pipeline.
 - **Microbead Decoding**:  Decode aligned microbeads to determine protein readout from tissue sample in a computationally efficient way.
 - **Interactive Visualization**: View protein distribution and expression levels across individual cells with the view tab.
 - **Customizable Graphs**: Create customizable graphs to visualize protein expression trends over time, in different experimental conditions, or across cell types. (TBD, somewhat)
