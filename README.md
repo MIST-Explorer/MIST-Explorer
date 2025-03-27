@@ -20,7 +20,7 @@ Our application is a powerful and intuitive tool designed for researchers and sc
 - **Dependencies**: Python (with libraries such as NumPy, Pandas, Matplotlib), JavaScript (for web-based interfaces), and cloud-based storage options (if applicable).
 
 ## Installation
-To install the Protein Visualization App, follow these steps:
+To install the MIST-Explorer, follow these steps:
 
 1. Clone the repository:
     ```
