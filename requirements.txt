@@ -18,3 +18,5 @@ sep
 scikit-learn
 umap
 siphash24
+sphinx_rtd_theme
+sphinx
