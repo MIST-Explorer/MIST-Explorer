@@ -3,3 +3,4 @@ testing/
 env/
 .venv/
 local/
+build/
