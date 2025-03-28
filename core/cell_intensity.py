@@ -2,7 +2,7 @@
 from PyQt6.QtCore import pyqtSignal, QThread
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 import numpy as np, cv2 as cv, math, time, pandas as pd, itertools
-from core.canvas import ImageGraphicsView, ImageType
+from core.canvas import ImageGraphicsView, ImageWrapper
 from tqdm import tqdm
 
 # import SimpleITK as sitk
@@ -297,8 +297,8 @@ class CellIntensity(QThread):
         return 0.8266 * x + 3970.1
     
 
-    def loadStardistLabels(self, stardist:ImageType) ->None:
-        self.stardist_labels = stardist.arr
+    def loadStardistLabels(self, stardist: ImageWrapper) ->None:
+        self.stardist_labels = stardist.data
     
 
     def getBeadData(self, bead_data):

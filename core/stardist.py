@@ -1,10 +1,10 @@
 
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import pyqtSignal, QObject, pyqtSlot
+from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
 import numpy as np, cv2 as cv, matplotlib as mpl, time
 from pyclesperanto_prototype import dilate_labels
-from core.canvas import ImageGraphicsView, ImageType
+from core.canvas import ImageGraphicsView, ImageWrapper
 import ui.app
 from utils import numpy_to_qimage, qimage_to_numpy
 from skimage.segmentation import expand_labels
@@ -14,9 +14,10 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from stardist.models import StarDist2D
 from csbdeep.utils import normalize
+import tensorflow as tf
 
-class StarDist(QObject):
-    stardistDone = pyqtSignal(ImageType)
+class StarDist(QThread):
+    stardistDone = pyqtSignal(ImageWrapper)
     # sendGrayScale = pyqtSignal(np.ndarray)
     progress = pyqtSignal(int, str)
     errorSignal = pyqtSignal(str)
@@ -43,17 +44,19 @@ class StarDist(QObject):
         self.aligned = True
 
     def runStarDist(self):
-        print(self.protein_channels, self.np_image)
-        # case: image not loaded
         if self.protein_channels is None and self.np_image is None:
             self.errorSignal.emit("please load image first")  # emit error message
-            print("debug here")
             return
         elif self.protein_channels and self.np_image:
             self.errorSignal.emit("unknown error, canvas has both single channel image and multi-channel image initiated")  # emit error message
             return
         
-        import tensorflow as tf
+
+        import platform
+
+        system = platform.system()
+        print("system: ", system)
+        print("tensorflow version: ", tf.__version__)
         gpu = len(tf.config.list_physical_devices('GPU')) > 0
         if gpu:
             device_name= tf.test.gpu_device_name()
@@ -61,43 +64,48 @@ class StarDist(QObject):
         else:
             device_name = '/CPU:0'
 
+        # if system == "Windows":
         with tf.device(device_name):
-            self.stardist_worker = Worker(self.stardistTask)
-            self.stardist_worker.start()
-            
-            self.stardist_worker.signal.connect(self.onStarDistCompleted)
+            self.run()
+            self.finished.connect(self.quit)
+            self.finished.connect(self.deleteLater)
+
+
+        # else:
+        #     print("on MacOS ")
+        #     self.stardist_worker = Worker(self.stardistTask)
+        #     self.stardist_worker.start()
+                
+        print("here")
+
     def __get_cell_image(self):
         if self.aligned:
             return self.cell_image
-        # case: image has one channel
         elif self.protein_channels is None and self.np_image:
             return self.np_image
-        #
         elif self.protein_channels and self.np_image is None:
             return self.protein_channels[self.params['channel']].data
         
-    def stardistTask(self):
+    def run(self):
         cell_image = self.__get_cell_image()
 
-        # if self.aligned:
-        #     self.setChannel()
-
-        adjusted = cv.convertScaleAbs(cell_image, alpha=(255.0/65535.0))
+        # adjusted = cv.convertScaleAbs(cell_image, alpha=(255.0/65535.0))
     
-        alpha = 5 # Contrast control
-        beta = 15 # Brightness control
-        adjusted = cv.convertScaleAbs(adjusted, alpha=alpha, beta=beta)
-        cv.imshow('Image Window',adjusted)
+        # alpha = 5 # Contrast control
+        # beta = 15 # Brightness control
+        # adjusted = cv.convertScaleAbs(adjusted, alpha=alpha, beta=beta)
+        # cv.imshow('Image Window',adjusted)
 
-        cv.waitKey(0)
+        # cv.waitKey(0)
 
-        cv.destroyAllWindows()
+        # cv.destroyAllWindows()
         
         self.progress.emit(0, "Starting StarDist")
         model = StarDist2D.from_pretrained(str(self.params['model']))
                         
         self.progress.emit(25, "Training model")
-
+        
+        print("here2")
         if self.params['n_tiles'] == 0:
             guess_tiles= model._guess_n_tiles(cell_image)
             # total_tiles = int(guess_tiles[0] * guess_tiles[1])
@@ -107,33 +115,23 @@ class StarDist(QObject):
                                                             nms_thresh=self.params['nms_threshold'], n_tiles = guess_tiles)
             
         else:
-
+            
             stardist_labels, _ = model.predict_instances(normalize(cell_image, self.params['percentile_low'], self.params['percentile_high']), 
                                                             prob_thresh=self.params['prob_threshold'], 
                                                             nms_thresh=self.params['nms_threshold'], 
                                                             n_tiles =(self.params['n_tiles'], (self.params['n_tiles'])))
             
         # dilate
+        print("here3")
         radius = self.params['radius']
-
-        start_time = time.time()  
-
-        print("dilating...")
         self.progress.emit(95, "Dilating")
-
-
         self.stardist_labels_grayscale = np.array(dilate_labels(stardist_labels, radius=radius), dtype=np.uint16)
-        print("stardist type is", self.stardist_labels_grayscale.dtype)
-
-
-        end_time = time.time()  
-        print(start_time - end_time)
-
+        print("here 4")
         self.progress.emit(100, "Stardist Done")
-        return ImageType("stardist", self.stardist_labels_grayscale)
-    
+        stardist_result = ImageWrapper(self.stardist_labels_grayscale, name="stardist")
+        self.stardistDone.emit(stardist_result)
     def cancel(self):
-        self.stardist_worker.terminate()
+        self.terminate()
 
 
     def saveImage(self):
@@ -149,9 +147,9 @@ class StarDist(QObject):
     #     self.progress.emit(num, f"Generating Tile {num}")
     
     # only uint8
-    @pyqtSlot(ImageType)
-    def onStarDistCompleted(self, stardist_result):
-        self.stardistDone.emit(stardist_result)
+    # @pyqtSlot(ImageWrapper)
+    # def on_stardist_completed(self, stardist_result):
+    #     self.stardistDone.emit(stardist_result)
 
     def change_cmap(self):
         pass

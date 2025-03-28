@@ -73,7 +73,6 @@ class Register(QThread):
         basis = self.tifs[0]
         print("opening files!")
         self.progress.emit(0, "preparing alignment")
-        print(basis["image_dict"] is None)
         bf1_f = basis["image_dict"]
         bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer']  + 1}"].data # 0 index so add 1 to avoid key error
 
@@ -125,15 +124,14 @@ class Register(QThread):
                     progress_update = int(((tile_n+1)/len(inputs))*100)
                     self.progress.emit(progress_update, str(f"aligning tile {tile_n+1}/{len(inputs)}"))
 
-                    print(1)
                     if (tif_n == 0):
                         outputs.append(self.onskip(tile_set))
                         continue
                     
-                    print("2")
                     t = time.time()
                     result = self.align_two_img(tile_set) # align
                     print(time.time() - t)
+
                     if result == None:
                         continue
                     outputs.append(result)
@@ -155,8 +153,7 @@ class Register(QThread):
             if i == 0:
                 continue
             
-            # print(tif["path"])
-            # file = Image.open(tif["path"])
+
             file = tif["image_dict"]
             n_frames = len(file) # 4
             print("n frames", n_frames)
@@ -406,10 +403,8 @@ class Register(QThread):
         return cy1_rescale, cy2_rescale
     
     def updateChannels(self, channels) -> None:
-        print("debugging", channels)
         self.protein_channels = channels
-        self.tifs[1]["image_dict"] = channels
-        # print("protein signal images sent to register", self.tifs[0]["image_dict"] is None)
+        self.tifs[1]["image_dict"] = channels 
         if not self.reference_channels is None:
             self.imageReady.emit(True)
             print("protein signal image updated")
@@ -417,7 +412,6 @@ class Register(QThread):
     def updateCycleImage(self, reference_channels:dict) -> None:
         self.reference_channels = reference_channels
         self.tifs[0]["image_dict"] = reference_channels
-        # print("cycle images sent to register", self.tifs[1]["image_dict"] is None)
         if not self.protein_channels is None:
             self.imageReady.emit(True)
             print("cycle image updated")

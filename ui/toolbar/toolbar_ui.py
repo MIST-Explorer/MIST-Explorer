@@ -21,15 +21,14 @@ class ToolBarUI(QWidget):
         self.__retranslateUI()
 
     def updateChannelSelector(self, channels:dict, clear=False):
-        print("in toolbar, clearing?", clear)
+        '''Updates the dropdown to select channels. Clears the dropdown if new image is added'''
         if clear:
             self.clearChannelSelector()
             self.channelSelector.addItems(list(channels.keys()))
-        else:
-            print("just updating, do nothing")
+   
 
     def clearChannelSelector(self):
-        print("toolbar channel selector is cleared")
+        '''Clears the channel selector dropdown'''
         self.channelSelector.clear()
 
     def __createActions(self, parent):
@@ -156,16 +155,14 @@ class ToolBarUI(QWidget):
     def update_contrast_slider(self, values):
         min, max = values
 
-        print("the min is: " f'{min}')
-        print("the max is: " f'{max}')
         self.contrastSlider.blockSignals(True)
 
         self.contrastSlider.setValue(values)
         self.contrastSlider.blockSignals(False)
 
-        print("slider updated")
 
     def update_cmap_selector(self, cmap_value):
+        '''Updates the color map dropdown to the current color map of the image'''
         self.cmapSelector.setCurrentText(cmap_value)
 
     def __retranslateUI(self):

@@ -39,7 +39,6 @@ class __BaseGraphicsView(QWidget):
         self.setMinimumSize(QSize(300, 300))
         self.scene = QGraphicsView()
         self.scene.setScene(QGraphicsScene(self))
-        # self.channels= None
         self.reset_pixmap =  None
         self.reset_pixmapItem = None
         self.pixmap = None
@@ -47,7 +46,6 @@ class __BaseGraphicsView(QWidget):
         self.np_channels = {}
         self.reset_np_channels = {}
 
-    # drag and drog has issue with some tiff images, need to fix
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -63,7 +61,6 @@ class __BaseGraphicsView(QWidget):
                     image = page.asarray()
                     # Check if the image is blank
                     if np.all(image == image.flat[0]):
-                        print(f"Page {i} is blank, skipping.")
                         continue
                     pages.append(image)
                     self.updateProgress.emit(int((i+1)/len(tif.pages)*100), "Loading image")
@@ -73,8 +70,6 @@ class __BaseGraphicsView(QWidget):
         return pages
     
     def filename_to_image(self, file_name:str, adjust_contrast=False) -> np.ndarray:  
-
-            t = time.time()
 
             if file_name.endswith((".tiff", ".tif")):
                 pages = self.read_tiff_pages(file_name)
@@ -92,12 +87,12 @@ class __BaseGraphicsView(QWidget):
                             __scaled = scale_adjust(image) 
                             image_adjusted = adjustContrast(__scaled) # uint8
 
-                        bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
-                        format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
+                        # bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
+                        # format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
 
-                        print("my dtype is", image_adjusted.dtype)
-                        self.np_channels[channel_name] = ImageWrapper(image_adjusted) # for stardist and other image processing, maybe consider keeping it as uint16
-                        self.reset_np_channels[channel_name] = ImageWrapper(image_adjusted.copy())  # keep another copy for resetting
+                        self.np_channels[channel_name] = ImageWrapper(image_adjusted) 
+                        print('data type: ', type(image_adjusted))
+                        self.reset_np_channels[channel_name] = ImageWrapper(image_adjusted.copy()) 
 
 
 
@@ -105,17 +100,14 @@ class __BaseGraphicsView(QWidget):
                     self.channelLoaded.emit(self.np_channels, True)
                 else: # num of channels is 1, single page
                     print("not multilayer")
-                    print(pages[0].shape)
                     channel_one_image = pages[0]
                     self.channelNotLoaded.emit(channel_one_image)
+
             else: # not a .tif image
                 from PIL import Image
                 print("not a tif")
                 channel_one_image = np.array(Image.open(file_name))
                 
-                print(channel_one_image.shape)
-
-            print(f"image loading time: {time.time() - t}")
 
             self.updateProgress.emit(100, "Image Loaded")
             return channel_one_image
@@ -161,7 +153,6 @@ class ImageGraphicsView(__BaseGraphicsView):
     
     canvasUpdated = pyqtSignal(QPixmap)
     newImageAdded = pyqtSignal(QGraphicsPixmapItem)
-    # need some dead code analysis
     saveImage = pyqtSignal(QGraphicsPixmapItem)  
     changeSlider = pyqtSignal(tuple)
 
@@ -174,22 +165,15 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.pixmapItem=None
         self.begin_crop = False
         self.crop_cursor =  QCursor(Qt.CursorShape.CrossCursor)
-        # self.contrast_worker_running = False 
-        # self.timer = QTimer()
-        self.contrast_worker = None
         self.currentChannelNum = None
-        # self.qimage_channels = {}
 
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
         if type(data) == QPixmap:
             self.pixmap = data
-            print("data is a pixmap")
         elif type(data) == QImage:
-            print("data is a QImage")
             self.pixmap = QPixmap(data)
         else:
-            print("data is a numpy array")
             self.pixmap = QPixmap(numpy_to_qimage(data))
     
         self.canvasUpdated.emit(self.pixmap)
@@ -222,10 +206,10 @@ class ImageGraphicsView(__BaseGraphicsView):
             return cv2.LUT(cv2.merge((labels, labels, labels)), lut) # gray to color
     
 
-    def loadStardistLabels(self, stardist: ImageType):
-        self.stardist_labels = stardist.arr
+    def loadStardistLabels(self, stardist: ImageWrapper):
+        self.stardist_labels = stardist.data
         self.image = self.stardist_labels.copy()
-        self.toPixmapItem(self.image)
+        self.change_cmap("gray")
     
     def addImage(self, file:str):
         '''add a new image'''
@@ -315,11 +299,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
 
             self.rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
-
-            #append to rotated array list
             rotated_arrays.append(self.rotated_wrapper)
-        # convert to qimage
-        print(time.time()-t)
         return  dict(zip(channels.keys(), rotated_arrays))
     def rotateImage(self, angle_text: str):
         try:
@@ -344,9 +324,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
         channel_image = scale_adjust(channel_image)
         self.image = channel_image
-        # channel_qimage = numpy_to_qimage(channel_image)
-        # channel_pixmap = QPixmap(channel_qimage)
-        # self.canvasUpdated.emit(channel_pixmap)
         self.change_cmap(channel_cmap) # this also updates the contrast
         self.channelLoaded.emit(self.np_channels, False)
 
@@ -426,13 +403,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         lut[new_max+1:] = 255
 
         return lut
-    
-    # def set_blur_layer(self, layer):
-    #     self._blur_layer = layer
-
-    # def set_blur_percentage(self, blur_percentage):
-    #     self._blur_percentage = blur_percentage
-    #     print("blur percentage: ", self._blur_percentage)
 
     def blur_layer(self, blur_percentage:float, confirm=False):
         """

@@ -18,9 +18,8 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
         format = QImage.Format.Format_Grayscale16 if array.dtype == np.uint16 else QImage.Format.Format_Grayscale8
         bytes_per_pixel = 2 if array.dtype == np.uint16 else 1
         bytes_per_line = width * bytes_per_pixel#uint8
-        print("converting to grayscale")
-        print("is array contiguous?: ", array.data.contiguous)
         qimage =  QImage(array.data, width, height, bytes_per_line, format)
+
     elif len(array.shape) == 3:
         height, width, channels = array.shape
         if channels == 3:
@@ -36,8 +35,6 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
 
 def qimage_to_numpy(qimage: QImage):
     # Ensure the QImage format is suitable for conversion
-    print("checking format: ", qimage.format())
-
     valid_formats = [QImage.Format.Format_Grayscale8, QImage.Format.Format_Grayscale16]
     ptr = qimage.bits()
     width = qimage.width()

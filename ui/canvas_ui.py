@@ -211,7 +211,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         rw = int(self.scene().width() / 10.6)
         rh = int(self.scene().height() / 10.6)
         
-        self.right_arrow.bg_rect.setRect(0, 0, rw, rh) 
+        self.right_arrow.bg_rect.setRect(0, 0, rw, rh)
         self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
 
         self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw, rh))
