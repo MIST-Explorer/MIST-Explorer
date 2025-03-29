@@ -1,5 +1,4 @@
-import core.cell_intensity
-import ui.app as app, controller, core.canvas, core.stardist, core.register
+import ui.app as app, controller
 
 from PyQt6.QtWidgets import  QApplication
 
@@ -10,19 +9,10 @@ if __name__ == "__main__":
     import sys
 
     __app = QApplication(sys.argv)
-    ui = app.Ui_MainWindow()
+    window = app.Ui_MainWindow()
 
-    model_canvas = core.canvas.ImageGraphicsView()
-    model_stardist = core.stardist.StarDist()
-    model_register = core.register.Register()
-    model_cellIntensity = core.cell_intensity.CellIntensity()
-
-    _controller = controller.Controller(model_canvas, 
-                                        model_stardist, 
-                                        model_cellIntensity, 
-                                        model_register,
-                                        ui)
-    ui.show()
+    _controller = controller.Controller(window)
+    window.show()
 
     # profiler = cProfile.Profile()
     # profiler.enable()

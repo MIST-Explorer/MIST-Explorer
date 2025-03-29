@@ -1,11 +1,9 @@
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread, QTimer
-import tifffile as tiff, numpy as np
-import cv2, matplotlib as mpl
-import time
+import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2
 from core.Worker import Worker
-from utils import numpy_to_qimage, normalize_to_uint8, scale_adjust, adjustContrast, qimage_to_numpy
+from utils import *
 from ui.Dialogs import ImageDialog
 
 class ImageWrapper:
@@ -18,12 +16,6 @@ class ImageWrapper:
         self.data = data
         self.contrast_min = 0
         self.contrast_max = 255
-
-## this needs to be deleted later
-class ImageType:
-    def __init__(self, name: str, arr):
-        self.name = name
-        self.arr = arr
 
 class __BaseGraphicsView(QWidget):
     '''base class for graphics view'''
@@ -45,6 +37,8 @@ class __BaseGraphicsView(QWidget):
         self.pixmapItem=None
         self.np_channels = {}
         self.reset_np_channels = {}
+        self.currentChannelNum = -1
+        self.is_layered = False
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -76,7 +70,7 @@ class __BaseGraphicsView(QWidget):
                 num_channels = len(pages)
 
                 if (num_channels > 1):
-
+                    self.is_layered = True
                     for channel_num, image in enumerate(pages):
 
                         channel_name = f'Channel {channel_num + 1}'
@@ -100,14 +94,23 @@ class __BaseGraphicsView(QWidget):
                     self.channelLoaded.emit(self.np_channels, True)
                 else: # num of channels is 1, single page
                     print("not multilayer")
-                    channel_one_image = pages[0]
-                    self.channelNotLoaded.emit(channel_one_image)
 
+                    self.is_layered = False
+                    self.np_channels.clear()
+                    self.reset_np_channels.clear()
+                    channel_one_image = pages[0]
+                    self.image = channel_one_image
+                    self.channelNotLoaded.emit(channel_one_image)
+                    self.currentChannelNum = -1
             else: # not a .tif image
+                self.is_layered = False
                 from PIL import Image
                 print("not a tif")
+                self.np_channels.clear()
+                self.reset_np_channels.clear()
                 channel_one_image = np.array(Image.open(file_name))
-                
+                self.image = channel_one_image
+                self.currentChannelNum = -1
 
             self.updateProgress.emit(100, "Image Loaded")
             return channel_one_image
@@ -118,11 +121,11 @@ class __BaseGraphicsView(QWidget):
 
 class ReferenceGraphicsView(__BaseGraphicsView):
 
-    referenceViewAdded = pyqtSignal(QGraphicsPixmapItem)
-    referenceLoaded = pyqtSignal(dict)
+    update_reference = pyqtSignal(QPixmap, bool)
+    # referenceLoaded = pyqtSignal(dict)
     def __init__(self, parent=None):
         super().__init__(parent)
-
+        self.is_layered = False
 
     def dropEvent(self, event: QDropEvent):
         if event.mimeData().hasUrls():
@@ -141,12 +144,17 @@ class ReferenceGraphicsView(__BaseGraphicsView):
         self.reference_worker.finished.connect(self.reference_worker.quit)
         self.reference_worker.finished.connect(self.reference_worker.deleteLater)
 
-    def filename_to_image_complete(self):
-        arr = self.np_channels["Channel 1"].data
-        qimage = numpy_to_qimage(arr)
-        self.pixmap =QPixmap(qimage)
-        self.pixmapItem =  QGraphicsPixmapItem(self.pixmap)
-        self.referenceViewAdded.emit(self.pixmapItem)
+    def filename_to_image_complete(self, image):
+        if not self.np_channels.get("Channel 1") == None:
+            self.is_layered = True
+
+        else:
+            self.is_layered = False
+
+        qimage = numpy_to_qimage(image)
+        self.pixmap = QPixmap(qimage)
+
+        self.update_reference.emit(self.pixmap, self.is_layered)
 
 ##########################################################
 class ImageGraphicsView(__BaseGraphicsView):
@@ -165,7 +173,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.pixmapItem=None
         self.begin_crop = False
         self.crop_cursor =  QCursor(Qt.CursorShape.CrossCursor)
-        self.currentChannelNum = None
 
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
@@ -183,13 +190,14 @@ class ImageGraphicsView(__BaseGraphicsView):
         '''updates the current image using the current colormap and contrast settings'''
         lut = self.generate_lut(cmap_text)
         adjusted_uint8 = scale_adjust(self.image)
-        channel_num = f"Channel {self.currentChannelNum + 1}"
-        self.np_channels[channel_num].cmap = cmap_text
+        if self.is_layered:
+            channel_num = f"Channel {self.currentChannelNum + 1}"
+            self.np_channels[channel_num].cmap = cmap_text
+            min, max = self.np_channels[channel_num].contrast_min, self.np_channels[channel_num].contrast_max
+            self.update_contrast((min, max))
+
         rgb = self.label2rgb(adjusted_uint8, lut).astype(np.uint8)
         self.toPixmapItem(rgb)
-
-        min, max = self.np_channels[channel_num].contrast_min, self.np_channels[channel_num].contrast_max
-        self.update_contrast((min, max))
         self.update_cmap.emit(cmap_text)
 
     def generate_lut(self, cmap:str):
@@ -277,17 +285,33 @@ class ImageGraphicsView(__BaseGraphicsView):
         t = time.time()
         rotated_arrays = []
 
-        for wrapper in channels.values():
-            try:
-                arr = wrapper.data
-                cmap = wrapper.cmap
-                if not arr.data.contiguous:
-                    arr = np.ascontiguousarray(arr, dtype='uint16')
-            except Exception as e:
-                print("error: ", str(e)) # should be a QMessageBox
+        if self.is_layered:
+            for wrapper in channels.values():
+                try:
+                    arr = wrapper.data
+                    cmap = wrapper.cmap
+                    if not arr.data.contiguous:
+                        arr = np.ascontiguousarray(arr, dtype='uint16')
+                except Exception as e:
+                    print("error: ", str(e)) # should be a QMessageBox
 
-            # rotate image
-            h,w = arr.shape
+                # rotate image
+                h,w = arr.shape
+                center = (w/2, h/2)
+                rotation_matrix = cv2.getRotationMatrix2D(center, -angle, 1)
+                cos = np.abs(rotation_matrix[0,0])
+                sin = np.abs(rotation_matrix[0,1])
+                updated_w = int((h*sin) + (w*cos))
+                updated_h = int((h*cos) + (w*sin))
+                rotation_matrix[0,2] += (updated_w/2) - w/2
+                rotation_matrix[1,2] += (updated_h/2) - h/2
+                rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
+
+                self.rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
+                rotated_arrays.append(self.rotated_wrapper)
+            return  dict(zip(channels.keys(), rotated_arrays))
+        else:
+            h,w = self.image.shape
             center = (w/2, h/2)
             rotation_matrix = cv2.getRotationMatrix2D(center, -angle, 1)
             cos = np.abs(rotation_matrix[0,0])
@@ -296,11 +320,10 @@ class ImageGraphicsView(__BaseGraphicsView):
             updated_h = int((h*cos) + (w*sin))
             rotation_matrix[0,2] += (updated_w/2) - w/2
             rotation_matrix[1,2] += (updated_h/2) - h/2
-            rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
+            rotated_arr = cv2.warpAffine(self.image, rotation_matrix, (updated_h, updated_h))
 
-            self.rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
-            rotated_arrays.append(self.rotated_wrapper)
-        return  dict(zip(channels.keys(), rotated_arrays))
+            return rotated_arr
+
     def rotateImage(self, angle_text: str):
         try:
             angle = float(angle_text)
@@ -317,15 +340,27 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.rotation_worker.start()
 
     @pyqtSlot(object)
-    def onRotationCompleted(self, rotated_channels:dict):
-        self.np_channels = rotated_channels
+    def onRotationCompleted(self, result):
 
-        channel_image = list(self.np_channels.values())[self.currentChannelNum].data
-        channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
-        channel_image = scale_adjust(channel_image)
-        self.image = channel_image
-        self.change_cmap(channel_cmap) # this also updates the contrast
-        self.channelLoaded.emit(self.np_channels, False)
+        if type(result) == dict:
+
+            self.np_channels = result
+
+
+
+            channel_image = list(self.np_channels.values())[self.currentChannelNum].data
+            channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
+            channel_image = scale_adjust(channel_image)
+            self.image = channel_image
+            self.change_cmap(channel_cmap) # this also updates the contrast
+            self.channelLoaded.emit(self.np_channels, False)
+
+        else:
+            channel_image = scale_adjust(result)
+            self.image = channel_image
+            self.change_cmap("gray") # this also updates the contrast
+
+
 
     @pyqtSlot(str)
     def onError(self, error_message):
@@ -351,7 +386,6 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.change_cmap(self.np_channels.get(channel_num).cmap) # this also updates the contrast
 
 
-
     def update_contrast(self, values):
 
         if self.pixmap is None:
@@ -359,9 +393,11 @@ class ImageGraphicsView(__BaseGraphicsView):
             return
         
         min_val, max_val = values
-        channel_num = f"Channel {self.currentChannelNum + 1}"
-        self.np_channels.get(channel_num).contrast_min = min_val
-        self.np_channels.get(channel_num).contrast_max = max_val
+        if self.is_layered:
+            channel_num = f"Channel {self.currentChannelNum + 1}"
+
+            self.np_channels.get(channel_num).contrast_min = min_val
+            self.np_channels.get(channel_num).contrast_max = max_val
 
 
         contrast_image = self.apply_contrast(min_val, max_val)
@@ -374,9 +410,9 @@ class ImageGraphicsView(__BaseGraphicsView):
 
 
     def auto_contrast(self, lower = 0.1, upper=.9):
-        channel_num = f"Channel {self.currentChannelNum + 1}"
-        channel = scale_adjust(self.np_channels[channel_num].data)
-
+        if self.is_layered:
+            channel_num = f"Channel {self.currentChannelNum + 1}"
+            channel = scale_adjust(self.np_channels[channel_num].data)
 
         flat_channel = channel.flatten()
     
@@ -438,6 +474,11 @@ class ImageGraphicsView(__BaseGraphicsView):
         pixmap = self.pixmap 
         cropped = pixmap.copy(image_rect).toImage()
         cropped_pixmap = QPixmap(cropped)
+
+        if not self.is_layered:
+            self.image = qimage_to_numpy(cropped)
+
+        
         self.crop_dialog = ImageDialog(self, cropped_pixmap)
         self.crop_dialog.exec()
 
@@ -454,36 +495,44 @@ class ImageGraphicsView(__BaseGraphicsView):
     @pyqtSlot(dict)
     def onCropCompleted(self, cropped_wrappers: dict):
         """Handle completed crop operation"""
-        self.np_channels = cropped_wrappers
-        channel_num = f"Channel {self.currentChannelNum + 1}"
-        self.image = self.np_channels.get(channel_num).data
+
+        if not cropped_wrappers == {}:
+            self.np_channels = cropped_wrappers
+            channel_num = f"Channel {self.currentChannelNum + 1}"
+            self.image = self.np_channels.get(channel_num).data
+
         self.cropSignal.emit(False)
+        print("crop signal emitted")
 
     def cropImageTask(self, image_rect) -> dict:
         """Process crop in background thread"""
         left = image_rect.x()
         top = image_rect.y()
         right = image_rect.right()
-        bottom = image_rect.bottom()        
+        bottom = image_rect.bottom()
 
-        for channel_name, image_arr in self.np_channels.items():
-            arr = image_arr.data
-            cmap = image_arr.cmap
-            cropped_array = arr[top:bottom+1, left:right+1]
-            if not cropped_array.data.contiguous:
-                cropped_array = np.ascontiguousarray(cropped_array, dtype="uint16")
 
-            if not hasattr(self, "cropped_wrappers"):
-                self.cropped_wrappers = {}
+        if self.is_layered:
+            for channel_name, image_arr in self.np_channels.items():
+                arr = image_arr.data 
+                cmap = image_arr.cmap
+                cropped_array = arr[top:bottom+1, left:right+1]
+                if not cropped_array.data.contiguous:
+                    cropped_array = np.ascontiguousarray(cropped_array, dtype="uint16")
 
-            self.crop_wrapper = ImageWrapper(cropped_array, cmap=cmap)
-            min, max = self.np_channels[channel_name].contrast_min, self.np_channels[channel_name].contrast_max
-            self.crop_wrapper.contrast_min = min
-            self.crop_wrapper.contrast_max = max
-            self.update_contrast((min, max))
-            self.cropped_wrappers[channel_name] = self.crop_wrapper
+                if not hasattr(self, "cropped_wrappers"):
+                    self.cropped_wrappers = {}
 
-        return self.cropped_wrappers
+                self.crop_wrapper = ImageWrapper(cropped_array, cmap=cmap)
+                min, max = self.np_channels[channel_name].contrast_min, self.np_channels[channel_name].contrast_max
+                self.crop_wrapper.contrast_min = min
+                self.crop_wrapper.contrast_max = max
+                self.update_contrast((min, max))
+                self.cropped_wrappers[channel_name] = self.crop_wrapper
+
+            return self.cropped_wrappers
+            
+        else: return {}
     
     
 

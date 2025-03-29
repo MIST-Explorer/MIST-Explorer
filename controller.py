@@ -1,28 +1,23 @@
-import ui.app, ui.Dialogs as Dialogs, core.canvas, core.stardist, core.cell_intensity, core.register
+import ui.Dialogs as Dialogs, numpy as np, cv2, core.canvas, core.stardist, core.cell_intensity, core.register
+from ui.app import Ui_MainWindow
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
-import numpy as np
-import cv2
 from PyQt6.QtCore import pyqtSignal
 from PIL import Image
-from ui.Dialogs import ImageDialog
         
 class Controller:
     controllerSignal = pyqtSignal(object)
-    def __init__(self, 
-                 model_canvas: core.canvas.ImageGraphicsView, 
-                 model_stardist: core.stardist.StarDist,
-                 model_cellIntensity: core.cell_intensity.CellIntensity,
-                 model_register: core.register.Register,
-                 view: ui.app.Ui_MainWindow):
+    def __init__(self, app: Ui_MainWindow):
         
-        self.view = view
-        self.model_canvas = model_canvas 
-        self.model_stardist = model_stardist
-        self.model_cellIntensity = model_cellIntensity
-        self.model_register = model_register
+
+        self.model_canvas = core.canvas.ImageGraphicsView()
+        self.model_stardist = core.stardist.StarDist()
+        self.model_register = core.register.Register()
+        self.model_cellIntensity = core.cell_intensity.CellIntensity()
+        self.reference_view = core.canvas.ReferenceGraphicsView()
+        self.view = app
+
         self.openFilesDialog = None
-        self._small_view = core.canvas.ReferenceGraphicsView()
         #menubar signals
         # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
         self.view.menubar.actionOpenReference.triggered.connect(self.on_action_reference_triggered)
@@ -44,12 +39,12 @@ class Controller:
 
         # self.view.canvas.resizeSignal.connect(self.view.reposition)
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
-        self.view.small_view.imageDropped.connect(self._small_view.addImage)
-        self._small_view.referenceViewAdded.connect(self.view.small_view.display)
+        self.view.small_view.imageDropped.connect(self.reference_view.addImage)
+        self.reference_view.update_reference.connect(self.view.small_view.display)
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
-        self._small_view.channelLoaded.connect(self.model_register.updateCycleImage)
-        self._small_view.channelLoaded.connect(self.view.small_view.load_channels)
+        self.reference_view.channelLoaded.connect(self.model_register.update_reference_channels)
+        self.reference_view.channelLoaded.connect(self.view.small_view.load_channels)
 
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         # self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channels
@@ -175,22 +170,13 @@ class Controller:
         
         if pixmap == None:
             return None
-        # Convert QPixmap to QImage
         qimage = pixmap.toImage()
-        # import qimage2ndarray
-        # a =qimage2ndarray.recarray_view(qimage)
-        # arr = np.array(a)
-        # Convert QImage to numpy array
         width = qimage.width()
         height = qimage.height()
         ptr = qimage.bits()
         ptr.setsize(height * width*3)
         arr = np.array(ptr).reshape(height, width, 3)  # 4 for RGBA
-        # import cv2
-        # cv2.imshow("test cropping", arr)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        # Save numpy array as an image file using OpenCV
+
         return arr
     
     def is_grayscale(image: np.ndarray) -> bool:
@@ -209,8 +195,7 @@ class Controller:
         # qimage = pm.toImage()
         if pm != None:
             im = self.pixmap_to_image(pm)
-            # import qimage2ndarray 
-            # im = qimage2ndarray.alpha_view(qimage)
+
             file_name, _ = QFileDialog.getSaveFileName(None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)")
             if file_name:
                 print(file_name)
@@ -222,28 +207,14 @@ class Controller:
         else:
             self.handleError("No image in canvas, please load image")
             
-
-    # def createBCDialog(self):
-    #     self.BC_dialog = Dialogs.BrightnessContrastDialog(self, self.model_canvas.channels, self.view.canvas, self.view.toolBar.operatorComboBox)
-
     def openFileDialog(self, viewer):
         file_name, _ = QFileDialog.getOpenFileName(None, "Open Image File", "", "Images (*.png *.jpg *.tif);;All Files (*)")
         if file_name:
             viewer.addImage(file_name)
 
     def on_action_reference_triggered(self):
-       self.openFileDialog(self._small_view)
+       self.openFileDialog(self.reference_view)
 
     def on_actionOpen_triggered(self):
        self.openFileDialog(self.model_canvas)
-
-
-    # def on_channelSelector_currentIndexChanged(self, index):
-    #     if self.view.toolBar.channelSelector.count() != 0:
-    #         print("current index: ", self.view.toolBar.channelSelector.currentIndex())
-    #         # self.controllerSignal.emit(self.view.toolBar.channelSelector.currentIndex())
-    #         self.view.canvas.setCurrentChannel(self.view.toolBar.channelSelector.currentIndex()) 
-    #         channel_pixmap = QPixmap.fromImage(self.model_canvas.channels[self.view.toolBar.channelSelector.itemText(index)])
-    #         self.model_canvas.toPixmapItem(channel_pixmap)
-
 

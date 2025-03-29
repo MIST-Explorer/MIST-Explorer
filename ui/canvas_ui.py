@@ -94,16 +94,14 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setStyleSheet("QGraphicsView { border: 1px solid black; }")
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
-    def isEmpty(self) -> bool:
+    def is_empty(self) -> bool:
         return self.pixmapItem is None
         
     def load_channels(self, np_channels):
         self.np_channels = np_channels
 
     def slideshow(self):
-        if self.right_arrow is not None:
-            return
-        
+
         # Create navigation arrows
         self.right_arrow = ArrowItem(
             QPixmap("assets/icons/right-arrow.png").scaled(
@@ -132,7 +130,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def mouseDoubleClickEvent(self, event):
-        if not self.isEmpty():
+        if not self.is_empty():
             self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def wheelEvent(self, event):
@@ -168,7 +166,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
             event.acceptProposedAction()
 
     def mousePressEvent(self, event):
-        if not self.isEmpty():
+        if not self.is_empty() and len(self.np_channels) > 1:
+            print("mouse press")
             scene_pos = self.mapToScene(event.pos())
             if self.left_arrow and self.left_arrow.contains(self.left_arrow.mapFromScene(scene_pos)):
                 self.prev_slide()
@@ -196,49 +195,65 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.setSceneRect(item_rect)
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    def display(self, pixmapItem: QGraphicsPixmapItem):
-        self.slideshow()  # Initialize arrows
+    def display(self, pixmap: QPixmap, is_layer: bool):
+        # self.scene().clear()
+        # reset
+        self.current_index = 1
 
-        if self.pixmapItem is None:
-            self.pixmapItem = pixmapItem
-            self.pixmap = self.pixmapItem.pixmap()
+        if not hasattr(self, "right_arrow"):
+            self.slideshow()  # Initialize arrows
+
+        self.pixmap = pixmap
+        if not hasattr(self, 'pixmapItem') or self.pixmapItem is None:
+            self.pixmapItem = QGraphicsPixmapItem(self.pixmap)
+            self.scene().addItem(self.pixmapItem)
+
         else:
-            self.pixmapItem.setPixmap(pixmapItem.pixmap())
-
-        self.scene().addItem(self.pixmapItem)
+            print("setting pixmap")
+            self.pixmapItem.setPixmap(self.pixmap)
         
-        # Scale arrows appropriately
-        rw = int(self.scene().width() / 10.6)
-        rh = int(self.scene().height() / 10.6)
+        print("is layer: ", is_layer)
         
-        self.right_arrow.bg_rect.setRect(0, 0, rw, rh)
-        self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
+        if is_layer:
 
-        self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw, rh))
-        self.left_arrow.setPixmap(QPixmap("assets/icons/left-arrow.png").scaled(rw, rh))
+            print("has np channels")
+            # Scale arrows appropriately
+            rw = int(self.scene().width() / 10.6)
+            rh = int(self.scene().height() / 10.6)
+            
+            self.right_arrow.bg_rect.setRect(0, 0, rw, rh)
+            self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
 
-        scene_height = self.scene().height()
-        scene_width = self.scene().width()
-        self.right_arrow.setToolTip("Next")
-        self.left_arrow.setToolTip("Previous")
+            self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw, rh))
+            self.left_arrow.setPixmap(QPixmap("assets/icons/left-arrow.png").scaled(rw, rh))
 
-        # Position the arrows
-        right_arrow_pos_x = int(scene_width)
-        left_arrow_pos_x = 0
-        arrow_pos_y = int(scene_height / 2)
+            scene_height = self.scene().height()
+            scene_width = self.scene().width()
+            self.right_arrow.setToolTip("Next")
+            self.left_arrow.setToolTip("Previous")
 
-        self.right_arrow.setPos(self.mapToScene(right_arrow_pos_x, arrow_pos_y))
-        self.left_arrow.setPos(self.mapToScene(left_arrow_pos_x, arrow_pos_y))
+            # Position the arrows
+            right_arrow_pos_x = int(scene_width)
+            left_arrow_pos_x = 0
+            arrow_pos_y = int(scene_height / 2)
+
+            self.right_arrow.setPos(self.mapToScene(right_arrow_pos_x, arrow_pos_y))
+            self.left_arrow.setPos(self.mapToScene(left_arrow_pos_x, arrow_pos_y))
         
+            # Set Z-order
+            self.pixmapItem.setZValue(0)
+            self.right_arrow.setZValue(1)
+            self.left_arrow.setZValue(1)
+            
+        
+
+
         # Setup scene
         item_rect = self.pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-        # Set Z-order
-        self.pixmapItem.setZValue(0)
-        self.right_arrow.setZValue(2)
-        self.left_arrow.setZValue(2)
+        print('here!!')
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -246,6 +261,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         # self.move(int(self.parent.width() - 2*self.parent.width()), 10)
 
 class ImageGraphicsViewUI(QGraphicsView):
+
     """Main image view with support for selection, cropping and other operations"""
     imageDropped = pyqtSignal(str)
     showCrop = pyqtSignal(QRect)

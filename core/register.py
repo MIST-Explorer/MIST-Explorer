@@ -409,12 +409,12 @@ class Register(QThread):
             self.imageReady.emit(True)
             print("protein signal image updated")
 
-    def updateCycleImage(self, reference_channels:dict) -> None:
+    def update_reference_channels(self, reference_channels:dict) -> None:
         self.reference_channels = reference_channels
         self.tifs[0]["image_dict"] = reference_channels
         if not self.protein_channels is None:
             self.imageReady.emit(True)
-            print("cycle image updated")
+            print("reference image updated")
             
     def cancel(self):
 
