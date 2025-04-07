@@ -33,41 +33,50 @@ class ToolBarUI(QWidget):
 
     def __createActions(self, parent):
         # Create tab selection buttons
+        self.imagesButton = QPushButton("Images")
         self.preprocessingButton = QPushButton("Preprocessing")
         self.viewButton = QPushButton("View")
         self.analysisButton = QPushButton("Analysis")
-        
+        self.metaDataButton = QPushButton("Details")
         # Style the buttons
         button_style = """
             QPushButton {
                 padding: 8px 16px;
                 border: none;
                 background: transparent;
+                font-size: 12px;
+
             }
             QPushButton:hover {
                 background: rgba(0, 0, 0, 0.1);
             }
             QPushButton:checked {
                 border-bottom: 2px solid #007AFF;
-                font-weight: bold;
+                font-weight: Bold;
             }
         """
+
+        self.imagesButton.setStyleSheet(button_style)
         self.preprocessingButton.setStyleSheet(button_style)
         self.viewButton.setStyleSheet(button_style)
         self.analysisButton.setStyleSheet(button_style)
-        
+        self.metaDataButton.setStyleSheet(button_style)
         # Make buttons checkable and exclusive
+        self.imagesButton.setCheckable(True)
         self.preprocessingButton.setCheckable(True)
         self.viewButton.setCheckable(True) 
         self.analysisButton.setCheckable(True)
+        self.metaDataButton.setCheckable(True)
         
         # Connect button signals
-        self.preprocessingButton.clicked.connect(lambda: self.onTabButtonClicked(0))
-        self.viewButton.clicked.connect(lambda: self.onTabButtonClicked(1))
-        self.analysisButton.clicked.connect(lambda: self.onTabButtonClicked(2))
+        self.imagesButton.clicked.connect(lambda: self.onTabButtonClicked(0))
+        self.preprocessingButton.clicked.connect(lambda: self.onTabButtonClicked(1))
+        self.viewButton.clicked.connect(lambda: self.onTabButtonClicked(2))
+        self.analysisButton.clicked.connect(lambda: self.onTabButtonClicked(3))
+        self.metaDataButton.clicked.connect(lambda: self.onTabButtonClicked(4))
         
-        # Check preprocessing by default
-        self.preprocessingButton.setChecked(True)
+        # Check imagesbutton by default
+        self.imagesButton.setChecked(True)
 
         # Create other actions
         self.actionRotate = Action(parent, "actionRotate", "assets/icons/rotate-right.png")
@@ -131,9 +140,11 @@ class ToolBarUI(QWidget):
         
     def __addActions(self):
         # Add tab buttons first
+        self.toolbar.addWidget(self.imagesButton)
         self.toolbar.addWidget(self.preprocessingButton)
         self.toolbar.addWidget(self.viewButton)
         self.toolbar.addWidget(self.analysisButton)
+        self.toolbar.addWidget(self.metaDataButton)
         
         # Add separator
         self.toolbar.addSeparator()
@@ -193,7 +204,7 @@ class ToolBarUI(QWidget):
 
     def onTabButtonClicked(self, index):
         # Uncheck other buttons
-        buttons = [self.preprocessingButton, self.viewButton, self.analysisButton]
+        buttons = [self.imagesButton, self.preprocessingButton, self.viewButton, self.analysisButton, self.metaDataButton]
         for i, button in enumerate(buttons):
             if i != index:
                 button.setChecked(False)

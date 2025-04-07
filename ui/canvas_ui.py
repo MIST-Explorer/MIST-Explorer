@@ -1,3 +1,5 @@
+'''Main Class to handle display of images'''
+
 from PyQt6.QtWidgets import (
     QToolTip, QGraphicsView, QRubberBand, QGraphicsScene, QGraphicsPixmapItem,
     QGraphicsItem, QGraphicsRectItem, QGraphicsOpacityEffect, QGraphicsItemGroup,

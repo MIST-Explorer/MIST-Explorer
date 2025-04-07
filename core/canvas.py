@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThread, QTimer
-import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot
+import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2, xml.etree.ElementTree as ET, os
 from core.Worker import Worker
 from utils import *
 from ui.Dialogs import ImageDialog
@@ -23,6 +23,7 @@ class __BaseGraphicsView(QWidget):
     channelNotLoaded = pyqtSignal(np.ndarray)
     updateProgress = pyqtSignal(int, str)
     errorSignal = pyqtSignal(str)
+    fill_metadata = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -61,13 +62,27 @@ class __BaseGraphicsView(QWidget):
                 except Exception as e:
                     print(f"Error reading page {i}: {e}")
                     continue
-        return pages
+
+            if pages:
+                print("stacked")
+                return np.stack(pages)
+        
+            else:
+                return np.stack([])
     
+
     def filename_to_image(self, file_name:str, adjust_contrast=False) -> np.ndarray:  
 
+
             if file_name.endswith((".tiff", ".tif")):
+
+
+                metadata_widget = MetaData()
+                metadata = metadata_widget.parse_metadata(file_name)
+                # metadata_widget.populate_table(metadata)
+                self.fill_metadata.emit(metadata)
                 pages = self.read_tiff_pages(file_name)
-                num_channels = len(pages)
+                num_channels = pages.shape[0]
 
                 if (num_channels > 1):
                     self.is_layered = True
@@ -117,6 +132,7 @@ class __BaseGraphicsView(QWidget):
     
     def deleteImage(self):
         self.scene.scene().clear()
+
 
 
 class ReferenceGraphicsView(__BaseGraphicsView):
@@ -534,10 +550,100 @@ class ImageGraphicsView(__BaseGraphicsView):
             
         else: return {}
     
+
+class MetaData(QWidget):
+    '''Class to handle metadata of images'''
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.row_count = 8
+        self.column_count = 1
+        self.table = QTableWidget()
+        self.table.setRowCount(8)
+        self.table.setColumnCount(1)
+
+        self.headers = ['Name', 'URI', 'Pixel Type', 'Width', 
+                                 'Height', 'Dimension (CZT)', 'PhysicalSizeX', 'PhysicalSizeY']
+
+        self.table.setVerticalHeaderLabels(self.headers)
+
+        self.table.setHorizontalHeaderLabels(['Value'])
+        self.table.setColumnWidth(0, 300)
+
+        editable_fields = [3, 7, 8]
+        # for row in range(self.row_count):
+            
+            # if row in editable_fields:
+            #     value_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)  # Make it read-only
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.table)
+        self.setLayout(layout)
+
+    def set_item(self, row, value):
+        item = QTableWidgetItem(value)
+        self.table.setItem(row, 0, item)
+
+    def populate_table(self, metadata: dict):
+        self.table.setRowCount(len(self.headers))
+
+        for row, key in enumerate(self.headers):
+            value = metadata.get(key, "Unknown")  
+            value_item = QTableWidgetItem(str(value))
+
+            # key_item.setFlags(key_item.flags() ^ Qt.ItemFlag.ItemIsEditable)
+            self.table.setItem(row, 0, value_item)
+
+    def parse_metadata(self, filename):
+        file_name = os.path.basename(filename)  
+        name = os.path.splitext(file_name)[0]    
+
+        with tiff.TiffFile(filename) as tif:
+            raw_meta_data = {}
+            page = tif.pages[0]
+            for tag in page.tags.values():
+                raw_meta_data[tag.name] = tag.value
+                
+        try:
+            desc = raw_meta_data["ImageDescription"]
+            metadata = {}
+            root = ET.fromstring(desc)
+            namespace_uri = root.tag[root.tag.find('{')+1 : root.tag.find('}')]
+            ns = {'ome': namespace_uri}
+            pixels = root.find('.//ome:Pixels', namespaces=ns)
+
+            if pixels is not None:
+
+                metadata = {
+                    'Name': name,
+                    'URI': filename,
+                    'Width': pixels.attrib.get('SizeX'),
+                    'Height': pixels.attrib.get('SizeY'),
+                    'Dimension (CZT)': f"{pixels.attrib.get('SizeC')} x {pixels.attrib.get('SizeZ')} x {pixels.attrib.get('SizeT')}",
+                    'Pixel Type': pixels.attrib.get('Type'),
+                    'PhysicalSizeX': f"{pixels.attrib.get('PhysicalSizeX')} {pixels.attrib.get('PhysicalSizeXUnit')}",
+                    'PhysicalSizeY': f"{pixels.attrib.get('PhysicalSizeY')} {pixels.attrib.get('PhysicalSizeYUnit')}",
+                    'DimensionOrder': pixels.attrib.get('DimensionOrder')
+                }
+
+                for k, v in metadata.items():
+                    print(f"{k}: {v}")
+            else:
+                print("Pixels element not found.")
+                
+        except ET.ParseError as e:
+            print("Parse error has occurred:", e)
+
+        finally:
+
+            if not metadata:
+                metadata["Name"] = name
+                metadata["URI"] = filename
+                metadata["Width"] = raw_meta_data["ImageWidth"]
+                metadata["Height"] = raw_meta_data["ImageLength"]
+                metadata['Pixel Type'] = f'uint{raw_meta_data["BitsPerSample"]}'
+                metadata['Dimension (CZT)'] = "Unknown"
+                metadata['PhysicalSizeX'] = "Unknown"
+                metadata['PhysicalSizeY'] = "Unknown"
+                metadata['DimensionOrder'] = "Unknown"
     
-
-
-    
-
-
-
+        return metadata

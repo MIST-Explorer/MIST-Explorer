@@ -1,3 +1,5 @@
+'''Class to handle signal connections'''
+
 import ui.Dialogs as Dialogs, numpy as np, cv2, core.canvas, core.stardist, core.cell_intensity, core.register
 from ui.app import Ui_MainWindow
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
@@ -64,7 +66,7 @@ class Controller:
         self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status)
         self.model_canvas.update_cmap.connect(self.view.toolBar.update_cmap_selector)
         self.model_canvas.changeSlider.connect(self.view.toolBar.update_contrast_slider)
-
+        self.model_canvas.fill_metadata.connect(self.view.get_metadata)
         # crop signals
         self.view.crop_groupbox.crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(True)) 
         self.view.crop_groupbox.cancel_crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(False))

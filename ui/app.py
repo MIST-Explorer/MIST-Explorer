@@ -1,14 +1,14 @@
 from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
-import pandas as pd
-
+import pandas as pd, tifffile as tiff, xml.etree.ElementTree as ET
 from ui.toolbar.menubar_ui import MenuBarUI; from ui.toolbar.toolbar_ui import ToolBarUI; from ui.stardist.stardist_ui import StarDistUI; from ui.alignment.cell_intensity_ui import CellIntensityUI
 from ui.processing.crop_ui import CropUI; from ui.processing.rotation_ui import RotateUI; from ui.canvas_ui import ImageGraphicsViewUI, ReferenceGraphicsViewUI
 from ui.alignment.register_ui import RegisterUI
 from ui.view_tab import ImageOverlay
 from ui.analysis.AnalysisTab import AnalysisTab
 from ui.processing.gaussian_blur import GaussianBlur
+from core.canvas import MetaData
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -72,6 +72,17 @@ class Ui_MainWindow(QMainWindow):
 
         self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
         self.small_view.setParent(self.canvas)
+
+        ## images workspace#####
+        images_scroll = QScrollArea()
+        images_scroll.setWidgetResizable(True)
+        images_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        images_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        self.images_tab = QWidget(self.canvas)
+        self.images_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        images_scroll.setWidget(self.images_tab)
+        self.stackedWidget.addWidget(images_scroll)
 
         ####### preprocess tab ###################################
         # Create scroll area for preprocessing tab
@@ -145,6 +156,19 @@ class Ui_MainWindow(QMainWindow):
         analysis_scroll.setWidget(self.analysis_tab)
         self.stackedWidget.addWidget(analysis_scroll)
 
+
+        metadata_scroll = QScrollArea()
+        metadata_scroll.setWidgetResizable(True)
+        metadata_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        metadata_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.metadata_tab = MetaData(self.canvas)
+        self.metadata_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+
+        metadata_scroll.setWidget(self.metadata_tab)
+        self.stackedWidget.addWidget(metadata_scroll)
+
+
+
         # Set up the side panel layout
         self.sidePanelLayout.addWidget(self.stackedWidget)
         
@@ -205,7 +229,7 @@ class Ui_MainWindow(QMainWindow):
     
     def __retranslateUI(self):
         _translate = QCoreApplication.translate
-        self.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.setWindowTitle(_translate("MainWindow", "MIST-Explorer"))
 
     saveSignal = pyqtSignal()
     def save_canvas(self):
@@ -258,3 +282,7 @@ class Ui_MainWindow(QMainWindow):
             self.sidePanel.show()
             self.toggleButton.setText("◀")
 
+    
+    def get_metadata(self, metadata: dict):
+        self.metadata = metadata
+        self.metadata_tab.populate_table(self.metadata)
