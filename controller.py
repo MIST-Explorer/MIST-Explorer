@@ -138,7 +138,7 @@ class Controller:
         self.model_cellIntensity.progress.connect(self.view.update_progress_bar)
         
         # tab switched - update small view visibility
-        self.view.stackedWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
+        self.view.stackedWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(x == 1)) # referemce view is only visible in preprocess
 
         # cancel process
         self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)

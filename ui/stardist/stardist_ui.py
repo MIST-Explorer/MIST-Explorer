@@ -21,7 +21,7 @@ class StarDistUI(QWidget):
         self.stardist_channel_selector_layout = QHBoxLayout()
         self.stardist_channel_selector = QComboBox(self.stardist_groupbox)
         self.stardist_channel_selector_label = QLabel()
-        self.stardist_channel_selector_label.setText("Select Channel")
+        self.stardist_channel_selector_label.setText("Select Cell Channel")
         self.stardist_channel_selector_layout.addWidget(self.stardist_channel_selector_label)
         self.stardist_channel_selector_layout.addWidget(self.stardist_channel_selector)
         self.stardist_components_vlayout.addLayout(self.stardist_channel_selector_layout)

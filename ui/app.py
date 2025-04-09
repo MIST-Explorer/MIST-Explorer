@@ -27,8 +27,6 @@ class Ui_MainWindow(QMainWindow):
         self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         self.save_shortcut.activated.connect(self.save)
         
-        ### Formerly set up ui
-
         self.resize(1280, 800)
         self.setMinimumSize(QSize(1024, 768))
         self.centralwidget = QWidget(self) # central widget inside main window
@@ -70,9 +68,6 @@ class Ui_MainWindow(QMainWindow):
         self.canvas = ImageGraphicsViewUI(self.centralwidget, enc=self)
         self.canvas.setMinimumSize(QSize(800, 500))
 
-        self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
-        self.small_view.setParent(self.canvas)
-
         ## images workspace#####
         images_scroll = QScrollArea()
         images_scroll.setWidgetResizable(True)
@@ -95,6 +90,11 @@ class Ui_MainWindow(QMainWindow):
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout)
+        
+        # reference view
+        self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
+        self.small_view.setParent(self.canvas)
+        self.small_view.hide()
 
         self.save_button = QPushButton('Save Canvas')
         self.save_button.clicked.connect(self.save_canvas)
@@ -218,7 +218,7 @@ class Ui_MainWindow(QMainWindow):
 
         # Connect toolbar tab change signal
         self.toolBar.tabChanged.connect(self.stackedWidget.setCurrentIndex)
-        # Start with preprocessing tab
+        # Start with Images tab
         self.stackedWidget.setCurrentIndex(0)
 
         QMetaObject.connectSlotsByName(self)
@@ -236,7 +236,6 @@ class Ui_MainWindow(QMainWindow):
         print("saving")
         self.saveSignal.emit()
         
-
     def update_progress_bar(self, value, str):
         if self.progressBar.value() == 100:
             self.progressBar.reset()

@@ -34,7 +34,7 @@ class ToolBarUI(QWidget):
     def __createActions(self, parent):
         # Create tab selection buttons
         self.imagesButton = QPushButton("Images")
-        self.preprocessingButton = QPushButton("Preprocessing")
+        self.preprocessingButton = QPushButton("Data Processing")
         self.viewButton = QPushButton("View")
         self.analysisButton = QPushButton("Analysis")
         self.metaDataButton = QPushButton("Details")

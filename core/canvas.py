@@ -211,10 +211,15 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.np_channels[channel_num].cmap = cmap_text
             min, max = self.np_channels[channel_num].contrast_min, self.np_channels[channel_num].contrast_max
             self.update_contrast((min, max))
+            print("contrast updated")
+        
 
         rgb = self.label2rgb(adjusted_uint8, lut).astype(np.uint8)
         self.toPixmapItem(rgb)
+
         self.update_cmap.emit(cmap_text)
+
+  
 
     def generate_lut(self, cmap:str):
         '''generate a 8 bit look-up table and converts to rgb space'''
@@ -361,9 +366,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         if type(result) == dict:
 
             self.np_channels = result
-
-
-
             channel_image = list(self.np_channels.values())[self.currentChannelNum].data
             channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
             channel_image = scale_adjust(channel_image)

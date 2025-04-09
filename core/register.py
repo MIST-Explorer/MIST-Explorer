@@ -223,6 +223,8 @@ class Register(QThread):
             print(new_registered_tif.shape)
             aligned_protein_signal = new_registered_tif
 
+            ##alignment done
+
         self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
         # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
         cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
