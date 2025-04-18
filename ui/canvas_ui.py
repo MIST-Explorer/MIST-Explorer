@@ -409,8 +409,8 @@ class ImageGraphicsViewUI(QGraphicsView):
             # self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
-    def saveImage(self):
-        pass
+    # def saveImage(self):
+    #     pass
         
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
         """Update the pixmap of the existing image or add a new one"""

@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot
-import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2, xml.etree.ElementTree as ET, os
+import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2, xml.etree.ElementTree as ET, os, copy
 from core.Worker import Worker
 from utils import *
 from ui.Dialogs import ImageDialog
@@ -210,6 +210,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
 
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
+        '''Sends a pixmap to the canvas for display'''
         #convert pixmap to pixmapItem
         if type(data) == QPixmap:
 
@@ -305,6 +306,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.canvasUpdated.emit(contrast_pixmap)
 
     def change_cmap(self, cmap_text="default"):
+        '''changes the colormap given a colormap str valid in matplotlib'''
 
         if self.image_wrapper is None:
             self.errorSignal.emit("Canvas is empty")
@@ -326,7 +328,10 @@ class ImageGraphicsView(__BaseGraphicsView):
         
         self.image_wrapper.cmap = cmap_text
 
-        return self.label2rgb(scale_adjust(self.image_wrapper.data), lut).astype(np.uint8)
+
+        __copy = (self.image_wrapper.data).copy()
+
+        return self.label2rgb(scale_adjust(__copy), lut).astype(np.uint8)
 
     def update_image(self, cmap_text="default"):
         '''Updates the current image using the current colormap and contrast settings.
@@ -410,16 +415,11 @@ class ImageGraphicsView(__BaseGraphicsView):
         '''resets the image to original state'''
         if self.pixmapItem: 
 
-            import copy
             self.np_channels = copy.deepcopy(self.reset_np_channels)
             self.multi_layer.emit(self.np_channels, False)
 
             channel_num = f"Channel {self.currentChannelNum + 1}"
             self.image_wrapper = self.np_channels.get(channel_num)
-
-            # layered_data = self.reset_np_channels.get(channel_num).data
-            # self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
-            # self.toPixmapItem(self.reset_pixmap)
 
             self.image_cache.clear()
             self.update_image("gray")
@@ -549,25 +549,37 @@ class ImageGraphicsView(__BaseGraphicsView):
         lut[new_max+1:] = 255
 
         return lut
+    
 
     def blur_layer(self, blur_percentage:float, confirm=False):
+        '''start gaussian blur in a separate thread'''
+        self.blur_worker = Worker(self.blur_layer_task, blur_percentage, confirm)
+        # self.blur_worker.signal.connect() # result is rotated_channels
+        self.blur_worker.error.connect(self.onError)
+        self.blur_worker.finished.connect(self.blur_worker.quit)
+        self.blur_worker.finished.connect(self.blur_worker.deleteLater)
+        self.blur_worker.start()
+
+    def blur_layer_task(self, blur_percentage:float, confirm=False):
         """
         Applies Gaussian blur chosen of the image stack and subtracts
         the specified percentage of the blurred image from the original.
         """
+
+        self.image_cache.clear()
         self._blur_layer = f'Channel {self.currentChannelNum+ 1}'
         if not confirm:
             
             # blur_percentage = self._blur_percentage
-            layer_to_blur = self.np_channels[self._blur_layer].data
-
+            layer_to_blur = (self.np_channels[self._blur_layer].data).copy()
             blurred_mask = cv2.GaussianBlur(layer_to_blur, (101, 101), 0)
             blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
             self.corrected_layer = cv2.subtract(layer_to_blur, blurred_mask_adjusted)
             self.corrected_layer = np.clip(self.corrected_layer, 0, 65535).astype(np.uint16)
             cmap = self.np_channels[self._blur_layer].cmap
-            self.image = self.corrected_layer
-            self.update_image(cmap)
+            self.toPixmapItem(self.corrected_layer)
+            print("blurring")
+            # self.update_image(cmap)
 
         else:
             print("Error from gaussian blur")
@@ -575,9 +587,10 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         if confirm and hasattr(self, "corrected_layer") and (not self.np_channels.get(self._blur_layer) == None):
             self.np_channels[self._blur_layer].data = self.corrected_layer # Replace with the corrected version
+            self.update_image(cmap)
             self.multi_layer.emit(self.np_channels, False)
             self.updateProgress.emit(100, f"Replaced {self._blur_layer}")
-            
+
 
     def crop(self, image_rect):
         """start crop thread"""
