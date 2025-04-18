@@ -415,11 +415,13 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.multi_layer.emit(self.np_channels, False)
 
             channel_num = f"Channel {self.currentChannelNum + 1}"
-            self.image = self.np_channels.get(channel_num).data
+            self.image_wrapper = self.np_channels.get(channel_num)
 
-            layered_data = self.reset_np_channels.get(channel_num).data
+            # layered_data = self.reset_np_channels.get(channel_num).data
             # self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
             # self.toPixmapItem(self.reset_pixmap)
+
+            self.image_cache.clear()
             self.update_image("gray")
 
     def rotate_image_task(self, channels:dict, angle):
