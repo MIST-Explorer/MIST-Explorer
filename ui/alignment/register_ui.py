@@ -112,8 +112,8 @@ class RegisterUI(QWidget):
 
     def __retranslate_UI(self):
         _translate = QCoreApplication.translate
-        self.register_groupbox.setTitle(_translate("MainWindow", "Align Layers"))
-        self.alignment_layer_label.setText(_translate("MainWindow", "Alignment Layer"))
+        self.register_groupbox.setTitle(_translate("MainWindow", "Align Arrays"))
+        self.alignment_layer_label.setText(_translate("MainWindow", "Reference Layer"))
         self.protein_cell_layer_label.setText(_translate("MainWindow", "Cell Layer"))
         self.intensity_layer_label.setText(_translate("MainWindow", "Protein Detection Layer"))
         self.max_size_label.setText(_translate("MainWindow", "Max Size"))

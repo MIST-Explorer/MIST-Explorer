@@ -100,6 +100,11 @@ class Ui_MainWindow(QMainWindow):
         self.horizontalLayout = QHBoxLayout(self.preprocessing_tab)
         self.preprocessing_dockwidget_main_vlayout = QVBoxLayout()
         self.horizontalLayout.addLayout(self.preprocessing_dockwidget_main_vlayout)
+        
+        # reference view
+        self.small_view = ReferenceGraphicsViewUI(self.centralwidget)
+        self.small_view.setParent(self.canvas)
+        self.small_view.hide()
 
         self.save_button = QPushButton('Save Canvas')
         self.save_button.clicked.connect(self.save_canvas)
@@ -221,7 +226,7 @@ class Ui_MainWindow(QMainWindow):
 
         # Connect toolbar tab change signal
         self.toolBar.tabChanged.connect(self.stackedWidget.setCurrentIndex)
-        # Start with preprocessing tab
+        # Start with Images tab
         self.stackedWidget.setCurrentIndex(0)
 
         QMetaObject.connectSlotsByName(self)
@@ -239,7 +244,6 @@ class Ui_MainWindow(QMainWindow):
         print("saving")
         self.saveSignal.emit()
         
-
     def update_progress_bar(self, value, str):
         if self.progressBar.value() == 100:
             self.progressBar.reset()
