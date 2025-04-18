@@ -86,7 +86,6 @@ class __BaseGraphicsView(QWidget):
                     continue
 
             if pages:
-                print("stacked")
                 return np.stack(pages)
         
             else:
@@ -130,18 +129,7 @@ class __BaseGraphicsView(QWidget):
                 self.storage.add_data(str(uuid.uuid4()), self.np_channels)
                 channel_one_image = next(iter(self.np_channels.values())).data
                 self.multi_layer.emit(self.np_channels, True)
-                # else: # num of channels is 1, single page
-                #     print("not multi-layer")
 
-                #     self.is_layered = False
-                #     channel_one_image = pages[0]
-                #     self.storage.add_data(str(uuid.uuid4()), channel_one_image)
-                #     self.image_wrapper = ImageWrapper(channel_one_image)
-                #     self.single_layer.emit(channel_one_image)
-                #     print("image wrapper single", id(self.image_wrapper) )
-
-                #     self.np_channels.clear()
-                #     self.reset_np_channels.clear()
             else: # not a .tif image
 
                 self.is_layered = False
@@ -224,6 +212,7 @@ class ImageGraphicsView(__BaseGraphicsView):
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
         if type(data) == QPixmap:
+
             self.pixmap = data
         elif type(data) == QImage:
             self.pixmap = QPixmap(data)
@@ -243,8 +232,6 @@ class ImageGraphicsView(__BaseGraphicsView):
             channel_num = f'Channel {index+1}'
             
             self.image_wrapper = self.np_channels.get(channel_num)# self.image always needs to be updated. this is the current image that is being operated on
-            # min, max = self.image_wrapper.contrast_min, self.image_wrapper.contrast_max # read contrast settings
-            print("is channel 1 none?: " , self.np_channels.get(f"Channel 1") is None)
 
             if channel_num in self.np_channels.keys():
                 self.update_image(cmap_text = self.image_wrapper.cmap) # this also updates the contrast
@@ -252,6 +239,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         
 
     def update_contrast(self, values):
+        '''displays the image between a lower and upper limit'''
         if self.image_wrapper is None:
             self.errorSignal.emit("Canvas is empty")
             return
@@ -273,8 +261,8 @@ class ImageGraphicsView(__BaseGraphicsView):
             if channel_num not in self.image_cache:
                 self.image_cache[channel_num] = {}
 
-            self.image_wrapper = self.np_channels[channel_num]  # Set the current channel wrapper
 
+            self.image_wrapper = self.np_channels[channel_num]  # Set the current channel wrapper
 
 
             self._apply_contrast_and_cache(channel_num, cache_key, contrast_min, contrast_max)
@@ -290,22 +278,27 @@ class ImageGraphicsView(__BaseGraphicsView):
         This helper function applies the contrast and caches the processed image.
         If the contrast has already been applied, it uses the cached version.
         """
+
         if (channel_num is None and self.image_cache.get(cache_key) is None) or \
         (channel_num is not None and self.image_cache[channel_num].get(cache_key) is None):
 
-            print(f"{'Multi-layer' if channel_num else 'Single-layer'} changing contrast (no cache)")
             image_to_display = self.apply_contrast(contrast_min, contrast_max)
             
             if channel_num:
+
                 self.image_cache[channel_num][cache_key] = image_to_display
+
             else:
+
                 self.image_cache[cache_key] = image_to_display
 
             contrast_pixmap = QPixmap(numpy_to_qimage(image_to_display))  # Convert to pixmap for display
+
             self.canvasUpdated.emit(contrast_pixmap)
 
         else:
-            # Use cached image if available
+            # use cached image if available
+
             image_to_display = self.image_cache[channel_num][cache_key] if channel_num else self.image_cache[cache_key]
             
             contrast_pixmap = QPixmap(numpy_to_qimage(image_to_display))
@@ -318,72 +311,35 @@ class ImageGraphicsView(__BaseGraphicsView):
             return
 
         if self.is_layered:
-            print("checking layered")
             channel_num = f"Channel {self.currentChannelNum + 1}" 
             self.image_wrapper = self.np_channels[channel_num]  # wrapper
-            # self.image_cache = {key: {} for key in self.np_channels.keys()} # cache to avoid recalculating contrast
-        
-        if not hasattr(self, "image_wrapper"):
-            print("no wrapper")
+
 
         if cmap_text == "default":
             cmap_text = self.image_wrapper.cmap
         
         if cmap_text not in self.lut_cache:
-            print("Generating LUT for colormap:", cmap_text)
             lut = self.generate_lut(cmap_text)
             self.lut_cache[cmap_text] = lut # cache to avoid recalculating LUT
         else:
             lut = self.lut_cache[cmap_text]  # Reuse the cached LUT
         
-        print(f"Updating colormap from {self.image_wrapper.cmap} to {cmap_text}")
         self.image_wrapper.cmap = cmap_text
 
-        print("type: ", type(self.image_wrapper.data))
         return self.label2rgb(scale_adjust(self.image_wrapper.data), lut).astype(np.uint8)
 
     def update_image(self, cmap_text="default"):
         '''Updates the current image using the current colormap and contrast settings.
         This only changes the display and does not change the underlying data.'''
+        
+        #update the color map
         image_to_display = self.change_cmap(cmap_text)
-        # if self.image_wrapper is None:
-        #     self.errorSignal.emit("Canvas is empty")
-        #     return
-
-        # if self.is_layered:
-        #     print("checking layered")
-        #     channel_num = f"Channel {self.currentChannelNum + 1}" 
-        #     self.image_wrapper = self.np_channels[channel_num]  # wrapper
-        #     # self.image_cache = {key: {} for key in self.np_channels.keys()} # cache to avoid recalculating contrast
-        
-        # if not hasattr(self, "image_wrapper"):
-        #     print("no wrapper")
-
-
-        # if cmap_text == "default":
-        #     cmap_text = self.image_wrapper.cmap
-        
-        # if cmap_text not in self.lut_cache:
-        #     print("Generating LUT for colormap:", cmap_text)
-        #     lut = self.generate_lut(cmap_text)
-        #     self.lut_cache[cmap_text] = lut # cache to avoid recalculating LUT
-        # else:
-        #     lut = self.lut_cache[cmap_text]  # Reuse the cached LUT
-        
-        # print(f"Updating colormap from {self.image_wrapper.cmap} to {cmap_text}")
-        # self.image_wrapper.cmap = cmap_text
-
-        # print("type: ", type(self.image_wrapper.data))
-        # image_to_display = self.label2rgb(scale_adjust(self.image_wrapper.data), lut).astype(np.uint8)
         self.toPixmapItem(image_to_display)  
         self.update_cmap.emit(cmap_text)
-
-
         # update the contrast
         min, max = self.image_wrapper.contrast_min, self.image_wrapper.contrast_max # read contrast settings
         self.update_contrast((min,max))
 
-#########
     def generate_lut(self, cmap:str):
         '''generate a 8 bit look-up table and converts to rgb space'''
         label_range = np.linspace(0, 1, 256)
@@ -471,7 +427,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         rotated_arrays = []
 
         if self.is_layered:
-            for wrapper in channels.values():
+            for channel_num, wrapper in channels.items():
                 try:
                     arr = wrapper.data
                     cmap = wrapper.cmap
@@ -491,12 +447,13 @@ class ImageGraphicsView(__BaseGraphicsView):
                 rotation_matrix[0,2] += (updated_w/2) - w/2
                 rotation_matrix[1,2] += (updated_h/2) - h/2
                 rotated_arr = cv2.warpAffine(arr, rotation_matrix, (updated_h, updated_h))
-
-                self.rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
-                rotated_arrays.append(self.rotated_wrapper)
-            return  dict(zip(channels.keys(), rotated_arrays))
+                
+                self.np_channels[channel_num].data = rotated_arr
+                # self.rotated_wrapper = ImageWrapper(rotated_arr, cmap = cmap)
+                # rotated_arrays.append(self.rotated_wrapper)
+            return self.np_channels
         else:
-            h,w = self.image.shape
+            h,w = self.image_wrapper.data.shape
             center = (w/2, h/2)
             rotation_matrix = cv2.getRotationMatrix2D(center, -angle, 1)
             cos = np.abs(rotation_matrix[0,0])
@@ -505,7 +462,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             updated_h = int((h*cos) + (w*sin))
             rotation_matrix[0,2] += (updated_w/2) - w/2
             rotation_matrix[1,2] += (updated_h/2) - h/2
-            rotated_arr = cv2.warpAffine(self.image, rotation_matrix, (updated_h, updated_h))
+            rotated_arr = cv2.warpAffine(self.image_wrapper.data, rotation_matrix, (updated_h, updated_h))
 
             return rotated_arr
 
@@ -528,19 +485,21 @@ class ImageGraphicsView(__BaseGraphicsView):
     def onRotationCompleted(self, result):
 
         if type(result) == dict:
-
+            print("completing rotation")
             self.np_channels = result
 
-            channel_image = list(self.np_channels.values())[self.currentChannelNum].data
+            # channel_image = list(self.np_channels.values())[self.currentChannelNum].data
             channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
-            channel_image = scale_adjust(channel_image)
-            self.image = channel_image
+            # channel_image = scale_adjust(channel_image)
+            # self.image = channel_image
+
+            self.image_cache.clear()
             self.update_image(cmap_text=channel_cmap) # this also updates the contrast
             self.multi_layer.emit(self.np_channels, False)
 
         else:
-            channel_image = scale_adjust(result)
-            self.image = channel_image
+            # channel_image = scale_adjust(result)
+            # self.image = channel_image
             self.update_image(cmap_text="gray") # this also updates the contrast
 
 
@@ -660,11 +619,10 @@ class ImageGraphicsView(__BaseGraphicsView):
         if not cropped_wrappers == {}:
             self.np_channels = cropped_wrappers
             channel_num = f"Channel {self.currentChannelNum + 1}"
-            # self.image_wrapper = self.np_channels.get(channel_num)
-            print("is channel 1 none?: " , self.np_channels.get(f"Channel 1") is None)
+            self.image_wrapper = self.np_channels.get(channel_num)
+            self.image_cache.clear()
 
         self.cropSignal.emit(False)
-        print("crop signal emitted")
 
     def cropImageTask(self, image_rect) -> dict:
         """Process crop in background thread"""
@@ -677,7 +635,6 @@ class ImageGraphicsView(__BaseGraphicsView):
         if self.is_layered:
             for channel_name, image_arr in self.np_channels.items(): # iterate over wrappers
                 arr = image_arr.data 
-                cmap = image_arr.cmap
                 cropped_array = arr[top:bottom+1, left:right+1]
                 if not cropped_array.data.contiguous:
                     cropped_array = np.ascontiguousarray(cropped_array, dtype=arr.dtype)
@@ -688,14 +645,6 @@ class ImageGraphicsView(__BaseGraphicsView):
 
                 self.np_channels[channel_name].data = cropped_array
 
-                print("is channel 1 none?: " , self.np_channels.get(f"Channel 1") is None)
-
-                # min, max = self.image_wrapper.contrast_min, self.image_wrapper.contrast_max
-                # self.crop_wrapper.contrast_min = min
-                # self.crop_wrapper.contrast_max = max
-                # self.update_image(cmap_text= cmap)
-                # # self.update_contrast((min, max))
-                # self.cropped_wrappers[channel_name] = self.crop_wrapper
 
             return self.np_channels
             
