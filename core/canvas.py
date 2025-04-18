@@ -361,9 +361,11 @@ class ImageGraphicsView(__BaseGraphicsView):
     
 
     def loadStardistLabels(self, stardist: ImageWrapper):
+        self.is_layered = False
         self.stardist_labels = stardist.data
-        self.image = self.stardist_labels.copy()
-        self.update_image("gray")
+        cmap = self.np_channels[f"Channel {self.currentChannelNum+1}"].cmap
+        self.image_wrapper = ImageWrapper(self.stardist_labels.copy(), name="stardist", cmap=cmap)
+        self.update_image(cmap_text=cmap)
     
     def addImage(self, file:str):
         '''add a new image'''
