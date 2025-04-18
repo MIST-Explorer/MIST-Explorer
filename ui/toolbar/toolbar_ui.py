@@ -96,6 +96,7 @@ class ToolBarUI(QWidget):
 
         self.contrastSlider = QRangeSlider()
         self.contrastSlider.setOrientation(Qt.Orientation.Horizontal)
+        self.contrastSlider.setRange(0,255)
         self.contrastSlider.setMaximumWidth(200)
         # self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
@@ -164,10 +165,9 @@ class ToolBarUI(QWidget):
         self.toolbar.addWidget(self.contrastSlider)
 
     def update_contrast_slider(self, values):
-        min, max = values
 
         self.contrastSlider.blockSignals(True)
-
+        print("update_contrast_slider in interface", values)
         self.contrastSlider.setValue(values)
         self.contrastSlider.blockSignals(False)
 
@@ -198,9 +198,8 @@ class ToolBarUI(QWidget):
     cmapChanged = pyqtSignal(str)
     @pyqtSlot(str)
     def on_cmapTextChanged(self, cmap_str :str):
-        if self.channelSelector.count() != 0:
-            print("current cmap str: ", self.cmapSelector.currentText())
-            self.cmapChanged.emit(cmap_str)
+        self.cmapChanged.emit(cmap_str)
+
 
     def onTabButtonClicked(self, index):
         # Uncheck other buttons

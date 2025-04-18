@@ -5,6 +5,25 @@ import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2, xml.etree.El
 from core.Worker import Worker
 from utils import *
 from ui.Dialogs import ImageDialog
+import uuid
+
+class ImageStorage:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.image_list = {}
+        return cls._instance
+    
+    def add_data(self, image_id, data):
+        self._instance.image_list[image_id] = data
+
+    def get_data(self, image_id):
+        return self._instance.image_list[image_id]
+    
+    def clear_data(self):
+        self._instance.image_list.clear()
 
 class ImageWrapper:
     def __init__(self, data, name="", cmap="gray"):
@@ -19,11 +38,12 @@ class ImageWrapper:
 
 class __BaseGraphicsView(QWidget):
     '''base class for graphics view'''
-    channelLoaded = pyqtSignal(dict, bool)
-    channelNotLoaded = pyqtSignal(np.ndarray)
+    multi_layer = pyqtSignal(dict, bool)
+    single_layer = pyqtSignal(np.ndarray)
     updateProgress = pyqtSignal(int, str)
     errorSignal = pyqtSignal(str)
     fill_metadata = pyqtSignal(dict)
+    update_manager = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,8 +58,10 @@ class __BaseGraphicsView(QWidget):
         self.pixmapItem=None
         self.np_channels = {}
         self.reset_np_channels = {}
-        self.currentChannelNum = -1
+        self.currentChannelNum = 0
         self.is_layered = False
+        self.image_cache = {}
+        self.lut_cache = {}
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -73,66 +95,74 @@ class __BaseGraphicsView(QWidget):
 
     def filename_to_image(self, file_name:str, adjust_contrast=False) -> np.ndarray:  
 
+            self.update_manager.emit(file_name)
+            self.storage = ImageStorage()
+
+
 
             if file_name.endswith((".tiff", ".tif")):
 
-
+                #handle meta data
                 metadata_widget = MetaData()
                 metadata = metadata_widget.parse_metadata(file_name)
-                # metadata_widget.populate_table(metadata)
                 self.fill_metadata.emit(metadata)
                 pages = self.read_tiff_pages(file_name)
                 num_channels = pages.shape[0]
 
-                if (num_channels > 1):
-                    self.is_layered = True
-                    for channel_num, image in enumerate(pages):
+                # if (num_channels > 1):
+                for channel_num, image in enumerate(pages):
 
-                        channel_name = f'Channel {channel_num + 1}'
-                        height, width = image.shape
-                        image_adjusted = image
+                    channel_name = f'Channel {channel_num + 1}'
+                    image_adjusted = image
 
-                        if adjust_contrast:
-                            __scaled = scale_adjust(image) 
-                            image_adjusted = adjustContrast(__scaled) # uint8
+                    if adjust_contrast:
+                        __scaled = scale_adjust(image) 
+                        image_adjusted = adjustContrast(__scaled) # uint8
 
-                        # bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
-                        # format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
+                    # bytesPerPixel = 2 if image_adjusted.dtype == np.uint16 else 1
+                    # format = QImage.Format.Format_Grayscale16 if image_adjusted.dtype == np.uint16 else QImage.Format.Format_Grayscale8
 
-                        self.np_channels[channel_name] = ImageWrapper(image_adjusted) 
-                        print('data type: ', type(image_adjusted))
-                        self.reset_np_channels[channel_name] = ImageWrapper(image_adjusted.copy()) 
+                    self.np_channels[channel_name] = ImageWrapper(image_adjusted) 
+                    print('data type: ', image_adjusted.dtype)
+                    self.reset_np_channels[channel_name] = ImageWrapper(image_adjusted.copy()) 
 
+                self.is_layered = True
+                self.storage.add_data(str(uuid.uuid4()), self.np_channels)
+                channel_one_image = next(iter(self.np_channels.values())).data
+                self.multi_layer.emit(self.np_channels, True)
+                # else: # num of channels is 1, single page
+                #     print("not multi-layer")
 
+                #     self.is_layered = False
+                #     channel_one_image = pages[0]
+                #     self.storage.add_data(str(uuid.uuid4()), channel_one_image)
+                #     self.image_wrapper = ImageWrapper(channel_one_image)
+                #     self.single_layer.emit(channel_one_image)
+                #     print("image wrapper single", id(self.image_wrapper) )
 
-                    channel_one_image = next(iter(self.np_channels.values())).data
-                    self.channelLoaded.emit(self.np_channels, True)
-                else: # num of channels is 1, single page
-                    print("not multilayer")
-
-                    self.is_layered = False
-                    self.np_channels.clear()
-                    self.reset_np_channels.clear()
-                    channel_one_image = pages[0]
-                    self.image = channel_one_image
-                    self.channelNotLoaded.emit(channel_one_image)
-                    self.currentChannelNum = -1
+                #     self.np_channels.clear()
+                #     self.reset_np_channels.clear()
             else: # not a .tif image
+
                 self.is_layered = False
                 from PIL import Image
                 print("not a tif")
+                channel_one_image = np.array(Image.open(file_name))
+                self.storage.add_data(str(uuid.uuid4()), channel_one_image)
+                self.image_wrapper = ImageWrapper(channel_one_image)
+                self.single_layer.emit(channel_one_image)
+
                 self.np_channels.clear()
                 self.reset_np_channels.clear()
-                channel_one_image = np.array(Image.open(file_name))
-                self.image = channel_one_image
-                self.currentChannelNum = -1
 
+
+            self.image_cache.clear()
+            self.lut_cache.clear()
             self.updateProgress.emit(100, "Image Loaded")
             return channel_one_image
     
     def deleteImage(self):
         self.scene.scene().clear()
-
 
 
 class ReferenceGraphicsView(__BaseGraphicsView):
@@ -190,6 +220,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.begin_crop = False
         self.crop_cursor =  QCursor(Qt.CursorShape.CrossCursor)
 
+
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         #convert pixmap to pixmapItem
         if type(data) == QPixmap:
@@ -202,20 +233,157 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.canvasUpdated.emit(self.pixmap)
     
     update_cmap = pyqtSignal(str)
-    def change_cmap(self, cmap_text: str):
-        '''updates the current image using the current colormap and contrast settings'''
-        lut = self.generate_lut(cmap_text)
-        adjusted_uint8 = scale_adjust(self.image)
-        if self.is_layered:
-            channel_num = f"Channel {self.currentChannelNum + 1}"
-            self.np_channels[channel_num].cmap = cmap_text
-            min, max = self.np_channels[channel_num].contrast_min, self.np_channels[channel_num].contrast_max
-            self.update_contrast((min, max))
 
-        rgb = self.label2rgb(adjusted_uint8, lut).astype(np.uint8)
-        self.toPixmapItem(rgb)
+    def swap_channel(self, index):
+        '''swaps between channels of a multi-layered tiff image'''
+        
+        if self.is_layered:
+
+            self.currentChannelNum = index
+            channel_num = f'Channel {index+1}'
+            
+            self.image_wrapper = self.np_channels.get(channel_num)# self.image always needs to be updated. this is the current image that is being operated on
+            # min, max = self.image_wrapper.contrast_min, self.image_wrapper.contrast_max # read contrast settings
+            print("is channel 1 none?: " , self.np_channels.get(f"Channel 1") is None)
+
+            if channel_num in self.np_channels.keys():
+                self.update_image(cmap_text = self.image_wrapper.cmap) # this also updates the contrast
+
+        
+
+    def update_contrast(self, values):
+        if self.image_wrapper is None:
+            self.errorSignal.emit("Canvas is empty")
+            return
+
+        contrast_min, contrast_max = int(values[0]), int(values[1])
+        self.image_wrapper.contrast_min = contrast_min
+        self.image_wrapper.contrast_max = contrast_max  # Save contrast settings
+        
+        contrast_key = (contrast_min, contrast_max)
+        cmap_key = self.image_wrapper.cmap
+        cache_key = (cmap_key, contrast_key)
+
+        # Check if the current image (single-layer or multi-layer) is in the cache
+        if self.is_layered:  # Multi-layer logic
+            print("Checking layered")
+            channel_num = f"Channel {self.currentChannelNum + 1}"
+
+            # Initialize cache for this channel if it's not already initialized
+            if channel_num not in self.image_cache:
+                self.image_cache[channel_num] = {}
+
+            self.image_wrapper = self.np_channels[channel_num]  # Set the current channel wrapper
+
+
+
+            self._apply_contrast_and_cache(channel_num, cache_key, contrast_min, contrast_max)
+
+        else:  # Single-layer logic
+            self._apply_contrast_and_cache(None, cache_key, contrast_min, contrast_max)
+
+        # Update the contrast slider with the new settings
+        self.changeSlider.emit((self.image_wrapper.contrast_min, self.image_wrapper.contrast_max))  # Update the slider
+
+    def _apply_contrast_and_cache(self, channel_num, cache_key, contrast_min, contrast_max):
+        """
+        This helper function applies the contrast and caches the processed image.
+        If the contrast has already been applied, it uses the cached version.
+        """
+        if (channel_num is None and self.image_cache.get(cache_key) is None) or \
+        (channel_num is not None and self.image_cache[channel_num].get(cache_key) is None):
+
+            print(f"{'Multi-layer' if channel_num else 'Single-layer'} changing contrast (no cache)")
+            image_to_display = self.apply_contrast(contrast_min, contrast_max)
+            
+            if channel_num:
+                self.image_cache[channel_num][cache_key] = image_to_display
+            else:
+                self.image_cache[cache_key] = image_to_display
+
+            contrast_pixmap = QPixmap(numpy_to_qimage(image_to_display))  # Convert to pixmap for display
+            self.canvasUpdated.emit(contrast_pixmap)
+
+        else:
+            # Use cached image if available
+            image_to_display = self.image_cache[channel_num][cache_key] if channel_num else self.image_cache[cache_key]
+            
+            contrast_pixmap = QPixmap(numpy_to_qimage(image_to_display))
+            self.canvasUpdated.emit(contrast_pixmap)
+
+    def change_cmap(self, cmap_text="default"):
+
+        if self.image_wrapper is None:
+            self.errorSignal.emit("Canvas is empty")
+            return
+
+        if self.is_layered:
+            print("checking layered")
+            channel_num = f"Channel {self.currentChannelNum + 1}" 
+            self.image_wrapper = self.np_channels[channel_num]  # wrapper
+            # self.image_cache = {key: {} for key in self.np_channels.keys()} # cache to avoid recalculating contrast
+        
+        if not hasattr(self, "image_wrapper"):
+            print("no wrapper")
+
+        if cmap_text == "default":
+            cmap_text = self.image_wrapper.cmap
+        
+        if cmap_text not in self.lut_cache:
+            print("Generating LUT for colormap:", cmap_text)
+            lut = self.generate_lut(cmap_text)
+            self.lut_cache[cmap_text] = lut # cache to avoid recalculating LUT
+        else:
+            lut = self.lut_cache[cmap_text]  # Reuse the cached LUT
+        
+        print(f"Updating colormap from {self.image_wrapper.cmap} to {cmap_text}")
+        self.image_wrapper.cmap = cmap_text
+
+        print("type: ", type(self.image_wrapper.data))
+        return self.label2rgb(scale_adjust(self.image_wrapper.data), lut).astype(np.uint8)
+
+    def update_image(self, cmap_text="default"):
+        '''Updates the current image using the current colormap and contrast settings.
+        This only changes the display and does not change the underlying data.'''
+        image_to_display = self.change_cmap(cmap_text)
+        # if self.image_wrapper is None:
+        #     self.errorSignal.emit("Canvas is empty")
+        #     return
+
+        # if self.is_layered:
+        #     print("checking layered")
+        #     channel_num = f"Channel {self.currentChannelNum + 1}" 
+        #     self.image_wrapper = self.np_channels[channel_num]  # wrapper
+        #     # self.image_cache = {key: {} for key in self.np_channels.keys()} # cache to avoid recalculating contrast
+        
+        # if not hasattr(self, "image_wrapper"):
+        #     print("no wrapper")
+
+
+        # if cmap_text == "default":
+        #     cmap_text = self.image_wrapper.cmap
+        
+        # if cmap_text not in self.lut_cache:
+        #     print("Generating LUT for colormap:", cmap_text)
+        #     lut = self.generate_lut(cmap_text)
+        #     self.lut_cache[cmap_text] = lut # cache to avoid recalculating LUT
+        # else:
+        #     lut = self.lut_cache[cmap_text]  # Reuse the cached LUT
+        
+        # print(f"Updating colormap from {self.image_wrapper.cmap} to {cmap_text}")
+        # self.image_wrapper.cmap = cmap_text
+
+        # print("type: ", type(self.image_wrapper.data))
+        # image_to_display = self.label2rgb(scale_adjust(self.image_wrapper.data), lut).astype(np.uint8)
+        self.toPixmapItem(image_to_display)  
         self.update_cmap.emit(cmap_text)
 
+
+        # update the contrast
+        min, max = self.image_wrapper.contrast_min, self.image_wrapper.contrast_max # read contrast settings
+        self.update_contrast((min,max))
+
+#########
     def generate_lut(self, cmap:str):
         '''generate a 8 bit look-up table and converts to rgb space'''
         label_range = np.linspace(0, 1, 256)
@@ -223,6 +391,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def label2rgb(self, labels, lut):
         '''applys the look-up table and merges r, g, b channels to form colored image '''
+        print(type(labels))
         if len(labels) == 3:
             r,g,b = labels
             return cv2.LUT(cv2.merge((r, g, b)), lut)
@@ -233,7 +402,7 @@ class ImageGraphicsView(__BaseGraphicsView):
     def loadStardistLabels(self, stardist: ImageWrapper):
         self.stardist_labels = stardist.data
         self.image = self.stardist_labels.copy()
-        self.change_cmap("gray")
+        self.update_image("gray")
     
     def addImage(self, file:str):
         '''add a new image'''
@@ -287,7 +456,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
             import copy
             self.np_channels = copy.deepcopy(self.reset_np_channels)
-            self.channelLoaded.emit(self.np_channels, False)
+            self.multi_layer.emit(self.np_channels, False)
 
             channel_num = f"Channel {self.currentChannelNum + 1}"
             self.image = self.np_channels.get(channel_num).data
@@ -295,7 +464,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             layered_data = self.reset_np_channels.get(channel_num).data
             # self.reset_pixmap = QPixmap(numpy_to_qimage(layered_data))
             # self.toPixmapItem(self.reset_pixmap)
-            self.change_cmap("gray")
+            self.update_image("gray")
 
     def rotate_image_task(self, channels:dict, angle):
         t = time.time()
@@ -362,19 +531,17 @@ class ImageGraphicsView(__BaseGraphicsView):
 
             self.np_channels = result
 
-
-
             channel_image = list(self.np_channels.values())[self.currentChannelNum].data
             channel_cmap = list(self.np_channels.values())[self.currentChannelNum].cmap
             channel_image = scale_adjust(channel_image)
             self.image = channel_image
-            self.change_cmap(channel_cmap) # this also updates the contrast
-            self.channelLoaded.emit(self.np_channels, False)
+            self.update_image(cmap_text=channel_cmap) # this also updates the contrast
+            self.multi_layer.emit(self.np_channels, False)
 
         else:
             channel_image = scale_adjust(result)
             self.image = channel_image
-            self.change_cmap("gray") # this also updates the contrast
+            self.update_image(cmap_text="gray") # this also updates the contrast
 
 
 
@@ -384,45 +551,11 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def updateChannels(self, channels:dict, clear:bool) -> None: #cropsignal will update this
         self.np_channels = channels # replace channels with new, cropped/rotated, etc
-        self.channelLoaded.emit(self.np_channels, clear)
+        self.multi_layer.emit(self.np_channels, clear)
 
 
     def updateCurrentImage(self, data_dict):
         self.image = data_dict[f"Channel {self.currentChannelNum + 1}"].data
-
-
-    def swapChannel(self, index):
-        '''swaps between channels of a multi-layered tiff image'''
-        channel_num = f'Channel {index+1}'
-        self.currentChannelNum = index
-
-        self.image = self.np_channels.get(channel_num).data # self.image always needs to be updated. this is the current image that is being operated on
-        
-        if channel_num in self.np_channels.keys():
-            self.change_cmap(self.np_channels.get(channel_num).cmap) # this also updates the contrast
-
-
-    def update_contrast(self, values):
-
-        if self.pixmap is None:
-            self.errorSignal.emit("Canvas empty")
-            return
-        
-        min_val, max_val = values
-        if self.is_layered:
-            channel_num = f"Channel {self.currentChannelNum + 1}"
-
-            self.np_channels.get(channel_num).contrast_min = min_val
-            self.np_channels.get(channel_num).contrast_max = max_val
-
-
-        contrast_image = self.apply_contrast(min_val, max_val)
-        
-        contrastPixmap = QPixmap(numpy_to_qimage(contrast_image))
-
-        self.canvasUpdated.emit(contrastPixmap)
-
-        self.changeSlider.emit((min_val, max_val))
 
 
     def auto_contrast(self, lower = 0.1, upper=.9):
@@ -473,7 +606,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.corrected_layer = np.clip(self.corrected_layer, 0, 65535).astype(np.uint16)
             cmap = self.np_channels[self._blur_layer].cmap
             self.image = self.corrected_layer
-            self.change_cmap(cmap)
+            self.update_image(cmap)
 
         else:
             print("Error from gaussian blur")
@@ -481,22 +614,34 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         if confirm and hasattr(self, "corrected_layer") and (not self.np_channels.get(self._blur_layer) == None):
             self.np_channels[self._blur_layer].data = self.corrected_layer # Replace with the corrected version
-            self.channelLoaded.emit(self.np_channels, False)
+            self.multi_layer.emit(self.np_channels, False)
             self.updateProgress.emit(100, f"Replaced {self._blur_layer}")
             
 
-    def showCroppedImage(self, image_rect):
-        """Show dialog with cropped image preview"""
-        pixmap = self.pixmap 
-        cropped = pixmap.copy(image_rect).toImage()
-        cropped_pixmap = QPixmap(cropped)
+    def crop(self, image_rect):
+        """start crop thread"""
+        left = image_rect.x()
+        top = image_rect.y()
+        right = image_rect.right()
+        bottom = image_rect.bottom()
+
+        cropped_array = self.image_wrapper.data[top:bottom+1, left:right+1] # this is the current image. if layered then its the current channel
+        cropped_array_copy = cropped_array.copy()
+
+        if not cropped_array.data.contiguous:
+            cropped_array = np.ascontiguousarray(cropped_array, dtype=cropped_array.dtype)
+
+        cropped_array_copy = cropped_array.copy()
+
+        contrast = (self.image_wrapper.contrast_min, self.image_wrapper.contrast_max)
+            
+        self.crop_dialog = ImageDialog(self, cropped_array_copy, contrast, self.image_wrapper.cmap)
+        self.crop_dialog.exec()
 
         if not self.is_layered:
-            self.image = qimage_to_numpy(cropped)
-
-        
-        self.crop_dialog = ImageDialog(self, cropped_pixmap)
-        self.crop_dialog.exec()
+            self.image_wrapper.data = cropped_array_copy
+            self.cropSignal.emit(False) #set crop status
+            return # return if there are no other layers or is not a tiff
 
         if self.crop_dialog.confirm_crop:
             self.crop_worker = Worker(self.cropImageTask, image_rect)
@@ -515,38 +660,44 @@ class ImageGraphicsView(__BaseGraphicsView):
         if not cropped_wrappers == {}:
             self.np_channels = cropped_wrappers
             channel_num = f"Channel {self.currentChannelNum + 1}"
-            self.image = self.np_channels.get(channel_num).data
+            # self.image_wrapper = self.np_channels.get(channel_num)
+            print("is channel 1 none?: " , self.np_channels.get(f"Channel 1") is None)
 
         self.cropSignal.emit(False)
         print("crop signal emitted")
 
     def cropImageTask(self, image_rect) -> dict:
         """Process crop in background thread"""
+
         left = image_rect.x()
         top = image_rect.y()
         right = image_rect.right()
         bottom = image_rect.bottom()
 
-
         if self.is_layered:
-            for channel_name, image_arr in self.np_channels.items():
+            for channel_name, image_arr in self.np_channels.items(): # iterate over wrappers
                 arr = image_arr.data 
                 cmap = image_arr.cmap
                 cropped_array = arr[top:bottom+1, left:right+1]
                 if not cropped_array.data.contiguous:
-                    cropped_array = np.ascontiguousarray(cropped_array, dtype="uint16")
+                    cropped_array = np.ascontiguousarray(cropped_array, dtype=arr.dtype)
 
                 if not hasattr(self, "cropped_wrappers"):
                     self.cropped_wrappers = {}
 
-                self.crop_wrapper = ImageWrapper(cropped_array, cmap=cmap)
-                min, max = self.np_channels[channel_name].contrast_min, self.np_channels[channel_name].contrast_max
-                self.crop_wrapper.contrast_min = min
-                self.crop_wrapper.contrast_max = max
-                self.update_contrast((min, max))
-                self.cropped_wrappers[channel_name] = self.crop_wrapper
 
-            return self.cropped_wrappers
+                self.np_channels[channel_name].data = cropped_array
+
+                print("is channel 1 none?: " , self.np_channels.get(f"Channel 1") is None)
+
+                # min, max = self.image_wrapper.contrast_min, self.image_wrapper.contrast_max
+                # self.crop_wrapper.contrast_min = min
+                # self.crop_wrapper.contrast_max = max
+                # self.update_image(cmap_text= cmap)
+                # # self.update_contrast((min, max))
+                # self.cropped_wrappers[channel_name] = self.crop_wrapper
+
+            return self.np_channels
             
         else: return {}
     
@@ -647,3 +798,7 @@ class MetaData(QWidget):
                 metadata['DimensionOrder'] = "Unknown"
     
         return metadata
+    
+
+
+            

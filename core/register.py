@@ -276,32 +276,32 @@ class Register(QThread):
                 (None, x, y, (None, ymin, xmin, radius, x, y))
             )
 
-    def sc(self, arr):
-        return ((arr - arr.min()) * (1/(arr.max() - arr.min()) * 255)).astype('uint8')
-        # return arr
+    # def sc(self, arr):
+    #     return ((arr - arr.min()) * (1/(arr.max() - arr.min()) * 255)).astype('uint8')
+    #     # return arr
 
 
-    def seperate(self, img):
-        sep.set_extract_pixstack(10**7)
+    # def seperate(self, img):
+    #     sep.set_extract_pixstack(10**7)
         
-        filename = ''
-        threshold = 3
+    #     filename = ''
+    #     threshold = 3
         
-        img = img.astype('float')
+    #     img = img.astype('float')
         
-        bkg = sep.Background(img)
+    #     bkg = sep.Background(img)
         
-        img = img - bkg
+    #     img = img - bkg
 
-        return self.sc(img)
+    #     return self.sc(img)
 
     def align_two_img(self, param):
 
-        def convert_to_rgb_image(array_2d):
-            normalized_array = (array_2d - np.min(array_2d)) / (np.max(array_2d) - np.min(array_2d))
-            scaled_array = (normalized_array * 255).astype(np.uint8)
-            rgb_image = np.stack((scaled_array, scaled_array, scaled_array), axis=-1)
-            return rgb_image
+        # def convert_to_rgb_image(array_2d):
+        #     normalized_array = (array_2d - np.min(array_2d)) / (np.max(array_2d) - np.min(array_2d))
+        #     scaled_array = (normalized_array * 255).astype(np.uint8)
+        #     rgb_image = np.stack((scaled_array, scaled_array, scaled_array), axis=-1)
+        #     return rgb_image
 
         fixed_img, moving_img, ymin, xmin, radius, x, y = param        
         source = moving_img.copy()
@@ -377,14 +377,14 @@ class Register(QThread):
                 img = ((img - minval) / (maxval - minval)) * 255
                 return (img.astype(np.uint8))
 
-    def resample(self, image, transform):
-                # Output image Origin, Spacing, Size, Direction are taken from the reference
-                # image in this call to Resample
-                reference_image = image
-                interpolator = sitk.sitkCosineWindowedSinc
-                default_value = 100.0
-                return sitk.Resample(image, reference_image, transform,
-                                    interpolator, default_value)
+    # def resample(self, image, transform):
+    #             # Output image Origin, Spacing, Size, Direction are taken from the reference
+    #             # image in this call to Resample
+    #             reference_image = image
+    #             interpolator = sitk.sitkCosineWindowedSinc
+    #             default_value = 100.0
+    #             return sitk.Resample(image, reference_image, transform,
+    #                                 interpolator, default_value)
 
 
 

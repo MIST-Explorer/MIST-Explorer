@@ -202,8 +202,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         # reset
         self.current_index = 1
 
-        if not hasattr(self, "right_arrow"):
-            self.slideshow()  # Initialize arrows
+        # if not hasattr(self, "right_arrow"):
+        self.slideshow()  # Initialize arrows
 
         self.pixmap = pixmap
         if not hasattr(self, 'pixmapItem') or self.pixmapItem is None:
@@ -216,36 +216,36 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         
         print("is layer: ", is_layer)
         
-        if is_layer:
+        # if is_layer:
 
-            print("has np channels")
-            # Scale arrows appropriately
-            rw = int(self.scene().width() / 10.6)
-            rh = int(self.scene().height() / 10.6)
-            
-            self.right_arrow.bg_rect.setRect(0, 0, rw, rh)
-            self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
-
-            self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw, rh))
-            self.left_arrow.setPixmap(QPixmap("assets/icons/left-arrow.png").scaled(rw, rh))
-
-            scene_height = self.scene().height()
-            scene_width = self.scene().width()
-            self.right_arrow.setToolTip("Next")
-            self.left_arrow.setToolTip("Previous")
-
-            # Position the arrows
-            right_arrow_pos_x = int(scene_width)
-            left_arrow_pos_x = 0
-            arrow_pos_y = int(scene_height / 2)
-
-            self.right_arrow.setPos(self.mapToScene(right_arrow_pos_x, arrow_pos_y))
-            self.left_arrow.setPos(self.mapToScene(left_arrow_pos_x, arrow_pos_y))
+        print("has np channels")
+        # Scale arrows appropriately
+        rw = int(self.scene().width() / 10.6)
+        rh = int(self.scene().height() / 10.6)
         
-            # Set Z-order
-            self.pixmapItem.setZValue(0)
-            self.right_arrow.setZValue(1)
-            self.left_arrow.setZValue(1)
+        self.right_arrow.bg_rect.setRect(0, 0, rw, rh)
+        self.left_arrow.bg_rect.setRect(0, 0, rw, rh)
+
+        self.right_arrow.setPixmap(QPixmap("assets/icons/right-arrow.png").scaled(rw, rh))
+        self.left_arrow.setPixmap(QPixmap("assets/icons/left-arrow.png").scaled(rw, rh))
+
+        scene_height = self.scene().height()
+        scene_width = self.scene().width()
+        self.right_arrow.setToolTip("Next")
+        self.left_arrow.setToolTip("Previous")
+
+        # Position the arrows
+        right_arrow_pos_x = int(scene_width)
+        left_arrow_pos_x = 0
+        arrow_pos_y = int(scene_height / 2)
+
+        self.right_arrow.setPos(self.mapToScene(right_arrow_pos_x, arrow_pos_y))
+        self.left_arrow.setPos(self.mapToScene(left_arrow_pos_x, arrow_pos_y))
+    
+        # Set Z-order
+        self.pixmapItem.setZValue(0)
+        self.right_arrow.setZValue(1)
+        self.left_arrow.setZValue(1)
             
         
 
@@ -699,9 +699,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                     return
                 
                 
-
-
-
     def contextMenuEvent(self, event):
         # Create the menu
         menu = QMenu(self)

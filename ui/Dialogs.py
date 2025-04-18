@@ -4,7 +4,9 @@ from PyQt6.QtWidgets import (QDialog, QComboBox, QHBoxLayout, QGridLayout, QVBox
                              QDialogButtonBox, QGraphicsPixmapItem)
 from PyQt6.QtCore import Qt, QMetaObject, QCoreApplication
 from PyQt6.QtGui import QPixmap, QPainter, QImage
-import ui.app
+import ui.app, numpy as np
+from utils import numpy_to_qimage, scale_adjust
+from cv2 import LUT
 # classes for dialog pop-ups
 
 class BrightnessContrastDialog(QDialog):
@@ -191,10 +193,12 @@ class BrightnessContrastDialog(QDialog):
 
 class ImageDialog(QDialog):
     '''Popup window to confirm the cropped image'''
-    def __init__(self, canvas, cropped_image:QPixmap):
+    def __init__(self, canvas, cropped_image:np.ndarray, contrast:tuple, cmap:str):
         super().__init__()
         self.canvas = canvas
         self.cropped_image = cropped_image
+        self.contrast = contrast
+        self.cmap = cmap
         self.initUI()
 
     def initUI(self):
@@ -206,9 +210,15 @@ class ImageDialog(QDialog):
 
         self.image_scene = QGraphicsScene(self)  # Create a QGraphicsScene
         self.image_view.setScene(self.image_scene)  # Set the scene on the view
-        self.cropped_pixmapItem = QGraphicsPixmapItem(self.cropped_image)
+
+        if self.cropped_image.dtype != np.uint8:
+            self.cropped_image = scale_adjust(self.cropped_image)
+
+        im = self.apply_contrast(self.cropped_image, self.contrast[0], self.contrast[1])
+        self.pix = QPixmap(numpy_to_qimage(im))
+        self.cropped_pixmapItem = QGraphicsPixmapItem(self.pix)
         self.image_view.scene().addItem(self.cropped_pixmapItem)
-        self.image_view.setSceneRect(0, 0, self.cropped_image.width(), self.cropped_image.height())
+        self.image_view.setSceneRect(0, 0, self.pix.width(), self.pix.height())
         item_rect = self.cropped_pixmapItem.boundingRect()
         self.image_view.setSceneRect(item_rect)
         self.image_view.fitInView(self.cropped_pixmapItem, Qt.AspectRatioMode.KeepAspectRatio)
@@ -232,9 +242,24 @@ class ImageDialog(QDialog):
 
     def confirm(self):
         self.confirm_crop = True
-        self.canvas.toPixmapItem(self.cropped_image)
+        self.canvas.toPixmapItem(self.pix)
         self.accept()
 
     def cancel(self):
         self.confirm_crop = False
         self.reject()
+
+
+    def apply_contrast(self, image, new_min, new_max):
+
+        lut = self.create_lut(new_min, new_max)
+        return LUT(image, lut)
+
+    def create_lut(self, new_min, new_max):
+
+        lut = np.zeros(256, dtype=np.uint8) # uint8 for display
+        lut[new_min:new_max+1] = np.linspace(start=0, stop=255, num=(new_max - new_min + 1), endpoint=True, dtype=np.uint8)
+        lut[:new_min] = 0 # clip between 0 and 255
+        lut[new_max+1:] = 255
+
+        return lut

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import pyqtSignal
 from PIL import Image
-        
+from ui.ImageManager import Manager
 class Controller:
     controllerSignal = pyqtSignal(object)
     def __init__(self, app: Ui_MainWindow):
@@ -19,6 +19,9 @@ class Controller:
         self.reference_view = core.canvas.ReferenceGraphicsView()
         self.view = app
 
+        self.model_canvas.update_manager.connect(self.view.add_item_to_manager)
+        self.reference_view.update_manager.connect(self.view.add_item_to_manager)
+
         self.openFilesDialog = None
         #menubar signals
         # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
@@ -29,40 +32,37 @@ class Controller:
         self.view.register_groupbox.has_blue_color.currentTextChanged.connect(self.model_register.hasBlueColor)
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.reset_image)
-        # self.view.toolBar.actionOpenBrightnessContrast.triggered.connect(self.createBCDialog)
-        self.view.toolBar.channelChanged.connect(self.model_canvas.swapChannel)
-        # self.view.toolBar.channelChanged.connect(self.view.canvas.setCurrentChannel) #prob should move crop image function to image_processing instead in the future
-        # self.view.toolBar.channelChanged.connect(self.model_canvas.setCurrentChannel) # for rotating image
+        self.view.toolBar.channelChanged.connect(self.model_canvas.swap_channel)
         self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
-        self.view.toolBar.cmapChanged.connect(self.model_canvas.change_cmap) # change cmap in model_canvas then send to view.canvas for display
-        # self.model_canvas.timer.timeout.connect(self.model_canvas.update_contrast)
-        self.view.toolBar.auto_contrast_button.clicked.connect(self.model_canvas.auto_contrast)
-        # self.model_canvas.changeSlider.connect(self.view.toolBar.update_contrast_slider)
+        self.view.toolBar.cmapChanged.connect(self.model_canvas.update_image) # change cmap in model_canvas then send to view.canvas for display
 
-        # self.view.canvas.resizeSignal.connect(self.view.reposition)
+
+        self.view.toolBar.auto_contrast_button.clicked.connect(self.model_canvas.auto_contrast)
+
         self.view.canvas.imageDropped.connect(self.model_canvas.addImage)
         self.view.small_view.imageDropped.connect(self.reference_view.addImage)
         self.reference_view.update_reference.connect(self.view.small_view.display)
         self.model_canvas.newImageAdded.connect(self.view.canvas.addNewImage) # loading a new image
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
-        self.reference_view.channelLoaded.connect(self.model_register.update_reference_channels)
-        self.reference_view.channelLoaded.connect(self.view.small_view.load_channels)
-
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
-        # self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannels) # update toolbar channels
-        self.model_canvas.channelLoaded.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
-        self.model_canvas.channelLoaded.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
-        self.model_canvas.channelLoaded.connect(self.view.register_groupbox.updateChannelSelector) #update stardist channel combobox
-        self.model_canvas.channelLoaded.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
-        self.model_canvas.channelLoaded.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
-        self.model_canvas.channelLoaded.connect(self.model_register.updateChannels)
-        self.model_canvas.channelLoaded.connect(self.view.gaussian_blur.updateChannelSelector)
-        self.model_canvas.channelNotLoaded.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer
-        self.model_canvas.channelNotLoaded.connect(self.view.stardist_groupbox.clearChannelSelector)#if new image loaded is not multilayer
-        self.model_canvas.channelNotLoaded.connect(self.model_stardist.setImageToProcess) #this is when image loaded does not have multiple layers
+        self.reference_view.multi_layer.connect(self.model_register.update_reference_channels)
+        self.reference_view.multi_layer.connect(self.view.small_view.load_channels)
+
+        self.model_canvas.multi_layer.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
+        self.model_canvas.multi_layer.connect(self.view.stardist_groupbox.updateChannelSelector) #update stardist channel combobox
+        self.model_canvas.multi_layer.connect(self.view.register_groupbox.updateChannelSelector) #update register
+        self.model_canvas.multi_layer.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
+        self.model_canvas.multi_layer.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
+        self.model_canvas.multi_layer.connect(self.model_register.updateChannels)
+        self.model_canvas.multi_layer.connect(self.view.gaussian_blur.updateChannelSelector)
+
+        self.model_canvas.single_layer.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer, then we clear the channel selector since there's only one channel
+        self.model_canvas.single_layer.connect(self.view.stardist_groupbox.clearChannelSelector)
+        self.model_canvas.single_layer.connect(self.model_stardist.setImageToProcess) 
+
         self.model_canvas.updateProgress.connect(self.view.update_progress_bar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
-        self.view.canvas.showCrop.connect(self.model_canvas.showCroppedImage)
+        self.view.canvas.showCrop.connect(self.model_canvas.crop)
         self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status)
         self.model_canvas.update_cmap.connect(self.view.toolBar.update_cmap_selector)
         self.model_canvas.changeSlider.connect(self.view.toolBar.update_contrast_slider)
@@ -77,8 +77,6 @@ class Controller:
 
         self.view.rotate_groupbox.rotate_confirm.pressed.connect(lambda: self.model_canvas.rotateImage(self.view.rotate_groupbox.rotate_line_edit.text()))
 
-        # self.view.gaussian_blur.combo_box.currentIndexChanged.connect(self.model_canvas.set_blur_layer)
-        # self.view.gaussian_blur.spin_box.valueChanged.connect(self.model_canvas.set_blur_percentage)
         self.view.gaussian_blur.confirm.clicked.connect(lambda: self.model_canvas.blur_layer(0, confirm=True))
         self.view.gaussian_blur.slider.doubleValueChanged.connect(self.view.gaussian_blur.update_slider_label)
         self.view.gaussian_blur.slider.doubleValueChanged.connect(self.model_canvas.blur_layer)
@@ -132,13 +130,13 @@ class Controller:
         self.view.cellIntensity_groupbox.run_button.clicked.connect(self.model_cellIntensity.generateCellIntensityTable)
 
         self.model_cellIntensity.errorSignal.connect(self.handleError)
-        self.view.cellIntensity_groupbox.save_button.clicked.connect(self.model_cellIntensity.saveCellData)        
+        self.view.cellIntensity_groupbox.save_button.clicked.connect(self.model_cellIntensity.save_cell_data)        
 
         self.model_register.progress.connect(self.view.update_progress_bar)
         self.model_cellIntensity.progress.connect(self.view.update_progress_bar)
         
         # tab switched - update small view visibility
-        self.view.stackedWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(not bool(x)))
+        self.view.stackedWidget.currentChanged.connect(lambda x: self.view.small_view.setVisible(x == 1))
 
         # cancel process
         self.view.register_groupbox.cancel_button.clicked.connect(self.model_register.cancel)
