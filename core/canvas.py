@@ -576,7 +576,7 @@ class ImageGraphicsView(__BaseGraphicsView):
             blurred_mask_adjusted = (blurred_mask * blur_percentage).astype(np.uint16)
             self.corrected_layer = cv2.subtract(layer_to_blur, blurred_mask_adjusted)
             self.corrected_layer = np.clip(self.corrected_layer, 0, 65535).astype(np.uint16)
-            cmap = self.np_channels[self._blur_layer].cmap
+            # cmap = self.np_channels[self._blur_layer].cmap
             self.toPixmapItem(self.corrected_layer)
             print("blurring")
             # self.update_image(cmap)
@@ -587,6 +587,7 @@ class ImageGraphicsView(__BaseGraphicsView):
 
         if confirm and hasattr(self, "corrected_layer") and (not self.np_channels.get(self._blur_layer) == None):
             self.np_channels[self._blur_layer].data = self.corrected_layer # Replace with the corrected version
+            cmap = self.np_channels[self._blur_layer].cmap
             self.update_image(cmap)
             self.multi_layer.emit(self.np_channels, False)
             self.updateProgress.emit(100, f"Replaced {self._blur_layer}")
