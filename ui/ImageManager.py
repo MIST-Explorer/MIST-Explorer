@@ -2,6 +2,7 @@ from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from core.canvas import ImageStorage
+from utils import numpy_to_qimage
 
 class Manager(QWidget):
     def __init__(self, parent=None):
@@ -12,17 +13,17 @@ class Manager(QWidget):
         self.list_widget = ListWidget(self)
         self.__layout.addWidget(self.list_widget)
 
-    def add_item(self, text, image_path):
+    def add_item(self, data, name):
         print("adding item")
         item = QListWidgetItem(self.list_widget)
         h_layout = QHBoxLayout()
 
         thumbnail_label = QLabel(self)
-        thumbnail_pixmap = QPixmap(image_path)
+        thumbnail_pixmap = QPixmap(numpy_to_qimage(data))
         thumbnail_label.setPixmap(thumbnail_pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
         h_layout.addWidget(thumbnail_label)
 
-        text_label = QLineEdit(text, self)
+        text_label = QLineEdit(name, self)
 
         text_label.setStyleSheet("QLineEdit { border: none; background: transparent; }")
 
@@ -35,8 +36,6 @@ class Manager(QWidget):
 
         item.setSizeHint(item_widget.sizeHint())
     
-
-
 
 class ListWidget(QListWidget):
     def __init__(self, parent=None):

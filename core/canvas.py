@@ -43,7 +43,7 @@ class __BaseGraphicsView(QWidget):
     updateProgress = pyqtSignal(int, str)
     errorSignal = pyqtSignal(str)
     fill_metadata = pyqtSignal(dict)
-    update_manager = pyqtSignal(str)
+    update_manager = pyqtSignal(np.ndarray, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,6 +62,7 @@ class __BaseGraphicsView(QWidget):
         self.is_layered = False
         self.image_cache = {}
         self.lut_cache = {}
+        self.image_count = 0
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -94,7 +95,6 @@ class __BaseGraphicsView(QWidget):
 
     def filename_to_image(self, file_name:str, adjust_contrast=False) -> np.ndarray:  
 
-            self.update_manager.emit(file_name)
             self.storage = ImageStorage()
 
 
@@ -147,6 +147,10 @@ class __BaseGraphicsView(QWidget):
             self.image_cache.clear()
             self.lut_cache.clear()
             self.updateProgress.emit(100, "Image Loaded")
+
+            self.update_manager.emit(channel_one_image, "Image"  + " " + str(self.image_count))
+            self.image_count+=1
+
             return channel_one_image
     
     def deleteImage(self):
@@ -207,7 +211,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         self.pixmapItem=None
         self.begin_crop = False
         self.crop_cursor =  QCursor(Qt.CursorShape.CrossCursor)
-
+        self.stardist_image_count = 0
 
     def toPixmapItem(self, data:QPixmap|np.ndarray|QImage):
         '''Sends a pixmap to the canvas for display'''
@@ -361,11 +365,15 @@ class ImageGraphicsView(__BaseGraphicsView):
     
 
     def loadStardistLabels(self, stardist: ImageWrapper):
+
+
         self.is_layered = False
         self.stardist_labels = stardist.data
         cmap = self.np_channels[f"Channel {self.currentChannelNum+1}"].cmap
-        self.image_wrapper = ImageWrapper(self.stardist_labels.copy(), name="stardist", cmap=cmap)
+        self.image_wrapper = ImageWrapper(self.stardist_labels.copy(), name="stardist_label", cmap=cmap)
         self.update_image(cmap_text=cmap)
+        self.update_manager.emit(self.stardist_labels, self.image_wrapper.name + " " + str(self.stardist_image_count))
+        self.stardist_image_count+=1
     
     def addImage(self, file:str):
         '''add a new image'''

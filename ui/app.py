@@ -293,6 +293,5 @@ class Ui_MainWindow(QMainWindow):
         self.metadata = metadata
         self.metadata_tab.populate_table(self.metadata)
 
-    def add_item_to_manager(self, path):
-        name = os.path.basename(path)
-        self.images_tab.add_item(name, path)
+    def add_item_to_manager(self, data, name):
+        self.images_tab.add_item(data, name)
