@@ -197,21 +197,24 @@ class Register(QThread):
                         print(x, y)
 
                         transf = transforms[0]
-                        # x_translate, y_translate =  transforms[1]
                         
                         source = moving_map.get_tile_by_center(bf, x, y).astype(float)
                         target = moving_map.get_tile_by_center(reference_brightfield, x, y).astype(float)
 
                         registered, footprint = aa.apply_transform(transf, source, target)
                         
+                        # if applicable, we can use pystackreg to register one more time
                         if self.has_blue:
                             print("has blue")
-                            sr =  transforms[1]
-                            registered = sr.transform(registered)
+                            try:
+                                sr =  transforms[2]
+                                registered = sr.transform(registered)
+
+                            except IndexError as e:
+                                print(e, "pystackreg transform does not exist or there is no blue color")
                     
                         corresponding_tile = registered[ymin: ymin + radius * 2, xmin: xmin + radius * 2]
 
-                
                         # corresponding_tile = cv2.copyMakeBorder(corresponding_tile, 0,1,0,1, cv2.BORDER_REPLICATE) 
 
                     dest.paste(Image.fromarray(pystackreg.util.to_uint16(corresponding_tile)), (int(x - radius), int(y - radius)))
@@ -281,25 +284,6 @@ class Register(QThread):
                 (None, x, y, (None, ymin, xmin, radius, x, y))
             )
 
-    # def sc(self, arr):
-    #     return ((arr - arr.min()) * (1/(arr.max() - arr.min()) * 255)).astype('uint8')
-    #     # return arr
-
-
-    # def seperate(self, img):
-    #     sep.set_extract_pixstack(10**7)
-        
-    #     filename = ''
-    #     threshold = 3
-        
-    #     img = img.astype('float')
-        
-    #     bkg = sep.Background(img)
-        
-    #     img = img - bkg
-
-    #     return self.sc(img)
-
     def align_two_img(self, param):
 
         # def convert_to_rgb_image(array_2d):
@@ -331,6 +315,11 @@ class Register(QThread):
         try:
             transf, (source_list, target_list) = aa.find_transform(source, target,detection_sigma=3, min_area=10, max_control_points=300)
 
+            if self.has_blue:
+                registered, footprint = aa.apply_transform(transf, source, target)
+                sr = StackReg(StackReg.AFFINE)
+                sr.register(target, registered)
+
         except Exception as e:
             print("This tile is not aligned!")
             if 'transf_previous' in globals():
@@ -342,32 +331,10 @@ class Register(QThread):
 
         transf_previous = transf
 
-        return [transf, []], ymin, xmin, radius, x, y
-
-        # registered, footprint = aa.apply_transform(transf, source, target)
-    
-        # # # convert the 3D back to 2D gray image
-        # # def rgb2gray(rgb):
-        # #     return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
-        # # registered = rgb2gray(registered)
-        # # target = rgb2gray(target)
-
-        # [transf, []], ymin, xmin, radius, x, y
-
-
-        # if not self.has_blue:
-        #     return (
-        #     (None, x, y, ([transf, (0, 0), registered], ymin, xmin, radius, x, y))
-        # )
-
-        # else:
-        #     sr = StackReg(StackReg.AFFINE)
-        #     sr.register(target, registered)
-        #     # registered = sr.transform(registered)        
-        #     return (
-        #         (None, x, y, ([transf, (0, 0), sr], ymin, xmin, radius, x, y))
-        #     )
-        
+        if self.has_blue:
+            return [transf, []], ymin, xmin, radius, x, y
+        else:
+            return [transf, [], sr], ymin, xmin, radius, x, y
 
 
     def adjust_contrast(self, img, min=2, max = 98):
@@ -377,16 +344,6 @@ class Register(QThread):
         img = np.clip(img, minval, maxval)
         img = ((img - minval) / (maxval - minval)) * 255
         return (img.astype(np.uint8))
-
-    # def resample(self, image, transform):
-    #             # Output image Origin, Spacing, Size, Direction are taken from the reference
-    #             # image in this call to Resample
-    #             reference_image = image
-    #             interpolator = sitk.sitkCosineWindowedSinc
-    #             default_value = 100.0
-    #             return sitk.Resample(image, reference_image, transform,
-    #                                 interpolator, default_value)
-
 
 
     def equalize_shape(self, cy1_rescale, cy2_rescale):
@@ -406,17 +363,6 @@ class Register(QThread):
     def update_protein_channels(self, channels) -> None:
         self.protein_channels = channels
         self.tifs[1]["image_dict"] = channels 
-
-
-        print("checking dtype in protein")
-        moving_img = self.tifs[1]["image_dict"]["Channel 1"].data
-
-        center_y, center_x = moving_img.shape[0] // 2, moving_img.shape[1] // 2
-        slice_y = slice(center_y - 50, center_y + 50)
-        slice_x = slice(center_x - 50, center_x + 50)
-
-
-        cv2.imwrite("pyqt_moving.slice.png", (moving_img[slice_y, slice_x]))
         if not self.reference_channels is None:
             self.imageReady.emit(True)
             print("protein signal image updated")
@@ -424,16 +370,6 @@ class Register(QThread):
     def update_reference_channels(self, reference_channels:dict) -> None:
         self.reference_channels = reference_channels
         self.tifs[0]["image_dict"] = reference_channels
-
-        print("checking dtype in reference")
-        fixed_img = self.tifs[0]["image_dict"]["Channel 1"].data
-
-        center_y, center_x = fixed_img.shape[0] // 2, fixed_img.shape[1] // 2
-        slice_y = slice(center_y - 50, center_y + 50)
-        slice_x = slice(center_x - 50, center_x + 50)
-
-
-        cv2.imwrite("pyqt_fixed_slice.png", (fixed_img[slice_y, slice_x]))
         if not self.protein_channels is None:
             self.imageReady.emit(True)
             print("reference image updated")
