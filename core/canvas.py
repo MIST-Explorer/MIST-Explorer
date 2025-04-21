@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThreadPool, QRunnable, QTimer
 import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2, xml.etree.ElementTree as ET, os, copy
 from core.Worker import Worker
 from utils import *
@@ -129,6 +129,7 @@ class __BaseGraphicsView(QWidget):
                 self.storage.add_data(str(uuid.uuid4()), self.np_channels)
                 channel_one_image = next(iter(self.np_channels.values())).data
                 self.multi_layer.emit(self.np_channels, True)
+                print("checking dtype", self.np_channels["Channel 1"].data.dtype)
 
             else: # not a .tif image
 
@@ -176,7 +177,7 @@ class ReferenceGraphicsView(__BaseGraphicsView):
 
     def addImage(self, file_path:str):
 
-        self.reference_worker = Worker(self.filename_to_image, file_path, True)
+        self.reference_worker = Worker(self.filename_to_image, file_path, False)
         self.reference_worker.start()
         self.reference_worker.signal.connect(self.filename_to_image_complete)
         self.reference_worker.finished.connect(self.reference_worker.quit)

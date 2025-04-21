@@ -63,40 +63,42 @@ class Register(QThread):
     
             self.finished.connect(self.quit)
             self.finished.connect(self.deleteLater)
-
+        # self.run()
     def run(self):
         
 
-        m = self.params["max_size"]
-        self.OVERLAP = self.params["overlap"]
-        self.NUM_TILES = self.params['num_tiles']
-        basis = self.tifs[0]
-        print("opening files!")
-        self.progress.emit(0, "preparing alignment")
-        bf1_f = basis["image_dict"]
-        bf1 = basis["image_dict"][f"Channel {self.params['alignment_layer']  + 1}"].data # 0 index so add 1 to avoid key error
+        m = self.params["max_size"] # this is this maximum size allowed for the registration
+        self.OVERLAP = self.params["overlap"] # overlap between each tile
+        self.NUM_TILES = self.params['num_tiles'] # how many tiles we want
+        reference_image_file = self.tifs[0]
+        self.progress.emit(0, "preparing alignment") # update progress bar
+        channel_wrappers = reference_image_file["image_dict"]
+        reference_tif_index = self.params["alignment_layer"]
+        print(f"Channel {reference_tif_index  + 1}")
+        alignment_layer = channel_wrappers[f"Channel {reference_tif_index  + 1}"].data 
 
-        bf1 = self.adjust_contrast(bf1,50, 99)
-        bf1 = bf1[0:m, 0:m]
+        if alignment_layer.dtype != np.uint16:
+            raise ValueError("data type is not uint16. stopping alignment")
+        
+        alignment_layer = self.adjust_contrast(alignment_layer,50, 99)
+        alignment_layer = alignment_layer[0:m, 0:m] #resize to maximum allowed size
 
-        fixed_map = TileMap("fixed", bf1, self.OVERLAP, self.NUM_TILES)
+        fixed_map = TileMap("fixed", alignment_layer, self.OVERLAP, self.NUM_TILES)
 
         # generate tiles
         for tif_n, tif in enumerate(self.tifs):
 
             # skip reference
-            if tif_n == self.params["alignment_layer"]:
+            if tif_n == reference_tif_index:
                 self.tifs[tif_n]["outputs"] = None
                 continue
             
-            bf2_f = self.tifs[tif_n]["image_dict"][f"Channel {self.params['alignment_layer'] + 1}"].data
+            alignable_brightfield = self.tifs[tif_n]["image_dict"][f"Channel {reference_tif_index + 1}"].data
 
-            bf2 = self.adjust_contrast(bf2_f, 50, 99)
-            bf2 = bf2[0:m, 0:m]
+            alignable_brightfield = alignable_brightfield[0:m, 0:m]
+            alignable_brightfield = self.adjust_contrast(alignable_brightfield, 50, 99)
 
-            print(bf1.shape, bf2.shape)
-
-            moving_map = TileMap("moving", bf2, self.OVERLAP, self.NUM_TILES)
+            moving_map = TileMap("moving", alignable_brightfield, self.OVERLAP, self.NUM_TILES)
 
             inputs = []
             radius = int(fixed_map.tile_size)
@@ -110,7 +112,12 @@ class Register(QThread):
                 xmin = moving_bounds["xmin"]
             
                 radius = int(fixed_map.tile_size)
-            
+                # cv2.imwrite("fixed_img_test.png", fixed_img)
+
+                # cv2.imwrite("moving_img_test.png", moving_img)
+
+                # import time
+                # time.sleep(20)
                 inputs.append((fixed_img, moving_img, ymin, xmin, radius, x, y))
 
             
@@ -130,13 +137,14 @@ class Register(QThread):
                     
                     t = time.time()
                     result = self.align_two_img(tile_set) # align
+
+
                     print(time.time() - t)
 
                     if result == None:
                         continue
                     outputs.append(result)
                 except Exception as e:
-                    print("ERROR!")
                     raise e
                     
             print("done aligning")
@@ -145,7 +153,7 @@ class Register(QThread):
             
  
 #########################################################
-        # align all layers
+        # move the other layers
         aligned_protein_signal = None
 
         for i, tif in enumerate(self.tifs): 
@@ -166,11 +174,11 @@ class Register(QThread):
                 self.progress.emit(progress_update, f"Layer Number: {layer_number+1} for tif {i+1}")
                 
                 bf = file[f'Channel {layer_number + 1}'].data# channels are index 1
-                bf1 = bf1_f[f'Channel {layer_number + 1}'].data  #channels are index 1 # this is the basis
+                reference_brightfield = reference_image_file["image_dict"][f'Channel {layer_number + 1}'].data  #channels are index 1 # this is the basis
              
 
-                if bf.shape[0] < m:
-                    raise Exception("too small! only", bf.shape[0], m) # should be a QMessageBox error
+                # if bf.shape[0] < m:
+                #     raise Exception("too small! only", bf.shape[0], m) # should be a QMessageBox error
 
                 bf = bf[0:m, 0:m]
                 
@@ -178,10 +186,10 @@ class Register(QThread):
                 
                 for result in tif["outputs"]:
                     transforms, ymin, xmin, radius, x, y = result
-
                     corresponding_tile = None
                     
                     if transforms == None:
+                        print("transforms is none")
                         corresponding_tile = moving_map.get_tile_by_center(bf, x, y)[ymin: ymin + radius * 2, xmin: xmin + radius * 2]
             
                     else:
@@ -189,27 +197,22 @@ class Register(QThread):
                         print(x, y)
 
                         transf = transforms[0]
-                        x_translate, y_translate =  transforms[1]
+                        # x_translate, y_translate =  transforms[1]
                         
                         source = moving_map.get_tile_by_center(bf, x, y).astype(float)
-                        target = moving_map.get_tile_by_center(bf1, x, y).astype(float)
+                        target = moving_map.get_tile_by_center(reference_brightfield, x, y).astype(float)
 
-                        
-                        
                         registered, footprint = aa.apply_transform(transf, source, target)
                         
-                        print("source", source.max())
-                        print(registered.max())
-                        
                         if self.has_blue:
-                            sr =  transforms[2]
+                            print("has blue")
+                            sr =  transforms[1]
                             registered = sr.transform(registered)
                     
                         corresponding_tile = registered[ymin: ymin + radius * 2, xmin: xmin + radius * 2]
 
                 
                         # corresponding_tile = cv2.copyMakeBorder(corresponding_tile, 0,1,0,1, cv2.BORDER_REPLICATE) 
-                        print(corresponding_tile.max())
 
                     dest.paste(Image.fromarray(pystackreg.util.to_uint16(corresponding_tile)), (int(x - radius), int(y - radius)))
             
@@ -229,9 +232,9 @@ class Register(QThread):
         # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
         cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
         # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
-        self.progress.emit(100, "Alignment Done")
         self.protein_signal_arr_signal.emit(self.protein_signal_array) #->cell intensity table
         self.cell_image_signal.emit(cell_image) #-> stardist
+        self.progress.emit(100, "Alignment Done")
 
 
     def hasBlueColor(self, hasblue) -> bool:
@@ -310,12 +313,16 @@ class Register(QThread):
         target = fixed_img.copy()
 
 
-        source = np.clip(source,128, 255 )-128  # to remove most gradient of background
-        target = np.clip(target, 128, 255)-128  # to remove most gradient of background
-        
+        source = np.clip(source, 128, 255 ) - 128  # to remove most gradient of background
+        target = np.clip(target, 128, 255) - 128  # to remove most gradient of background
 
         print(target.shape, "target dimension")
+        print(target.dtype, "target dtype")
+        print(target.min(), target.max())
+
         print(source.shape, 'source dimension')
+        print(source.dtype, "source dtype")
+        print(source.min(), source.max())
 
         global transf
         global transf_previous
@@ -323,7 +330,6 @@ class Register(QThread):
         print("finding alignment")
         try:
             transf, (source_list, target_list) = aa.find_transform(source, target,detection_sigma=3, min_area=10, max_control_points=300)
-
 
         except Exception as e:
             print("This tile is not aligned!")
@@ -362,22 +368,15 @@ class Register(QThread):
         #         (None, x, y, ([transf, (0, 0), sr], ymin, xmin, radius, x, y))
         #     )
         
-        
-
-    def APPLY(self, transformation, fixed, moving):
-        registered, footprint = aa.apply_transform(transformation, fixed, moving)
-        return registered
-
 
 
     def adjust_contrast(self, img, min=2, max = 98):
-                # pixvals = np.array(img)
-
-                minval = np.percentile(img, min) # room for experimentation 
-                maxval = np.percentile(img, max) # room for experimentation 
-                img = np.clip(img, minval, maxval)
-                img = ((img - minval) / (maxval - minval)) * 255
-                return (img.astype(np.uint8))
+        # pixvals = np.array(img)
+        minval = np.percentile(img, min) # room for experimentation 
+        maxval = np.percentile(img, max) # room for experimentation 
+        img = np.clip(img, minval, maxval)
+        img = ((img - minval) / (maxval - minval)) * 255
+        return (img.astype(np.uint8))
 
     # def resample(self, image, transform):
     #             # Output image Origin, Spacing, Size, Direction are taken from the reference
@@ -404,9 +403,20 @@ class Register(QThread):
         
         return cy1_rescale, cy2_rescale
     
-    def updateChannels(self, channels) -> None:
+    def update_protein_channels(self, channels) -> None:
         self.protein_channels = channels
         self.tifs[1]["image_dict"] = channels 
+
+
+        print("checking dtype in protein")
+        moving_img = self.tifs[1]["image_dict"]["Channel 1"].data
+
+        center_y, center_x = moving_img.shape[0] // 2, moving_img.shape[1] // 2
+        slice_y = slice(center_y - 50, center_y + 50)
+        slice_x = slice(center_x - 50, center_x + 50)
+
+
+        cv2.imwrite("pyqt_moving.slice.png", (moving_img[slice_y, slice_x]))
         if not self.reference_channels is None:
             self.imageReady.emit(True)
             print("protein signal image updated")
@@ -414,6 +424,16 @@ class Register(QThread):
     def update_reference_channels(self, reference_channels:dict) -> None:
         self.reference_channels = reference_channels
         self.tifs[0]["image_dict"] = reference_channels
+
+        print("checking dtype in reference")
+        fixed_img = self.tifs[0]["image_dict"]["Channel 1"].data
+
+        center_y, center_x = fixed_img.shape[0] // 2, fixed_img.shape[1] // 2
+        slice_y = slice(center_y - 50, center_y + 50)
+        slice_x = slice(center_x - 50, center_x + 50)
+
+
+        cv2.imwrite("pyqt_fixed_slice.png", (fixed_img[slice_y, slice_x]))
         if not self.protein_channels is None:
             self.imageReady.emit(True)
             print("reference image updated")
@@ -422,7 +442,7 @@ class Register(QThread):
 
         # self.exit? 
         # self.quit? 
-        self.terminate()
+        self.quit()
 
 
 ############################

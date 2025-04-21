@@ -46,6 +46,7 @@ class Controller:
         self.view.view_tab.changePix.connect(self.view.canvas.addNewImage) # loading a new image
         self.model_canvas.canvasUpdated.connect(self.view.canvas.updateCanvas) # operation done on current image
         self.reference_view.multi_layer.connect(self.model_register.update_reference_channels)
+        self.model_canvas.multi_layer.connect(self.model_register.update_protein_channels)
         self.reference_view.multi_layer.connect(self.view.small_view.load_channels)
 
         self.model_canvas.multi_layer.connect(self.view.toolBar.updateChannelSelector) # update toolbar channel combobox
@@ -53,7 +54,6 @@ class Controller:
         self.model_canvas.multi_layer.connect(self.view.register_groupbox.updateChannelSelector) #update register
         self.model_canvas.multi_layer.connect(self.view.canvas.loadChannels) #this is for cropping because cropping function is in canvas ui
         self.model_canvas.multi_layer.connect(self.model_stardist.updateChannels) #pass the channels for stardist processing
-        self.model_canvas.multi_layer.connect(self.model_register.updateChannels)
         self.model_canvas.multi_layer.connect(self.view.gaussian_blur.updateChannelSelector)
 
         self.model_canvas.single_layer.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer, then we clear the channel selector since there's only one channel
