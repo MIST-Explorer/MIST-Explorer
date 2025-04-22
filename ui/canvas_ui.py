@@ -246,22 +246,18 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.pixmapItem.setZValue(0)
         self.right_arrow.setZValue(1)
         self.left_arrow.setZValue(1)
-            
-        
-
 
         # Setup scene
         item_rect = self.pixmapItem.boundingRect()
         self.setSceneRect(item_rect)
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-        print('here!!')
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
 
         # self.move(int(self.parent.width() - 2*self.parent.width()), 10)
-
+          
 class ImageGraphicsViewUI(QGraphicsView):
 
     """Main image view with support for selection, cropping and other operations"""
@@ -409,8 +405,6 @@ class ImageGraphicsViewUI(QGraphicsView):
             # self.__centerImage(self.pixmapItem)
             self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
-    # def saveImage(self):
-    #     pass
         
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
         """Update the pixmap of the existing image or add a new one"""
@@ -699,25 +693,25 @@ class ImageGraphicsViewUI(QGraphicsView):
                     return
                 
                 
-    def contextMenuEvent(self, event):
-        # Create the menu
-        menu = QMenu(self)
+    # def contextMenuEvent(self, event):
+    #     # Create the menu
+    #     menu = QMenu(self)
 
-        # Add actions
-        action1 = QAction("Option 1", self)
-        action1.triggered.connect(lambda: self.show_message("Option 1 selected"))
+    #     # Add actions
+    #     action1 = QAction("Option 1", self)
+    #     action1.triggered.connect(lambda: self.show_message("Option 1 selected"))
 
-        action2 = QAction("Option 2", self)
-        action2.triggered.connect(lambda: self.show_message("Option 2 selected"))
+    #     action2 = QAction("Option 2", self)
+    #     action2.triggered.connect(lambda: self.show_message("Option 2 selected"))
 
-        menu.addAction(action1)
-        menu.addAction(action2)
+    #     menu.addAction(action1)
+    #     menu.addAction(action2)
 
-        # Show the menu at the cursor position
-        menu.exec(event.globalPos())
+    #     # Show the menu at the cursor position
+    #     menu.exec(event.globalPos())
 
-    def show_message(self, message):
-        QMessageBox.information(self, "Selection", message)
+    # def show_message(self, message):
+    #     QMessageBox.information(self, "Selection", message)
 
 
     def set_crop_status(self, status):
@@ -729,10 +723,6 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.begin_crop = False
             self.unsetCursor()
         
-    # def endCrop(self):
-    #     """Exit crop mode"""
-    #     self.begin_crop = False
-    #     self.unsetCursor()
         
     def loadChannels(self, np_channels):
         """Load channel data"""

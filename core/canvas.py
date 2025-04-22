@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap,  QCursor, QImage
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThreadPool, QRunnable, QTimer
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, pyqtSlot, QThreadPool, QRunnable, QTimer, QObject
 import tifffile as tiff, numpy as np, matplotlib as mpl, time, cv2, xml.etree.ElementTree as ET, os, copy
 from core.Worker import Worker
 from utils import *
@@ -91,7 +91,23 @@ class __BaseGraphicsView(QWidget):
         
             else:
                 return np.stack([])
-    
+            
+    def build_pyramid(self, image, levels=4):
+        '''
+        Generates an image pyramid with progressively lower resolutions.
+
+        :param image: The original image to pyramid.
+        :type image: np.ndarray
+        :param levels: Number of pyramid levels to generate.
+        :type levels: int
+        :returns: List of images from highest to lowest resolution.
+        :rtype: list of np.ndarray
+        '''
+        pyramid = [image]
+        for _ in range(1, levels):
+            image = cv2.pyrDown(image)
+            pyramid.append(image)
+        return pyramid
 
     def filename_to_image(self, file_name:str, adjust_contrast=False) -> np.ndarray:  
 
@@ -259,7 +275,7 @@ class ImageGraphicsView(__BaseGraphicsView):
         cache_key = (cmap_key, contrast_key)
 
         # Check if the current image (single-layer or multi-layer) is in the cache
-        if self.is_layered:  # Multi-layer logic
+        if self.is_layered: 
             print("Checking layered")
             channel_num = f"Channel {self.currentChannelNum + 1}"
 
@@ -516,7 +532,6 @@ class ImageGraphicsView(__BaseGraphicsView):
             self.update_image(cmap_text="gray") # this also updates the contrast
 
 
-
     @pyqtSlot(str)
     def onError(self, error_message):
         print(f"Error: {error_message}")
@@ -606,6 +621,8 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def crop(self, image_rect):
         """start crop thread"""
+
+        print("starting crop")
         left = image_rect.x()
         top = image_rect.y()
         right = image_rect.right()
@@ -653,7 +670,6 @@ class ImageGraphicsView(__BaseGraphicsView):
 
     def cropImageTask(self, image_rect) -> dict:
         """Process crop in background thread"""
-
         left = image_rect.x()
         top = image_rect.y()
         right = image_rect.right()
@@ -671,7 +687,6 @@ class ImageGraphicsView(__BaseGraphicsView):
 
 
                 self.np_channels[channel_name].data = cropped_array
-
 
             return self.np_channels
             
@@ -777,4 +792,69 @@ class MetaData(QWidget):
     
 
 
-            
+# class ContrastWorkerSignals(QObject):
+#     finished = pyqtSignal(np.ndarray)
+
+# class ContrastWorker(QRunnable):
+
+#     def __init__(self, image, contrast_min, contrast_max):
+#         super().__init__()
+#         self.image = image
+#         self.contrast_min = contrast_min
+#         self.contrast_max = contrast_max
+#         self.signals = ContrastWorkerSignals()
+
+#     def run(self):
+#         pass
+    
+
+#     def update(self):
+#         '''displays the image between a lower and upper limit'''
+#         if self.image_wrapper is None:
+#             self.errorSignal.emit("Canvas is empty")
+#             return
+
+#         contrast_min, contrast_max = int(values[0]), int(values[1])
+#         self.image_wrapper.contrast_min = contrast_min
+#         self.image_wrapper.contrast_max = contrast_max  # Save contrast settings
+        
+#         contrast_key = (contrast_min, contrast_max)
+#         cmap_key = self.image_wrapper.cmap
+#         cache_key = (cmap_key, contrast_key)
+
+#         # Check if the current image (single-layer or multi-layer) is in the cache
+#         if self.is_layered: 
+#             print("Checking layered")
+#             channel_num = f"Channel {self.currentChannelNum + 1}"
+
+#             # Initialize cache for this channel if it's not already initialized
+#             if channel_num not in self.image_cache:
+#                 self.image_cache[channel_num] = {}
+
+
+#             self.image_wrapper = self.np_channels[channel_num]  # Set the current channel wrapper
+
+
+#             self._apply_contrast_and_cache(channel_num, cache_key, contrast_min, contrast_max)
+
+#         else:  # Single-layer logic
+#             self._apply_contrast_and_cache(None, cache_key, contrast_min, contrast_max)
+
+#         # Update the contrast slider with the new settings
+#         self.changeSlider.emit((self.image_wrapper.contrast_min, self.image_wrapper.contrast_max))  # Update the slider
+
+#     def apply_contrast(self, new_min, new_max):
+
+#         qimage = self.pixmap.toImage() # get current image
+#         image = qimage_to_numpy(qimage) # returns uint8
+#         lut = self.create_lut(new_min, new_max)
+#         return cv2.LUT(image, lut)
+
+#     def create_lut(self, new_min, new_max):
+
+#         lut = np.zeros(256, dtype=np.uint8) # uint8 for display
+#         lut[new_min:new_max+1] = np.linspace(start=0, stop=255, num=(new_max - new_min + 1), endpoint=True, dtype=np.uint8)
+#         lut[:new_min] = 0 # clip between 0 and 255
+#         lut[new_max+1:] = 255
+
+#         return lut

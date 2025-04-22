@@ -59,18 +59,23 @@ class Controller:
         self.model_canvas.single_layer.connect(self.view.toolBar.clearChannelSelector) #if new image loaded is not multilayer, then we clear the channel selector since there's only one channel
         self.model_canvas.single_layer.connect(self.view.stardist_groupbox.clearChannelSelector)
         self.model_canvas.single_layer.connect(self.model_stardist.setImageToProcess) 
-
+        
         self.model_canvas.updateProgress.connect(self.view.update_progress_bar) # loading image progress bar
         self.model_canvas.errorSignal.connect(self.handleError)
         self.view.canvas.showCrop.connect(self.model_canvas.crop)
         self.model_canvas.cropSignal.connect(self.view.canvas.set_crop_status)
+        self.model_canvas.cropSignal.connect(lambda x: self.view.small_view.setVisible(not x))
+
         self.model_canvas.update_cmap.connect(self.view.toolBar.update_cmap_selector)
         self.model_canvas.changeSlider.connect(self.view.toolBar.update_contrast_slider)
         self.model_canvas.fill_metadata.connect(self.view.get_metadata)
         # crop signals
         self.view.crop_groupbox.crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(True)) 
+        self.view.crop_groupbox.crop_button.triggered.connect(lambda: self.view.small_view.setVisible(False)) 
+
         self.view.crop_groupbox.cancel_crop_button.triggered.connect(lambda: self.view.canvas.set_crop_status(False))
-        
+        self.view.crop_groupbox.cancel_crop_button.triggered.connect(lambda: self.view.small_view.setVisible(True))
+
         # confirm rotate signal
 
         self.view.saveSignal.connect(self.controlSave)

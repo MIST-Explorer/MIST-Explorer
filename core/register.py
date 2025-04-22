@@ -332,9 +332,9 @@ class Register(QThread):
         transf_previous = transf
 
         if self.has_blue:
-            return [transf, []], ymin, xmin, radius, x, y
-        else:
             return [transf, [], sr], ymin, xmin, radius, x, y
+        else:
+            return [transf, []], ymin, xmin, radius, x, y
 
 
     def adjust_contrast(self, img, min=2, max = 98):
