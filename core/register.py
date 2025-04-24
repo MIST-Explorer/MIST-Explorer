@@ -231,12 +231,17 @@ class Register(QThread):
 
             ##alignment done
 
+        
+
         self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> use to generate cell intensity table
         # self.protein_signal_array = aligned_protein_signal[self.params['protein_detection_layer'], :, :]
         cell_image = aligned_protein_signal[self.params['cell_layer'], :, :][0:self.params['max_size'], 0:self.params['max_size']] # -> stardist
         # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
         self.protein_signal_arr_signal.emit(self.protein_signal_array) #->cell intensity table
         self.cell_image_signal.emit(cell_image) #-> stardist
+        import tifffile as tiff
+        tiff.imwrite('aligned_protein_signal_output.tiff', self.protein_signal_array.astype(np.uint16))
+
         self.progress.emit(100, "Alignment Done")
 
 
