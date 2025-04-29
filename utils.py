@@ -33,7 +33,32 @@ def numpy_to_qimage(array:np.ndarray) -> QImage:
     return qimage.copy()
 
 
-def qimage_to_numpy(qimage: QImage):
+
+# def qimage_to_numpy(qimage: QImage, dtype=np.uint8):
+#     width = qimage.width()
+#     height = qimage.height()
+#     ptr = qimage.bits()
+
+#     if qimage.format() in (QImage.Format.Format_RGB32, QImage.Format.Format_ARGB32_Premultiplied):
+#         ptr.setsize(width * height * 4)
+#         arr = np.frombuffer(ptr, dtype=np.uint8).reshape((height, width, 4))
+#         return arr.astype(dtype)
+
+#     elif qimage.format() == QImage.Format.Format_Grayscale16:
+#         ptr.setsize(width * height * 2)
+#         arr = np.frombuffer(ptr, dtype=np.uint16).reshape((height, width))
+#         return arr.astype(dtype)
+
+#     elif qimage.format() == QImage.Format.Format_Grayscale8:
+#         ptr.setsize(width * height)
+#         arr = np.frombuffer(ptr, dtype=np.uint8).reshape((height, width))
+#         return arr.astype(dtype)
+
+#     else:
+#         raise ValueError(f"Unsupported QImage format: {qimage.format()}")
+
+
+def qimage_to_numpy(qimage: QImage, dtype=np.uint8):
     # Ensure the QImage format is suitable for conversion
     valid_formats = [QImage.Format.Format_Grayscale8, QImage.Format.Format_Grayscale16]
     ptr = qimage.bits()

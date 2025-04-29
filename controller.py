@@ -19,9 +19,11 @@ class Controller:
         self.reference_view = core.canvas.ReferenceGraphicsView()
         self.view = app
 
+
+
         self.model_canvas.update_manager.connect(self.view.add_item_to_manager)
         self.reference_view.update_manager.connect(self.view.add_item_to_manager)
-
+        self.view.canvas.zoom_signal.connect(self.model_canvas.set_pyramid_level)
         self.openFilesDialog = None
         #menubar signals
         # self.view.menubar.actionOpenFiles.triggered.connect(self.on_action_openFiles_triggered)
@@ -33,8 +35,8 @@ class Controller:
         #toolbar signals
         self.view.toolBar.actionReset.triggered.connect(self.model_canvas.reset_image)
         self.view.toolBar.channelChanged.connect(self.model_canvas.swap_channel)
-        self.view.toolBar.contrastSlider.valueChanged.connect(self.model_canvas.update_contrast)
-        self.view.toolBar.cmapChanged.connect(self.model_canvas.update_image) # change cmap in model_canvas then send to view.canvas for display
+        self.view.toolBar.contrastSlider.valueChanged.connect(lambda x: self.model_canvas.update_image(values=x))
+        self.view.toolBar.cmapChanged.connect(lambda cmap: self.model_canvas.update_image(cmap_name=cmap)) # change cmap in model_canvas then send to view.canvas for display
 
 
         self.view.toolBar.auto_contrast_button.clicked.connect(self.model_canvas.auto_contrast)

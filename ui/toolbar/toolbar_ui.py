@@ -96,7 +96,7 @@ class ToolBarUI(QWidget):
 
         self.contrastSlider = QRangeSlider()
         self.contrastSlider.setOrientation(Qt.Orientation.Horizontal)
-        self.contrastSlider.setRange(0,255)
+        # self.contrastSlider.setRange(0,65536)
         self.contrastSlider.setMaximumWidth(200)
         # self.operatorComboBox.setMinimumContentsLength(15)
         self.channelSelector.setMinimumWidth(100)
@@ -164,11 +164,13 @@ class ToolBarUI(QWidget):
         self.toolbar.addWidget(self.auto_contrast_button)
         self.toolbar.addWidget(self.contrastSlider)
 
-    def update_contrast_slider(self, values):
-
+    def update_contrast_slider(self, range, limits):
+        if range[0] != -1:
+            self.contrastSlider.setRange(range[0], range[1])
+            
         self.contrastSlider.blockSignals(True)
-        print("update_contrast_slider in interface", values)
-        self.contrastSlider.setValue(values)
+        print("update_contrast_slider in interface", limits)
+        self.contrastSlider.setValue(limits)
         self.contrastSlider.blockSignals(False)
 
 

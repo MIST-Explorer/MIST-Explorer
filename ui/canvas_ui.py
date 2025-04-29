@@ -263,6 +263,7 @@ class ImageGraphicsViewUI(QGraphicsView):
     """Main image view with support for selection, cropping and other operations"""
     imageDropped = pyqtSignal(str)
     showCrop = pyqtSignal(QRect)
+    zoom_signal = pyqtSignal(int)
     
     def __init__(self, parent=None, enc=None):
         super().__init__(parent)
@@ -399,11 +400,13 @@ class ImageGraphicsViewUI(QGraphicsView):
     
     def updateCanvas(self, pixmap: QPixmap, reset=False, crop=False):
         """Updates canvas when current image is operated on"""
+
         if self.pixmapItem:
-            print("updating canvas and setting pixmap")
             self.pixmapItem.setPixmap(pixmap)
-            # self.__centerImage(self.pixmapItem)
-            self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+
+        
+        self.setTransformationAnchor(self.ViewportAnchor.AnchorUnderMouse)
+        self.pixmapItem.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
         
     def addNewImage(self, pixmapItem: QGraphicsPixmapItem):
@@ -442,16 +445,28 @@ class ImageGraphicsViewUI(QGraphicsView):
     def wheelEvent(self, event):
         zooming_out = event.angleDelta().y() > 0
 
-        # Prevent excessive zooming in either direction
-        if self.zoom > 1.1**90 and zooming_out:  # Max zoom out
-            return
-        
-        if self.zoom < 1/(1.1**2) and not zooming_out:  # Max zoom in
-            return
+        current_scale = self.transform().m11()
 
-        zoom_factor = 1.1 if zooming_out else 0.9
-        self.zoom *= zoom_factor
+        max_scale = 12 # Max zoom in 
+        min_scale = 0.20  # Max zoom out
 
+        if current_scale >= max_scale and not zooming_out:
+            return  # Stop zooming in
+
+        if current_scale <= min_scale and zooming_out:
+            return  # Stop zooming out
+
+        zoom_factor = 1.05 if not zooming_out else 0.95
+
+        current_scale = self.transform().m11()
+        print("current_scale", current_scale)
+
+        new_zoom_level = int(min(max(-np.log2(current_scale), 0), 3))
+
+        self.zoom_signal.emit(new_zoom_level)
+
+        print("self.zoom", self.zoom)
+        print("zoom_level", new_zoom_level)
         # Store rubber band positions before zooming
         if not self.rubber_band_positions:
             self.rubber_band_positions = []
