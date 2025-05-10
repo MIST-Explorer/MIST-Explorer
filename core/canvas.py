@@ -552,6 +552,8 @@ class ImageGraphicsView(__BaseGraphicsView):
         if self.is_layered:
             channel_num = f"Channel {self.currentChannelNum + 1}"
             channel = scale_adjust(self.np_channels[channel_num].data)
+        else:
+            channel = scale_adjust(self.image_wrapper.data)
 
         flat_channel = channel.flatten()
     

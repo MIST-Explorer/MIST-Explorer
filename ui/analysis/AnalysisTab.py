@@ -74,6 +74,8 @@ class AnalysisTab(QWidget):
         
         # Track open windows
         self.windows = []
+        
+        self.columns = []
 
         self.initUI()
 
@@ -364,6 +366,7 @@ class AnalysisTab(QWidget):
         
         for i in range(len(data.columns[3:])):
             self.multiComboBox.model().item(i).setCheckState(Qt.CheckState.Checked)
+        self.columns = data.columns[3:]
 
         # Add buttons
         apply_button = QPushButton("Apply")
@@ -450,14 +453,14 @@ class AnalysisTab(QWidget):
             data = self.get_poly_data(region[1])
         
         # Create and add graphs
-        box_plot = self.create_box_plot(data)
+        box_plot = self.create_box_plot(data[self.columns])
         self.add_graph_to_current_view(box_plot)
         
         graph_generators = [
-            lambda: ZScoreHeatmapWindow(data),
-            lambda: HeatmapWindow(data),
-            lambda: PieChartCanvas(data),
-            lambda: DistributionViewer(data),
+            lambda: ZScoreHeatmapWindow(data[self.columns]),
+            lambda: HeatmapWindow(data[self.columns]),
+            lambda: PieChartCanvas(data[self.columns]),
+            lambda: DistributionViewer(data[self.columns]),
             lambda: UMAPVisualizer()
         ]
         
@@ -471,19 +474,19 @@ class AnalysisTab(QWidget):
         layout = QVBoxLayout(result_widget)
         
         filtered_data = data.iloc[:, 3:]
+        filtered_data = filtered_data.melt(var_name='Protein', value_name='Expression')
     
         fig, ax = plt.subplots(figsize=(12, 8))
-        filtered_data.boxplot(ax=ax)
+        sns.boxplot(x='Expression', y='Protein', data=filtered_data, ax=ax ,palette='Set2',flierprops=dict(marker='o', markersize=4, alpha=0.3))
         
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-        ax.set_xlabel('Protein')
-        ax.set_ylabel('Expression Level')
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         ax.set_title('Protein Expression Box Plot')
-        plt.subplots_adjust(bottom=0.3)
+        plt.subplots_adjust(bottom=0.3,left=0.4)
 
         canvas = FigureCanvas(fig)
         layout.addWidget(canvas)
         result_widget.figure = fig
+
         
         return result_widget
 
@@ -565,14 +568,14 @@ class AnalysisTab(QWidget):
         # Get filtered data
         region = self.regions[self.current_view_index]
         if self.regions[self.current_view_index][0] == "rect":
-            data = self.get_rect_data(region)
+            data = self.get_rect_data(region[1])
         if self.regions[self.current_view_index][0] == "circle":
-            data = self.get_circle_data(region)
+            data = self.get_circle_data(region[1])
         if self.regions[self.current_view_index][0] == "poly":
-            data = self.get_poly_data(region)
+            data = self.get_poly_data(region[1])
 
-        data = data.drop(columns=list(set(data.columns[3:]) - set(checked_items)))
-        
+        self.columns = checked_items
+
         # Regenerate graphs
         self.generate_analysis_graphs(self.regions[self.current_view_index])
         

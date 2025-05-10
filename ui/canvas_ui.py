@@ -418,6 +418,8 @@ class ImageGraphicsViewUI(QGraphicsView):
         return self.pixmapItem is None
     
     def mouseDoubleClickEvent(self, event):
+        if self.isEmpty():
+            return
         self.__centerImage(self.pixmapItem)
 
     
@@ -513,6 +515,8 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.starting_y = int(self.image_pos.y())
 
     def mousePressEvent(self, event: QMouseEvent):
+        if self.isEmpty():
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             if self.begin_crop or self.select:
                 self.origin = event.pos()
@@ -668,6 +672,8 @@ class ImageGraphicsViewUI(QGraphicsView):
                 r.mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
+        if self.isEmpty():
+            return
         super().mouseReleaseEvent(event)
 
         self.rubber_band_positions = []
@@ -710,7 +716,6 @@ class ImageGraphicsViewUI(QGraphicsView):
                     scene_pos = self.mapToScene(event.pos())
                     image_pos = self.pixmapItem.mapFromScene(scene_pos)
                     image_rect = (self.select, (self.starting_x, self.starting_y, int(image_pos.x()), int(image_pos.y())))
-                
                     self.enc.analysis_tab.analyze_region(rubberband, image_rect)
 
                     self.select = False

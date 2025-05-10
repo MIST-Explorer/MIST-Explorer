@@ -303,9 +303,9 @@ class ImageOverlay(QWidget):
         # self.df_path =  "/Users/clark/Downloads/cell_data_8_8_Full_Dataset_Biopsy.xlsx"
         # self.im_path = "/Users/clark/Downloads/new_sd.png"
 
-        self.df_path = "/Users/clark/Downloads/df1.csv"
-        self.im_path = "/Users/clark/Downloads/sd1.png"
-        self.overlay_path = "/Users/clark/Downloads/sd1.png"
+        self.df_path = "assets/sample_data/demo/df1.csv"
+        self.im_path = "assets/sample_data/demo/sd1.png"
+        self.overlay_path = "assets/sample_data/demo/sd1.png"
 
         self.controls = []
 
