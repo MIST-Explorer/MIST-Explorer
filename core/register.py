@@ -12,7 +12,8 @@ import os
 import tensorflow as tf
 import re
 import diplib as dip
-
+import heapq
+from utils import to_uint8
 from core import ImageStorage
 
 
@@ -43,6 +44,7 @@ class Register(QThread):
             "num_tiles": 10,
             "overlap": 250,
         }
+        self.max_num_points = 500
         self.tifs = (
             {
                 "image_dict": self.reference_channels,
@@ -127,47 +129,29 @@ class Register(QThread):
 
             # Select the inputs number
             outputs = []
-            if os.path.exists(f"registration_results_tif{tif_n}_150_decoding.pkl"):
-                print(f"loading previous results for tif {tif_n}")
-                with open(
-                    f"registration_results_tif{tif_n}_150_decoding.pkl", "rb"
-                ) as f:
-                    outputs = pickle.load(f)
-            else:
-                for tile_n, tile_set in enumerate(inputs):
-                    try:
 
-                        # update progress bar
-                        print(f"aligned a tile...{tile_n}")
-                        progress_update = int(((tile_n + 1) / len(inputs)) * 100)
-                        self.progress.emit(
-                            progress_update,
-                            str(f"aligning tile {tile_n+1}/{len(inputs)}"),
-                        )
+            for tile_n, tile_set in enumerate(inputs):
+                # update progress bar
+                print(f"aligned a tile...{tile_n}")
+                progress_update = int(((tile_n + 1) / len(inputs)) * 100)
+                self.progress.emit(
+                    progress_update,
+                    str(f"aligning tile {tile_n+1}/{len(inputs)}"),
+                )
 
-                        if tif_n == 0:
-                            outputs.append(self.on_skip(tile_set))
-                            continue
+                if tif_n == 0:
+                    outputs.append(self.on_skip(tile_set))
+                    continue
 
-                        t = time.time()
-                        result = self.align_two_img(tile_set)  # align
+                result = self.align_two_img(tile_set)  # align
 
-                        print(time.time() - t)
-
-                        if result is None:
-                            continue
-                        outputs.append(result)
-                    except Exception as e:
-                        raise e
+                if result is None:
+                    continue
+                outputs.append(result)
 
             print("done aligning")
 
             self.tifs[tif_n]["outputs"] = outputs
-            if self.has_blue:
-                with open(
-                    f"registration_results_tif{tif_n}_150_decoding.pkl", "wb"
-                ) as f:
-                    pickle.dump(outputs, f)
 
         #########################################################
         # move the other layers
@@ -227,7 +211,9 @@ class Register(QThread):
                             reference_brightfield, x, y
                         ).astype(float)
                         if transf is not None:
-                            registered, _ = aa.apply_transform(transf, source, target)
+                            registered = cv2.warpAffine(
+                                source, transf, (target.shape[1], target.shape[0])
+                            )
                         else:
                             registered = source
                             total_aa_none += 1
@@ -314,62 +300,68 @@ class Register(QThread):
 
     def align_two_img(self, param):
 
-        # def convert_to_rgb_image(array_2d):
-        #     normalized_array = (array_2d - np.min(array_2d)) / (np.max(array_2d) - np.min(array_2d))
-        #     scaled_array = (normalized_array * 255).astype(np.uint8)
-        #     rgb_image = np.stack((scaled_array, scaled_array, scaled_array), axis=-1)
-        #     return rgb_image
-
         fixed_img, moving_img, ymin, xmin, radius, x, y = param
         source = moving_img.copy()
         target = fixed_img.copy()
 
-        source = (
-            np.clip(source, 128, 255) - 128
-        )  # to remove most gradient of background
-        target = (
-            np.clip(target, 128, 255) - 128
-        )  # to remove most gradient of background
+        moving_points = self.find_points(source, top_k=self.max_num_points)
+        fixed_points = self.find_points(target, top_k=self.max_num_points)
+        moving_points_cv = moving_points.astype(np.float32).reshape(-1, 1, 2)
+        fixed_points_cv = fixed_points.astype(np.float32).reshape(-1, 1, 2)
 
-        print(target.shape, "target dimension")
-        print(target.dtype, "target dtype")
-        print(target.min(), target.max())
+        nextPts, status, err = cv2.calcOpticalFlowPyrLK(
+            source, target, moving_points_cv, fixed_points_cv
+        )
 
-        print(source.shape, "source dimension")
-        print(source.dtype, "source dtype")
-        print(source.min(), source.max())
+        # Select only good points
+        good_moving = moving_points_cv[status.flatten() == 1][:, 0, :]
+        good_next = nextPts[status.flatten() == 1][:, 0, :]
 
-        transf_previous = None
-        transf = None
-        sr = None
-        print("finding alignment")
-        try:
-            transf, _ = aa.find_transform(
-                source, target, detection_sigma=3, min_area=10, max_control_points=150
-            )
+        # Estimate affine transformation (2x3 matrix)
+        M, inliers = cv2.estimateAffinePartial2D(good_moving, good_next)
 
-            if self.has_blue:
-                registered, _ = aa.apply_transform(transf, source, target)
-                sr = StackReg(StackReg.AFFINE)
-                sr.register(target, registered)
-
-        except Exception as e:
-            print("This tile is not aligned!", e)
-            if "transf_previous" in globals():
-                transf = transf_previous
-            else:
-                transf = None  # or some default transformation
-        finally:
-            print(" ")
-
-        transf_previous = transf
-
+        transf = M if M is not None else None
         if self.has_blue:
-            return [transf, [], sr], ymin, xmin, radius, x, y
+            return [transf, [], None], ymin, xmin, radius, x, y
         else:
             return [transf, []], ymin, xmin, radius, x, y
 
-    def set_blue_clor(self, hasblue) -> bool:
+    def find_points(self, image, min_circularity=0.5, top_k=500):
+        image = to_uint8(image.copy())
+        thresh = cv2.adaptiveThreshold(
+            image,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            blockSize=11,
+            C=2,
+        )
+        contours, _ = cv2.findContours(
+            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        # Use a min-heap to keep top_k largest area centers
+        heap = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            perimeter = cv2.arcLength(cnt, True)
+            if perimeter == 0:
+                continue
+            circularity = 4 * np.pi * area / (perimeter**2)
+            if circularity >= min_circularity:
+                M = cv2.moments(cnt)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    # Push to heap as (area, (cx, cy))
+                    if len(heap) < top_k:
+                        heapq.heappush(heap, (area, (cx, cy)))
+                    else:
+                        heapq.heappushpop(heap, (area, (cx, cy)))
+        # Extract centers from heap, sorted by area descending
+        top_centers = [center for _, center in sorted(heap, reverse=True)]
+        return np.array(top_centers)
+
+    def set_blue_color(self, hasblue) -> bool:
         if hasblue == "Yes":
             self.has_blue = True
         else:

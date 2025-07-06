@@ -437,7 +437,7 @@ class SignalConnectionManager:
             self.c.model_register.set_num_tiles
         )
         self.c.view.register_groupbox.has_blue_color.currentTextChanged.connect(
-            self.c.model_register.set_blue_clor
+            self.c.model_register.set_blue_color
         )
 
         # Execution
