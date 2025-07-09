@@ -1,13 +1,15 @@
+import os
+import sys
 from multiprocessing import Value
 from typing import List
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import QTimer
-import tifffile as tiff, numpy as np
+
 import cv2
-import sys
-import os
-from skimage import transform
+import numpy as np
+import tifffile as tiff
 from numpy.typing import NDArray
+from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QImage, QPixmap
+from skimage import transform
 
 
 def numpy_to_qimage(array: np.ndarray) -> QImage:
@@ -131,6 +133,63 @@ def to_uint8(image):
         return img_norm.astype(np.uint8)
     else:
         return np.zeros_like(image, dtype=np.uint8)
+
+
+def calculate_ncc(img1, img2):
+    """
+    Calculate NCC (Normalized Cross-Correlation) between two images.
+
+    Args:
+        img1: First image (reference/target)
+        img2: Second image (aligned)
+
+    Returns:
+        NCC value between -1 and 1 (1 = perfect correlation)
+    """
+    try:
+        # Ensure images have the same shape
+        if img1.shape != img2.shape:
+            min_h = min(img1.shape[0], img2.shape[0])
+            min_w = min(img1.shape[1], img2.shape[1])
+            img1 = img1[:min_h, :min_w]
+            img2 = img2[:min_h, :min_w]
+
+        # Convert to float to avoid overflow
+        img1_float = img1.astype(np.float64)
+        img2_float = img2.astype(np.float64)
+
+        # Flatten images
+        img1_flat = img1_float.flatten()
+        img2_flat = img2_float.flatten()
+
+        # Calculate means
+        mean1 = np.mean(img1_flat)
+        mean2 = np.mean(img2_flat)
+
+        # Center the data
+        img1_centered = img1_flat - mean1
+        img2_centered = img2_flat - mean2
+
+        # Calculate NCC
+        numerator = np.sum(img1_centered * img2_centered)
+        denominator = np.sqrt(np.sum(img1_centered**2) * np.sum(img2_centered**2))
+
+        if denominator == 0:
+            return 0.0  # No correlation if one image is constant
+
+        ncc = numerator / denominator
+        return ncc
+
+    except Exception as e:
+        print(f"Error calculating NCC: {str(e)}")
+        return None
+
+
+def to_uint16_from_uint8(image_uint8, original_min, original_max):
+    """Rescale uint8 image back to original float32 or uint16 range."""
+    image_float = image_uint8.astype(np.float32) / 255.0
+    rescaled = image_float * (original_max - original_min) + original_min
+    return rescaled.astype(np.uint16)
 
 
 def normalize_to_uint8(data: np.ndarray) -> np.ndarray:
@@ -371,8 +430,9 @@ def warp_image(img, transform_matrix):
 # Memory monitoring utility
 def monitor_memory_usage():
     """Simple memory monitoring function."""
-    import psutil
     import os
+
+    import psutil
 
     process = psutil.Process(os.getpid())
     memory_info = process.memory_info()
@@ -446,7 +506,9 @@ def match_histograms(src_image, ref_histogram, bins=256):
     image_after_matching = cv2.convertScaleAbs(src_after_transform)
 
     return image_after_matching
+
+
 def resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)

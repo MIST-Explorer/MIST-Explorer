@@ -1,21 +1,22 @@
 import os
-from pyexpat import model
 import uuid
+from uuid import UUID
+
 import numpy as np
-from core import ImageStorage, StarDist
-from PyQt6.QtCore import pyqtSignal, QSize, QModelIndex, Qt
-from models.image_list_model import ImageTreeModel, ImageTreeItem
-from core import ImageGraphicsView
+from pyexpat import model
+from PyQt6.QtCore import QModelIndex, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QTreeView,
+    QFileDialog,
     QMenu,
     QMessageBox,
-    QFileDialog,
+    QTreeView,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtGui import QAction, QActionGroup
-from uuid import UUID
+
+from core import ImageGraphicsView, ImageStorage, StarDist
+from models.image_list_model import ImageTreeItem, ImageTreeModel
 
 
 class Manager(QWidget):
@@ -57,6 +58,22 @@ class Manager(QWidget):
                 channel_item = ImageTreeItem(uuid, channel=channel, useItemName=False)
                 main_item.appendRow(channel_item)
         self.root_node.appendRow(main_item)
+
+    def set_channel_icon(self, uuid, channel):
+        """Set the icon for the channel item"""
+        assert self.root_node is not None, "Root node is not initialized"
+        main_item = self.root_node.child(uuid)
+        if main_item is None:
+            raise ValueError(f"No main item found for UUID: {uuid}")
+        channel_item = main_item.child(channel)
+        assert isinstance(
+            channel_item, ImageTreeItem
+        ), "Channel item is not an instance of ImageTreeItem"
+        if channel_item is None:
+            raise ValueError(
+                f"No channel item found for UUID: {uuid} and channel: {channel}"
+            )
+        channel_item.set_icon()
 
     def add_to_storage(self, uuid, obj):
         self.storage.add_data(uuid, obj)

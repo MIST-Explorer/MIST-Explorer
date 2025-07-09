@@ -1,25 +1,18 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QImage
-import numpy as np
 import cv2
-
-
+import numpy as np
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QImage, QPixmap, QWheelEvent
 from PyQt6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QLabel,
-    QGraphicsView,
-    QGraphicsScene,
     QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QImage, QWheelEvent
-import cv2
-import numpy as np
 
 
 class ZoomableImageView(QGraphicsView):
@@ -40,7 +33,7 @@ class ZoomableImageView(QGraphicsView):
         # Zoom settings
         self.zoom_factor = 1.15
         self.min_zoom = 0.1
-        self.max_zoom = 100.0
+        self.max_zoom = 10000.0
         self.current_zoom = 1.0
 
         self.pixmap_item = None
@@ -228,8 +221,8 @@ class AlignmentPreviewDialog(QDialog):
                 img2 = img2[:min_h, :min_w]
 
             # Convert to float to avoid overflow
-            img1_float = img1.astype(np.float64)
-            img2_float = img2.astype(np.float64)
+            img1_float = img1.astype(np.float32)
+            img2_float = img2.astype(np.float32)
 
             # Flatten images
             img1_flat = img1_float.flatten()

@@ -1,56 +1,53 @@
 """Main Class to handle display of images"""
-from utils import resource_path
-from PyQt6.QtWidgets import QGraphicsRectItem
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPen, QBrush, QColor
-from PyQt6.QtWidgets import (
-    QToolTip,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsPixmapItem,
-    QGraphicsItem,
-    QGraphicsRectItem,
-    QGraphicsOpacityEffect,
-    QApplication,
-    QWidget,
-    QHBoxLayout,
-    QPushButton,
-    QLabel,
-)
-from PyQt6.QtGui import (
-    QDragEnterEvent,
-    QDropEvent,
-    QPixmap,
-    QDragMoveEvent,
-    QMouseEvent,
-    QCursor,
-    QBrush,
-    QColor,
-    QPen,
-    QIcon,
-    QAction,
-)
-from PyQt6.QtCore import (
-    Qt,
-    QRect,
-    QSize,
-    QPoint,
-    pyqtSignal,
-    QPointF,
-    QPropertyAnimation,
-    QEasingCurve,
-    QRectF,
-)
+
+import typing
 
 import numpy as np
 import pandas as pd
+from PyQt6.QtCore import (
+    QEasingCurve,
+    QPoint,
+    QPointF,
+    QPropertyAnimation,
+    QRect,
+    QRectF,
+    QSize,
+    Qt,
+    pyqtSignal,
+)
+from PyQt6.QtGui import (
+    QAction,
+    QBrush,
+    QColor,
+    QCursor,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
+    QIcon,
+    QMouseEvent,
+    QPen,
+    QPixmap,
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QGraphicsItem,
+    QGraphicsOpacityEffect,
+    QGraphicsPixmapItem,
+    QGraphicsRectItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QToolTip,
+    QWidget,
+)
+
 import utils
-
-
 from ui.lassos.CircleLasso import CircleLasso
-from ui.lassos.RectLasso import RectLasso
 from ui.lassos.PolyLasso import PolyLasso
-import typing
+from ui.lassos.RectLasso import RectLasso
+from utils import resource_path
 
 if typing.TYPE_CHECKING:
     from ui.app import Ui_MainWindow
@@ -178,9 +175,6 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
             # Prevent excessive zooming in either direction
             if self.zoom > 1.1**90 and zooming_out:  # Max zoom out
-                return
-
-            if self.zoom < 1 / (1.1**2) and not zooming_out:  # Max zoom in
                 return
 
             zoom_factor = 1.1 if zooming_out else 0.9
@@ -313,7 +307,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.right_arrow.setPixmap(
             QPixmap(resource_path("assets/icons/right-arrow.png")).scaled(rw, rh)
         )
-        self.left_arrow.setPixmap(QPixmap(resource_path("assets/icons/left-arrow.png")).scaled(rw, rh))
+        self.left_arrow.setPixmap(
+            QPixmap(resource_path("assets/icons/left-arrow.png")).scaled(rw, rh)
+        )
 
         scene_height = self.get_scene().height()
         scene_width = self.get_scene().width()
@@ -424,7 +420,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.view_pixmap_item = QGraphicsPixmapItem()
-        
+
         self.get_scene().addItem(self.view_pixmap_item)
         self.get_scene().addItem(self.pixmap_item)
         self.view_pixmap_item.hide()
@@ -433,10 +429,11 @@ class ImageGraphicsViewUI(QGraphicsView):
     def _show_view_tab_image(self):
         self.pixmap_item.hide()
         self.view_pixmap_item.show()
+
     def _show_images_tab_image(self):
         self.pixmap_item.show()
         self.view_pixmap_item.hide()
-    
+
     def get_scene(self):
         s = self.scene()
         assert s is not None, "Scene should be initialized"
@@ -607,7 +604,7 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def update_canvas(self, pixmap: QPixmap, is_view=False, crop=False):
         """Updates canvas when current image is operated on"""
-        
+
         if self.pixmap_item:
             if is_view:
                 self._show_view_tab_image()
@@ -623,7 +620,9 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.__centerImage()
 
     def __centerImage(self):
-        pixmap_item = self.pixmap_item if self.pixmap_item.isVisible() else self.view_pixmap_item
+        pixmap_item = (
+            self.pixmap_item if self.pixmap_item.isVisible() else self.view_pixmap_item
+        )
         item_rect = pixmap_item.boundingRect()
         self.setSceneRect(item_rect)
         self.fitInView(pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
@@ -923,7 +922,7 @@ class ImageGraphicsViewUI(QGraphicsView):
                 # Hide pixel highlight when outside image bounds
                 self.hide_pixel_highlight()
                 # if self.reference_view:
-                    # self.reference_view.hide_pixel_highlight()
+                # self.reference_view.hide_pixel_highlight()
         # Handle rubber band updates for old crop system
         if (
             not self.isEmpty()

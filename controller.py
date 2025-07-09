@@ -1,21 +1,23 @@
 """Class to handle signal connections"""
 
-import numpy as np
-from ui.alignment.alignment_preview_dialog import AlignmentPreviewDialog
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import pyqtSignal, QObject
-from PIL import Image
+import typing
 import uuid
+
+import numpy as np
+from PIL import Image
+from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
+
 from core import (
-    StarDist,
-    Register,
     CellIntensity,
-    ReferenceGraphicsView,
     ImageGraphicsView,
     ImageWrapper,
+    ReferenceGraphicsView,
+    Register,
+    StarDist,
 )
-import typing
+from ui.alignment.alignment_preview_dialog import AlignmentPreviewDialog
 
 if typing.TYPE_CHECKING:
     from ui.app import Ui_MainWindow
