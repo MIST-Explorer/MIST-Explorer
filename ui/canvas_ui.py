@@ -193,16 +193,21 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         else:
             super().wheelEvent(event)
 
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
+    def dragEnterEvent(self, event: QDragEnterEvent | None):
+        if event is not None and event.mimeData() is not None:
             event.acceptProposedAction()
 
-    def dragMoveEvent(self, event: QDragMoveEvent):
-        event.acceptProposedAction()
+    def dragMoveEvent(self, event: QDragMoveEvent | None):
+        if event is not None:
+            event.acceptProposedAction()
 
-    def dropEvent(self, event: QDropEvent):
-        if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
+    def dropEvent(self, event: QDropEvent | None):
+        if event is not None and event.mimeData() is not None:
+            mime = event.mimeData()
+            if mime is None:
+                return
+            event_urls = mime.urls()
+            for url in event_urls:
                 file_path = url.toLocalFile()
                 if file_path is not None:
                     self.image_dropped.emit(file_path)
@@ -769,6 +774,9 @@ class ImageGraphicsViewUI(QGraphicsView):
 
                 if self.begin_crop:
                     self.rubberBands.append(self.rubberBand)
+                    assert (
+                        self.rubberBand is not None
+                    ), "Rubber band should be initialized"
                     self.rubberBandColors.append(self.rubberBand.color)
                     self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                     self.rubberBand.show()
@@ -782,8 +790,10 @@ class ImageGraphicsViewUI(QGraphicsView):
 
     def keyPressEvent(self, event):
         # Handle crop confirmation with Enter key
+        if event is None:
+            return
         if (
-            event.key() == Qt.Key.Key_Return
+            (event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return)
             and self.crop_mode
             and self.active_crop_rect
         ):
@@ -831,10 +841,12 @@ class ImageGraphicsViewUI(QGraphicsView):
         # Clean up crop mode
         self.cancel_crop_mode()
 
-    def mouseMoveEvent(self, event: QMouseEvent):
+    def mouseMoveEvent(self, event: QMouseEvent | None):
         super().mouseMoveEvent(event)
 
         # Handle crop rectangle resizing
+        if event is None:
+            return
         if (
             self.crop_mode
             and self.crop_start_pos is not None
@@ -851,8 +863,8 @@ class ImageGraphicsViewUI(QGraphicsView):
             top = min(y1, y2)
             width = abs(x2 - x1)
             height = abs(y2 - y1)
-
-            self.active_crop_rect.setRect(left, top, width, height)
+            r = QRectF(left, top, width, height)
+            self.active_crop_rect.setRect(r)
 
         # Store current mouse position for polygon preview
         if self.current_polygon and len(self.current_polygon.points) > 0:
@@ -923,6 +935,9 @@ class ImageGraphicsViewUI(QGraphicsView):
             and self.rubberBand
             and not self.crop_mode
         ):
+            if self.origin is None:
+                self.origin = event.pos()
+                self.update_starting_position(event)
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
 
         if (
@@ -949,9 +964,10 @@ class ImageGraphicsViewUI(QGraphicsView):
             for r in self.rubberBands:
                 r.mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        if self.isEmpty():
+    def mouseReleaseEvent(self, event: QMouseEvent | None):
+        if event is None or self.isEmpty():
             return
+
         super().mouseReleaseEvent(event)
 
         self.rubber_band_positions = []
@@ -960,7 +976,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             # Don't auto-confirm, let user press Enter or Escape
             self.initial_crop = True
             self.initial_crop_rect = self.active_crop_rect.rect()
-            self.scene().removeItem(self.active_crop_rect)
+            self.get_scene().removeItem(self.active_crop_rect)
 
             self.active_crop_rect = ResizableRect(
                 self.initial_crop_rect.x(),
@@ -971,7 +987,7 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.active_crop_rect.setZValue(10)
             self.is_resizing = False
 
-            self.scene().addItem(self.active_crop_rect)
+            self.get_scene().addItem(self.active_crop_rect)
             return
         if not self.rubberBands:
             return
@@ -1048,50 +1064,6 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.pixel_highlight = None
 
 
-class ResizeHandle(QGraphicsRectItem):
-    def __init__(self, cursor_shape: Qt.CursorShape, parent: QGraphicsItem):
-        """Resize handle for ResizableRect"""
-        w, h = parent.boundingRect().width(), parent.boundingRect().height()
-        w, h = w // 16, h // 16
-        w, h = max(16, w), max(16, h)  # Ensure minimum size
-
-        super().__init__(-w // 2, -h // 2, w, h, parent)  # Center the handle
-        self.setBrush(QBrush(Qt.GlobalColor.white))
-        self.setPen(QPen(Qt.GlobalColor.black))
-        self.setZValue(11)
-        self.setAcceptHoverEvents(True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
-        self.cursor_shape = cursor_shape
-        self.edge = Qt.Edge(0)
-        self.parent = parent
-
-    def setEdge(self, edge):
-        """Set the edge this handle is associated with"""
-        self.edge = edge
-
-    def hoverEnterEvent(self, event):
-        QApplication.setOverrideCursor(QCursor(self.cursor_shape))
-
-    def hoverLeaveEvent(self, event):
-        QApplication.restoreOverrideCursor()
-
-    def mousePressEvent(self, event):
-        """Handle mouse press events on the resize handle"""
-        self.parent.selected_edge = self.edge
-        # super().mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        """Handle mouse release events on the resize handle"""
-        self.parent.selected_edge = Qt.Edge(0)
-        # super().mouseReleaseEvent(event)
-
-    def mouseMoveEvent(self, event):
-        """Handle mouse move events on the resize handle"""
-        super().mouseMoveEvent(event)
-        # Update the parent rectangle's position if needed
-        self.parent.mouseMoveEvent(event)
-
-
 class ResizableRect(QGraphicsRectItem):
     def __init__(self, x=0.0, y=0.0, width=0.0, height=0.0, onCenter=False):
         if onCenter:
@@ -1162,14 +1134,28 @@ class ResizableRect(QGraphicsRectItem):
                 handle.rect().height(),
             )
 
-    def setRect(self, rect):
-        super().setRect(rect)
+    def setRect(self, *args, **kwargs):
+        if len(args) == 1 and hasattr(args[0], "x"):
+            # Called with QRectF object
+            rect = args[0]
+            super().setRect(rect.x(), rect.y(), rect.width(), rect.height())
+        elif len(args) == 4:
+            # Called with separate x, y, width, height parameters
+            super().setRect(*args)
+        elif "rect" in kwargs:
+            # Called with rect keyword parameter
+            super().setRect(**kwargs)
+        else:
+            # Fallback to base implementation
+            super().setRect(*args, **kwargs)
         self.updateHandles()
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        if event is None:
+            return
         if self.selected_edge:
             rect = self.rect()
             pos = self.mapFromScene(event.scenePos())
@@ -1224,3 +1210,47 @@ class ResizableRect(QGraphicsRectItem):
             edges |= Qt.Edge.BottomEdge
 
         return edges
+
+
+class ResizeHandle(QGraphicsRectItem):
+    def __init__(self, cursor_shape: Qt.CursorShape, parent: ResizableRect):
+        """Resize handle for ResizableRect"""
+        w, h = parent.boundingRect().width(), parent.boundingRect().height()
+        w, h = w // 16, h // 16
+        w, h = max(16, w), max(16, h)  # Ensure minimum size
+
+        super().__init__(-w // 2, -h // 2, w, h, parent)  # Center the handle
+        self.setBrush(QBrush(Qt.GlobalColor.white))
+        self.setPen(QPen(Qt.GlobalColor.black))
+        self.setZValue(11)
+        self.setAcceptHoverEvents(True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.cursor_shape = cursor_shape
+        self.edge = Qt.Edge(0)
+        self.parent = parent
+
+    def setEdge(self, edge):
+        """Set the edge this handle is associated with"""
+        self.edge = edge
+
+    def hoverEnterEvent(self, event):
+        QApplication.setOverrideCursor(QCursor(self.cursor_shape))
+
+    def hoverLeaveEvent(self, event):
+        QApplication.restoreOverrideCursor()
+
+    def mousePressEvent(self, event):
+        """Handle mouse press events on the resize handle"""
+        self.parent.selected_edge = self.edge
+        # super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release events on the resize handle"""
+        self.parent.selected_edge = Qt.Edge(0)
+        # super().mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """Handle mouse move events on the resize handle"""
+        super().mouseMoveEvent(event)
+        # Update the parent rectangle's position if needed
+        self.parent.mouseMoveEvent(event)
