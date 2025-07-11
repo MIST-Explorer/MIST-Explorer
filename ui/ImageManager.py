@@ -196,7 +196,6 @@ class ImageTreeWidget(QTreeView):
                     channel_group.addAction(action)
                     set_default_channel.addAction(action)
                 menu.addMenu(set_default_channel)
-                menu.addAction(save_as_tiff)
                 menu.addAction(delete)
             else:
                 set_reference.setText("Set as Reference")
@@ -208,6 +207,7 @@ class ImageTreeWidget(QTreeView):
                 menu.addAction(set_tissue_target_image)
                 menu.addAction(set_tissue_unaligned_image)
 
+            menu.addAction(save_as_tiff)
             menu.exec(event.globalPos())
 
     def set_for_stardist(self, item):
