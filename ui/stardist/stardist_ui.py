@@ -1,15 +1,15 @@
+from PyQt6.QtCore import QCoreApplication, QMetaObject, QSize
 from PyQt6.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QGroupBox,
-    QLabel,
     QComboBox,
-    QSpinBox,
     QDoubleSpinBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
     QPushButton,
+    QSpinBox,
+    QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import QSize, QCoreApplication, QMetaObject
 
 
 class StarDistUI(QWidget):
@@ -124,7 +124,10 @@ class StarDistUI(QWidget):
 
     def updateChannelSelector(self, channels: dict):
         self.clearChannelSelector()
-        self.stardist_channel_selector.addItems(list(channels.keys()))
+        channel_keys = sorted(
+            channels.keys(), key=lambda x: int(x.replace("Channel ", ""))
+        )
+        self.stardist_channel_selector.addItems(channel_keys)
 
     def clearChannelSelector(self):
         self.stardist_channel_selector.clear()

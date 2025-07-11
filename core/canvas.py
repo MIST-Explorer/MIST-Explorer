@@ -757,6 +757,7 @@ class BaseGraphicsView(QWidget):
                 self.image_signal.emit(display_wrappers, True)
             else:
                 # Emit full resolution
+
                 self.image_signal.emit(self.np_channels, True)
 
     def _log_memory_usage(
@@ -787,6 +788,9 @@ class BaseGraphicsView(QWidget):
         self.update_progress.emit(100, "Image Loaded")
 
         print("Emitting to update manager")
+        self.np_channels = {
+            k: self.np_channels[k] for k in sorted(self.np_channels.keys())
+        }
         self.update_manager.emit(self.np_channels, file_name)
         self.image_count += 1
 
@@ -1343,8 +1347,6 @@ class ImageGraphicsView(BaseGraphicsView):
             self.image_signal.emit(self.np_channels, False)
             self.update_progress.emit(100, f"Replaced {self._blur_layer}")
 
-    # Doesn't work if subsampling display, need to
-    # store zoom info in ImageWrapper and adjust bounds accordingly
     def crop(self, image_rect):
         """Safely crop current image using image_rect and save to disk"""
 
@@ -1369,7 +1371,7 @@ class ImageGraphicsView(BaseGraphicsView):
         item = self.storage.get_data(self.uuid)
         assert item is not None, "UUID not found in storage while cropping"
         image_name = item["name"]
-        name = f"cropped_{image_name}.tif"
+        name = f"cropped_{image_name}"
 
         if self.crop_dialog.confirm_crop:
             channels = {}
@@ -1380,6 +1382,7 @@ class ImageGraphicsView(BaseGraphicsView):
                     cropped_array, name=channel_name, cmap=wrapper.cmap
                 )
                 channels[channel_name] = wrapper_copy
+
             self.crop_worker = Worker(self.add_to_canvas, channels, True, name)
             self.crop_worker.finished.connect(self.crop_worker.quit)
             self.crop_worker.finished.connect(self.crop_worker.deleteLater)
@@ -1388,47 +1391,6 @@ class ImageGraphicsView(BaseGraphicsView):
             self.crop_signal.emit(False)
         if right <= left or bottom <= top:
             print("❌ Invalid crop region: empty or out-of-bounds")
-
-    @pyqtSlot(dict)
-    def on_crop_completed(self, cropped_wrappers: dict):
-        """Handle completed crop operation"""
-
-        if not cropped_wrappers == {}:
-            self.np_channels = cropped_wrappers
-            channel_num = f"Channel {self.current_channel + 1}"
-            self.image_wrapper = self.np_channels.get(
-                channel_num, ImageWrapper(np.array([]), "")
-            )
-            self.image_cache.clear()
-
-        self.crop_signal.emit(False)
-
-    def crop_image_task(self, image_rect) -> dict:
-        """Process crop in background thread"""
-        left = image_rect.x()
-        top = image_rect.y()
-        right = image_rect.right()
-        bottom = image_rect.bottom()
-
-        if self.is_layered:
-            for (
-                channel_name,
-                image_arr,
-            ) in self.np_channels.items():  # iterate over wrappers
-                arr = image_arr.data
-                cropped_array = arr[top : bottom + 1, left : right + 1]
-                if not cropped_array.data.contiguous:
-                    cropped_array = np.ascontiguousarray(cropped_array, dtype=arr.dtype)
-
-                if not hasattr(self, "cropped_wrappers"):
-                    self.cropped_wrappers = {}
-
-                self.np_channels[channel_name].data = cropped_array
-
-            return self.np_channels
-
-        else:
-            return {}
 
     def flip_horizontal(self):
         """Flip the image horizontally"""

@@ -1,5 +1,6 @@
 """Class to handle signal connections"""
 
+import os
 import typing
 import uuid
 
@@ -77,6 +78,7 @@ class Controller:
     def __init__(self, app: "Ui_MainWindow"):
         self._initialized = True
         self.image_count = 0
+        self.prev_tab_index = 0
         self.model_canvas = ImageGraphicsView(self)
         self.model_stardist = StarDist()
         self.model_register = Register()
@@ -102,6 +104,7 @@ class Controller:
             self._handle_aligned_image
         )
         self.model_register.alignment_complete.connect(self._handle_aligned_image)
+        self.model_register.error.connect(self.handle_error)
 
     def handle_error(self, error_message):
         QMessageBox.critical(self.view, "Error", error_message)
@@ -163,10 +166,10 @@ class Controller:
     # add new image to storage
     def handle_new_image(self, data, file_name):
         storage_item = {}
-        storage_item["name"] = file_name.split("/")[-1]
+        storage_item["name"] = os.path.basename(file_name)
         self.image_count += 1
+
         storage_item["data"] = data
-        print(data)
         my_uuid = str(uuid.uuid4())
         self.view.images_tab.add_to_storage(my_uuid, storage_item)
         self.model_canvas.set_uuid(my_uuid)
@@ -174,8 +177,9 @@ class Controller:
 
     def handle_new_reference_image(self, data, file_name):
         storage_item = {}
-        storage_item["name"] = file_name.split("/")[-1]
+        storage_item["name"] = os.path.basename(file_name)
         self.image_count += 1
+
         storage_item["data"] = data
         my_uuid = str(uuid.uuid4())
         self.view.images_tab.add_to_storage(my_uuid, storage_item)
@@ -217,20 +221,29 @@ class Controller:
         result = preview_dialog.exec()
         return result == 1 and preview_dialog.result_accepted
 
-    def handle_tab_change(self, index):
-        if index == 2:
-            self.view.view_tab.process_images()
-            self.view.canvas.pixmap_item.hide()
-            self.view.canvas.view_pixmap_item.show()
-        elif index == 0 or index == 1:
+    def need_canvas_change(self, new_index):
+        if self.prev_tab_index == 2 and new_index != 2:
+            if self.view.canvas.pixmap_item.isVisible():
+                return
+            self.view.canvas.pixmap_item.show()
+            self.view.canvas.view_pixmap_item.hide()
             if self.model_canvas.uuid:
-                print("swappign channel")
+                print("swapping channel")
                 self.model_canvas.swap_channel(self.model_canvas.current_channel)
             else:
                 print("clearing canvas")
                 self.model_canvas.clear_canvas()
-            self.view.canvas.pixmap_item.show()
-            self.view.canvas.view_pixmap_item.hide()
+        elif self.prev_tab_index != 2 and new_index == 2:
+            self.view.view_tab.process_images()
+            self.view.canvas.pixmap_item.hide()
+            self.view.canvas.view_pixmap_item.show()
+
+    def handle_tab_change(self, index):
+        self.need_canvas_change(index)
+        self.prev_tab_index = index
+
+    def handle_cancel_registration(self):
+        self.model_register.cancel()
 
 
 class SignalConnectionManager:
@@ -438,9 +451,6 @@ class SignalConnectionManager:
         self.c.view.register_groupbox.num_tiles.valueChanged.connect(
             self.c.model_register.set_num_tiles
         )
-        self.c.view.register_groupbox.has_blue_color.currentTextChanged.connect(
-            self.c.model_register.set_blue_color
-        )
 
         # Execution
         self.c.view.register_groupbox.run_button.clicked.connect(
@@ -454,7 +464,7 @@ class SignalConnectionManager:
         )
         self.c.model_register.progress.connect(self.c.view.update_progress_bar)
         self.c.view.register_groupbox.cancel_button.clicked.connect(
-            self.c.model_register.cancel
+            self.c.handle_cancel_registration
         )
 
         # Results

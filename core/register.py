@@ -12,7 +12,6 @@ import diplib as dip
 import numpy as np
 import pystackreg.util
 import SimpleITK as sitk
-import tensorflow as tf
 from PIL import Image
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -33,7 +32,7 @@ class Register(QThread):
         Image.MAX_IMAGE_PIXELS = 99999999999
 
         # initialize variables
-
+        self._is_running = False
         self.protein_channels = None
         self.reference_channels = None
         self.protein_signal_array = None
@@ -59,22 +58,40 @@ class Register(QThread):
         self.template_size = template_size
         self.max_points = max_points
 
+    def _fatal_error_message(self, msg):
+        self.error.emit(msg)
+        self.progress.emit(100, "Retry Maybe")
+
+    def _handle_cancel(self):
+        if self._is_running == False:
+            self._fatal_error_message("Cancelled registration")
+            return True
+        else:
+            return False
+
     def run_registration(self):
 
-        # run on gpu if possible
+        # don't think we need to check for GPU here, since we are not using tensorflow
 
-        gpu = len(tf.config.list_physical_devices("GPU")) > 0
-        if gpu:
-            device_name = tf.test.gpu_device_name()
-            print("gpu name: ", device_name)
-        else:
-            device_name = "/CPU:0"
+        # gpu = len(tf.config.list_physical_devices("GPU")) > 0
+        # if gpu:
+        #     device_name = tf.test.gpu_device_name()
+        #     print("gpu name: ", device_name)
+        # else:
+        #     device_name = "/CPU:0"
 
-        with tf.device(device_name):
-            self.start()
-
-            self.finished.connect(self.quit)
-            self.finished.connect(self.deleteLater)
+        # with tf.device(device_name):
+        self._is_running = True
+        print("Running registration on device:", "CPU")  # or device_name
+        if self.isRunning() and self._is_running:
+            self.error.emit("Registration is already running")
+            return
+        elif self.isRunning():
+            self.error.emit("Registration is cancelling")
+            return
+        self.start()
+        self.finished.connect(lambda: setattr(self, "_is_running", False))
+        # self.finished.connect(self.deleteLater)
         # self.run()
 
     def run(self):
@@ -102,6 +119,8 @@ class Register(QThread):
         # generate tiles
         for tif_n, tif in enumerate(self.tifs):
             # skip reference
+            if self._handle_cancel():
+                return
             if tif_n == reference_tif_index:
                 self.tifs[tif_n]["outputs"] = None
                 continue
@@ -137,6 +156,8 @@ class Register(QThread):
 
             for tile_n, tile_set in enumerate(inputs):
                 # update progress bar
+                if self._handle_cancel():
+                    return
                 progress_update = int(((tile_n + 1) / len(inputs)) * 100)
                 self.progress.emit(
                     progress_update,
@@ -165,7 +186,8 @@ class Register(QThread):
         total = 0
         assert isinstance(moving_map, TileMap), "moving_map is not a TileMap instance"
         for i, tif in enumerate(self.tifs):
-
+            if self._handle_cancel():
+                return
             if i == 0:
                 continue
 
@@ -264,6 +286,7 @@ class Register(QThread):
             0 : self.params["max_size"], 0 : self.params["max_size"]
         ]  # -> stardist
         # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
+        # aligned protein
         self.protein_signal_arr_signal.emit(
             self.protein_signal_array
         )  # ->cell intensity table
@@ -277,12 +300,13 @@ class Register(QThread):
         result = {}
         result["data"] = data
         layers = list(data.keys())
-        layers.sort()
+        layers = sorted(layers)
         result["layer"] = layers
         moving_uuid = self.storage.get_data("canvas_uuid")
         assert moving_uuid is not None, "No canvas UUID found"
         moving_uuid = moving_uuid["value"]
         result["uuid"] = moving_uuid
+
         self.alignment_complete.emit(
             result,
             aligned_protein_signal[self.params["alignment_layer"]][
@@ -290,38 +314,12 @@ class Register(QThread):
             ],
             alignment_layer[: self.params["max_size"], : self.params["max_size"]],
         )
+        if self._handle_cancel():
+            return
         print("total aa none", total_aa_none)
         print("total sr none", total_sr_none)
         print("total", total)
         self.progress.emit(100, "Alignment Done")
-
-    def align_two_img(self, param):
-
-        fixed_img, moving_img, ymin, xmin, radius, x, y = param
-        source = moving_img.copy()
-        target = fixed_img.copy()
-
-        moving_points = self.find_points(source, top_k=self.max_num_points)
-        fixed_points = self.find_points(target, top_k=self.max_num_points)
-        moving_points_cv = moving_points.astype(np.float32).reshape(-1, 1, 2)
-        fixed_points_cv = fixed_points.astype(np.float32).reshape(-1, 1, 2)
-
-        nextPts, status, err = cv2.calcOpticalFlowPyrLK(
-            source, target, moving_points_cv, fixed_points_cv
-        )
-
-        # Select only good points
-        good_moving = moving_points_cv[status.flatten() == 1][:, 0, :]
-        good_next = nextPts[status.flatten() == 1][:, 0, :]
-
-        # Estimate affine transformation (2x3 matrix)
-        M, inliers = cv2.estimateAffinePartial2D(good_moving, good_next)
-
-        transf = M if M is not None else None
-        if self.has_blue:
-            return [transf, [], None], ymin, xmin, radius, x, y
-        else:
-            return [transf, []], ymin, xmin, radius, x, y
 
     def find_points(self, image, min_circularity=0.5, top_k=500):
         image = to_uint8(image.copy())
@@ -640,13 +638,6 @@ class Register(QThread):
 
         return final_transform, source_itk, target_itk
 
-    def set_blue_color(self, hasblue) -> bool:
-        if hasblue == "Yes":
-            self.has_blue = True
-        else:
-            self.has_blue = False
-        return self.has_blue
-
     def set_alignment_layer(self, channel):
         match = re.search(r"\d+", channel)
         if match:
@@ -737,7 +728,7 @@ class Register(QThread):
 
         # self.exit?
         # self.quit?
-        self.quit()
+        self._is_running = False
 
 
 ############################

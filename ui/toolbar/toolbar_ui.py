@@ -1,20 +1,20 @@
-from utils import resource_path
-from PyQt6.QtWidgets import (
-    QToolBar,
-    QWidget,
-    QComboBox,
-    QLabel,
-    QSizePolicy,
-    QPushButton,
-    QToolButton,
-    QButtonGroup,
-)
-from PyQt6.QtCore import Qt, QCoreApplication, pyqtSignal, QSize, pyqtSlot
-from PyQt6.QtGui import QIcon, QImage, QPixmap
-from ui.toolbar.Action import Action
 import matplotlib.pyplot as plt
 import numpy as np
+from PyQt6.QtCore import QCoreApplication, QSize, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QIcon, QImage, QPixmap
+from PyQt6.QtWidgets import (
+    QButtonGroup,
+    QComboBox,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QToolBar,
+    QToolButton,
+)
 from qtrangeslider import QRangeSlider
+
+from ui.toolbar.Action import Action
+from utils import resource_path
 
 
 class ToolBarUI(QToolBar):
@@ -25,7 +25,6 @@ class ToolBarUI(QToolBar):
 
     def __init__(self, parent):
         super().__init__(parent=parent)
-
         self._init_tab_buttons()
         self._init_actions(parent)
         self._init_channel_selector(parent)
@@ -94,7 +93,9 @@ class ToolBarUI(QToolBar):
         self.actionRotate = Action(
             parent, "actionRotate", resource_path("assets/icons/rotate-right.png")
         )
-        self.actionReset = Action(parent, "actionReset", resource_path("assets/icons/reset.png"))
+        self.actionReset = Action(
+            parent, "actionReset", resource_path("assets/icons/reset.png")
+        )
         self.actionOpenBrightnessContrast = Action(
             parent, "actionBC", resource_path("assets/icons/brightness.png")
         )
@@ -109,7 +110,10 @@ class ToolBarUI(QToolBar):
     def updateChannelSelector(self, channels: dict, clear=False):
         if clear:
             self.clearChannelSelector()
-        self.channelSelector.addItems(list(channels.keys()))
+        channel_keys = sorted(
+            channels.keys(), key=lambda x: int(x.replace("Channel ", ""))
+        )
+        self.channelSelector.addItems(channel_keys)
 
     def clearChannelSelector(self):
         self.channelSelector.clear()
@@ -121,7 +125,9 @@ class ToolBarUI(QToolBar):
 
     def _init_status_line(self):
         self.statusLine = QLabel("Welcome! Please load an image to get started.")
-        self.statusLine.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.statusLine.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self.statusLine.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )

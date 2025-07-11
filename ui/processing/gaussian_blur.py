@@ -1,14 +1,15 @@
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import (
-    QHBoxLayout,
-    QGroupBox,
-    QPushButton,
-    QWidget,
     QComboBox,
     QDoubleSpinBox,
-    QVBoxLayout,
+    QGroupBox,
+    QHBoxLayout,
     QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtCore import pyqtSignal, Qt, pyqtSlot
+
 from ui.slider import DoubleSlider
 
 
@@ -44,8 +45,11 @@ class GaussianBlur(QWidget):
         containing_layout.addWidget(self.gaussian_blur)
 
     def updateChannelSelector(self, channels: dict):
-        if self.combo_box.count() == 0:
-            self.combo_box.addItems(list(channels.keys()))
+        self.combo_box.clear()
+        channel_keys = sorted(
+            channels.keys(), key=lambda x: int(x.replace("Channel ", ""))
+        )
+        self.combo_box.addItems(channel_keys)
 
     @pyqtSlot(float)
     def update_slider_label(self, value: float):

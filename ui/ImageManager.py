@@ -53,6 +53,7 @@ class Manager(QWidget):
         assert item is not None, f"No data found for UUID: {uuid}"
         item_data = item["data"]
         channels = item_data.keys()
+        channels = sorted(channels, key=lambda x: int(x.replace("Channel ", "")))
         if len(channels) > 1:
             for channel in channels:
                 channel_item = ImageTreeItem(uuid, channel=channel, useItemName=False)

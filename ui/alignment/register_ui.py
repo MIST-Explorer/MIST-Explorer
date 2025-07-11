@@ -1,16 +1,19 @@
-from PyQt6.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QGroupBox,
-    QLabel,
-    QComboBox,
-    QSpinBox,
-    QPushButton,
-    QWidget,
-    QFileDialog,
-)
-import pandas as pd, numpy as np, os
+import os
+
+import numpy as np
+import pandas as pd
 from PyQt6.QtCore import QCoreApplication, QMetaObject, pyqtSignal
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class RegisterUI(QWidget):
@@ -29,17 +32,6 @@ class RegisterUI(QWidget):
         self.register_components_vlayout = QVBoxLayout()
         self.register_components_vlayout.setSpacing(0)
         self.register_components_vlayout.setContentsMargins(0, 0, 0, 0)
-
-        self.hasblue_layout = QHBoxLayout()
-
-        self.has_blue_color = QComboBox(self.register_groupbox)
-        self.has_blue_color.addItems(["Yes", "No"])
-        self.has_blue_color.setCurrentIndex(1)  # Default to "No"
-
-        self.hasblue_label = QLabel()
-        self.hasblue_layout.addWidget(self.hasblue_label)
-        self.hasblue_layout.addWidget(self.has_blue_color)
-        self.register_components_vlayout.addLayout(self.hasblue_layout)
 
         # ALIGNMENT LAYER
         self.alignment_layer_layout = QHBoxLayout()
@@ -116,10 +108,13 @@ class RegisterUI(QWidget):
         self.alignment_layer.clear()
         self.protein_cell_layer.clear()
         self.intensity_layer.clear()
+        channel_keys = sorted(
+            channels.keys(), key=lambda x: int(x.replace("Channel ", ""))
+        )
 
-        self.alignment_layer.addItems(list(channels.keys()))
-        self.protein_cell_layer.addItems(list(channels.keys()))
-        self.intensity_layer.addItems(list(channels.keys()))
+        self.alignment_layer.addItems(channel_keys)
+        self.protein_cell_layer.addItems(channel_keys)
+        self.intensity_layer.addItems(channel_keys)
         if len(channels) >= 3:
             self.alignment_layer.setCurrentIndex(0)
             self.protein_cell_layer.setCurrentIndex(1)
@@ -138,4 +133,3 @@ class RegisterUI(QWidget):
         self.overlap_label.setText(_translate("MainWindow", "Overlap"))
         self.run_button.setText(_translate("MainWindow", "Run"))
         self.cancel_button.setText(_translate("MainWindow", "Cancel"))
-        self.hasblue_label.setText(_translate("MainWindow", "Align with Blue Color"))
