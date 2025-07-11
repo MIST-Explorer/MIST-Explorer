@@ -107,7 +107,18 @@ def pixmap_to_image(pixmap: QPixmap):
     # Save numpy array as an image file using OpenCV
     return arr
 
-
+def to_pixmap(data: QPixmap | np.ndarray | QImage):
+    """Sends a pixmap to the canvas for display"""
+    # convert pixmap to pixmapItem
+    pixmap = None
+    if isinstance(data, QPixmap):
+        pixmap = data
+    elif isinstance(data, QImage):
+        pixmap = QPixmap(data)
+    elif isinstance(data, np.ndarray):
+        pixmap = QPixmap(numpy_to_qimage(data))
+    assert pixmap is not None
+    return pixmap
 def is_grayscale(image: np.ndarray) -> bool:
 
     if len(image.shape) == 3 and image.shape[2] == 3:

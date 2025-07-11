@@ -282,7 +282,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         super().mouseMoveEvent(event)
         self.position_arrows()
 
-    def display(self, pixmap: QPixmap, is_layer: bool):
+    def display(self, pixmap: QPixmap):
         scene = self.scene()
         assert scene is not None, "Scene should be initialized"
         scene.clear()  # Clear previous image
@@ -296,14 +296,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         if not hasattr(self, "pixmapItem") or self.pixmap_item is None:
             self.pixmap_item = QGraphicsPixmapItem(self.pixmap)
             scene.addItem(self.pixmap_item)
-
         else:
             print("setting pixmap")
             self.pixmap_item.setPixmap(self.pixmap)
-
-        print("is layer: ", is_layer)
-
-        # if is_layer:
 
         print("has np channels")
         # Scale arrows appropriately;  !TODO, this should be done dynamically and repositioned dynamically
