@@ -340,24 +340,24 @@ class SignalConnectionManager:
         self.c.model_canvas.fill_metadata.connect(self.c.view.get_metadata)
 
         # Crop visibility toggle
-        self.c.model_canvas.crop_signal.connect(
-            lambda x: self.c.view.small_view.setVisible(not x)
-        )
+        # self.c.model_canvas.crop_signal.connect(
+        #     lambda x: self.c.view.small_view.setVisible(not x)
+        # )
 
     def _setup_crop_connections(self):
         """Crop operation connections"""
         self.c.view.crop_groupbox.crop_button.triggered.connect(
             self.c.view.canvas.start_crop_mode
         )
-        self.c.view.crop_groupbox.crop_button.triggered.connect(
-            lambda: self.c.view.small_view.setVisible(False)
-        )
+        # self.c.view.crop_groupbox.crop_button.triggered.connect(
+        #     lambda: self.c.view.small_view.setVisible(False)
+        # )
         self.c.view.crop_groupbox.cancel_crop_button.triggered.connect(
             self.c.view.canvas.cancel_crop_mode
         )
-        self.c.view.crop_groupbox.cancel_crop_button.triggered.connect(
-            lambda: self.c.view.small_view.setVisible(True)
-        )
+        # self.c.view.crop_groupbox.cancel_crop_button.triggered.connect(
+        #     lambda: self.c.view.small_view.setVisible(True)
+        # )
 
     def _setup_transform_connections(self):
         """Image transformation connections"""

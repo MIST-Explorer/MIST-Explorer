@@ -610,7 +610,9 @@ class BaseGraphicsView(QWidget):
         for channel_name, image_data in remaining_channels.items():
             try:
                 # Store full resolution version
-                self._store_channel_data(channel_name, image_data)
+                self._store_channel_data(
+                    channel_name, image_data, replace_image_wrapper=False
+                )
 
                 # Prepare display version
                 display_image = self._prepare_display_image(

@@ -1,24 +1,23 @@
+import concurrent.futures
+
+import cv2
 import numpy as np
+import tifffile
+from itk import elxParameterObjectPython, itkElastixRegistrationMethodPython
 from numpy.typing import NDArray
-from PyQt6.QtCore import pyqtSignal, QThread
+from PyQt6.QtCore import QThread, pyqtSignal
 from pystackreg import StackReg
 from pystackreg.util import to_uint16
-import tifffile
+from scipy.ndimage import affine_transform, rotate, zoom
+
 from utils import (
     adjust_contrast,
     make_same_shape,
-    warp_image,
+    match_histograms,
     remove_padding,
     to_uint8,
-    match_histograms,
+    warp_image,
 )
-
-import cv2
-import concurrent.futures
-from scipy.ndimage import rotate
-from scipy.ndimage import zoom
-from scipy.ndimage import affine_transform
-from itk import elxParameterObjectPython, itkElastixRegistrationMethodPython
 
 
 class CellLayerAligner(QThread):
@@ -246,7 +245,7 @@ class CellLayerAligner(QThread):
         print("Stage 1: Finding best angles...")
         angle_results = []
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             futures = []
             for angle in rotation_angles:
                 futures.append(

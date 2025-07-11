@@ -173,6 +173,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
     def mouseDoubleClickEvent(self, event):
         if not self.is_empty():
             self.__centerImage()
+            self.position_arrows()
 
     def wheelEvent(self, event):
         if event is None:
