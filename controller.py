@@ -131,12 +131,9 @@ class Controller:
 
     def control_save(self):
 
-        pm = self.model_canvas.pixmap
-        print(pm)
+        im = self.model_canvas.image_wrapper.data
         # qimage = pm.toImage()
-        if pm is not None:
-            im = self.pixmap_to_image(pm)
-
+        if im is not None:
             file_name, _ = QFileDialog.getSaveFileName(
                 None, "Save File", "image.png", "*.png;;*.jpg;;*.tif;; All Files(*)"
             )
