@@ -412,11 +412,12 @@ class SignalConnectionManager:
         self.c.view.stardist_groupbox.stardist_run_button.pressed.connect(
             self.c.model_stardist.run_stardist
         )
+        self.c.model_stardist.stardist_done.connect(self.c.model_canvas.add_to_canvas)
         self.c.model_stardist.stardist_done.connect(
-            self.c.model_canvas.load_stardist_labels
+            lambda x, y, z: self.c.model_canvas.load_stardist_labels(x)
         )
         self.c.model_stardist.stardist_done.connect(
-            self.c.model_cell_intensity.load_stardist_labels
+            lambda x, y, z: self.c.model_canvas.load_stardist_labels(x)
         )
         self.c.model_stardist.error_signal.connect(self.c.handle_error)
         self.c.model_stardist.progress.connect(self.c.view.update_progress_bar)

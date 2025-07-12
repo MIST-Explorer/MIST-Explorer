@@ -1,22 +1,24 @@
-from PyQt6.QtCore import pyqtSignal, QThread
-import numpy as np
-import cv2 as cv
-from matplotlib import colormaps
-from pyclesperanto_prototype import dilate_labels
-from core import ImageWrapper
 import os
-from stardist.models import StarDist2D
-from csbdeep.utils import normalize
-import tensorflow as tf
-from PIL import Image
-from PyQt6.QtWidgets import QFileDialog
 import platform
+
+import cv2 as cv
+import numpy as np
+import tensorflow as tf
+from csbdeep.utils import normalize
+from matplotlib import colormaps
+from PIL import Image
+from pyclesperanto_prototype import dilate_labels
+from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtWidgets import QFileDialog
+from stardist.models import StarDist2D
+
+from core import ImageWrapper
 
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 
 class StarDist(QThread):
-    stardist_done = pyqtSignal(ImageWrapper)
+    stardist_done = pyqtSignal(ImageWrapper, bool, str)
     # sendGrayScale = pyqtSignal(np.ndarray)
     progress = pyqtSignal(int, str)
     error_signal = pyqtSignal(str)
@@ -158,8 +160,10 @@ class StarDist(QThread):
             return
         print("here 4")
         self.progress.emit(100, "Stardist Done")
-        stardist_result = ImageWrapper(self.stardist_labels_grayscale, name="stardist")
-        self.stardist_done.emit(stardist_result)
+        stardist_result = ImageWrapper(self.stardist_labels_grayscale, name="Channel 1")
+        self.stardist_done.emit(
+            stardist_result, True, "StarDist Labels"
+        )  # emit signal with result, saves to sidebar
 
     def cancel(self):
         self.terminate()
