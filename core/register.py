@@ -287,9 +287,21 @@ class Register(QThread):
         ]  # -> stardist
         # cell_image = aligned_protein_signal[self.params['cell_layer'], :, :] # --> cell-image
         # aligned protein
-        self.protein_signal_arr_signal.emit(
-            self.protein_signal_array
-        )  # ->cell intensity table
+
+        manual_img = ImageStorage().get_data("protein_data_image")
+
+        if manual_img is not None:
+            print("✅ [Protein Image] Using manually selected image from right-click menu.")
+            uuid = manual_img["uuid"]
+            channel = manual_img["channel"]
+            data = ImageStorage().get_data(uuid)["data"]
+            if isinstance(data, dict):
+                data = data[channel]
+            self.protein_signal_arr_signal.emit(data)
+        else:
+            print("[Protein Image] Using auto-aligned layer (default).")
+            self.protein_signal_arr_signal.emit(self.protein_signal_array)
+
         self.cell_image_signal.emit(cell_image)  # -> stardist
         data = {}
         for i in range(len(aligned_protein_signal)):
