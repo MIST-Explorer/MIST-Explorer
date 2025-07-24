@@ -31,6 +31,11 @@ from PyQt6.QtWidgets import (
 
 from utils import adjust_contrast, to_uint8
 
+class NullableIntValidator(QIntValidator):
+    def validate(self, input_str, pos):
+        if input_str == "":
+            return (self.State.Acceptable, input_str, pos)
+        return super().validate(input_str, pos)
 
 class ZoomableImageView(QGraphicsView):
     def __init__(self, parent=None):
@@ -444,11 +449,3 @@ def transform_to_matrix(t: QTransform):
     ], dtype=np.float32)
     return matrix
 
-    
-from PyQt6.QtGui import QIntValidator
-
-class NullableIntValidator(QIntValidator):
-    def validate(self, input_str, pos):
-        if input_str == "":
-            return (self.State.Acceptable, input_str, pos)
-        return super().validate(input_str, pos)
