@@ -2,7 +2,7 @@ import math
 
 import cv2
 import numpy as np
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QCoreApplication
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -132,6 +132,13 @@ class ZoomableImageView(QGraphicsView):
         self.centerOn(self.target_item)
         self._current_zoom = 1.0
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.target_item and not self.target_item.pixmap().isNull():
+            self.fitInView(self.target_item, Qt.AspectRatioMode.KeepAspectRatio)
+            if self._current_zoom != 1.0:
+                self.scale(self._current_zoom, self._current_zoom)
+
     def get_scene(self):
         s = self.scene()
         assert s is not None
@@ -238,7 +245,7 @@ class AlignmentViewDialog(QDialog):
     can_edit: bool = False  # read by ZoomableImageView shift+drag guard
     moving_image_changed = pyqtSignal(np.ndarray)
 
-    def __init__(self, snapshot_data: dict):
+    def __init__(self, snapshot_data: dict, progress_callback=None):
         super().__init__(None)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.target_image = snapshot_data["target_image"]
@@ -246,11 +253,17 @@ class AlignmentViewDialog(QDialog):
         self._snapshot_data = snapshot_data
         self.metadata = snapshot_data.get("metadata", {})
         self.adjust_contrast = True
+        self._progress_callback = progress_callback
+        if self._progress_callback:
+            self._progress_callback(10, "Initializing state")
         self._init_state()
         self._setup_ui()
         self._refresh_overlay()
         self.image_view.mouseDoubleClickEvent = self.reset_zoom
         self._snapshot_data = None
+        if self._progress_callback:
+            self._progress_callback(100, "Done")
+        self._progress_callback = None
         self.finished.connect(self._cleanup)
 
     # ------------------------------------------------------------------
@@ -361,12 +374,16 @@ class AlignmentViewDialog(QDialog):
 
     def _refresh_overlay(self) -> None:
         target_img = self.target_image
+        if self._progress_callback:
+            self._progress_callback(30, "Converting images to grayscale")
         if target_img.ndim == 3:
             target_img = cv2.cvtColor(target_img, cv2.COLOR_RGB2GRAY)
         aligned_img = self.aligned_image
         if aligned_img.ndim == 3:
             aligned_img = cv2.cvtColor(aligned_img, cv2.COLOR_RGB2GRAY)
 
+        if self._progress_callback:
+            self._progress_callback(45, "Normalizing image intensities")
         target_gray = _norm_to_uint8(target_img)
         aligned_gray = _norm_to_uint8(aligned_img)
 
@@ -376,13 +393,21 @@ class AlignmentViewDialog(QDialog):
             aligned_gray = 255 - aligned_gray
 
         if self.adjust_contrast:
+            if self._progress_callback:
+                self._progress_callback(60, "Enhancing image contrast")
             target_gray = to_uint8(adjust_contrast(target_gray.astype(np.float32), 30, 99))
             aligned_gray = to_uint8(adjust_contrast(aligned_gray.astype(np.float32), 30, 99))
 
-        self.image_view.set_images(
-            colorize_grayscale(target_gray, "red"),
-            colorize_grayscale(aligned_gray, "green"),
-        )
+        if self._progress_callback:
+            self._progress_callback(75, "Colorizing target and aligned images")
+
+        red_pixmap = colorize_grayscale(target_gray, "red")
+        green_pixmap = colorize_grayscale(aligned_gray, "green")
+
+        if self._progress_callback:
+            self._progress_callback(90, "Updating overlay view")
+        self.image_view.set_images(red_pixmap, green_pixmap)
+
         # Restore opacity after pixmap swap (set_images does not touch opacity)
         self.image_view.moving_item.setOpacity(self._opacity_slider.value() / 100.0)
 

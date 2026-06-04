@@ -17,15 +17,17 @@ import cv2
 import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal
 from scipy.spatial import cKDTree
-from skimage.filters import threshold_otsu
 
-from utils import calculate_ncc
+from core.alignment_utils import (adjust_contrast, find_points_robust,
+                                  try_optical_flow_alignment)
+from core.image_utils import auto_contrast
+from utils import calculate_ncc, to_uint8
 
 logger = logging.getLogger(__name__)
 
-_MIN_INLIERS = 8
+_MIN_INLIERS = 5
 _EMPTY_PTS = np.empty((0, 2), dtype=np.float32)
-_BLOB_MATCH_RADIUS = 6.0
+_BLOB_MATCH_RADIUS = 3.0
 _QUAD_MIN_SIZE = 32
 _QUAD_MAX_STD = 10.0
 
@@ -63,13 +65,16 @@ def quadtree_threshold(img: np.ndarray, min_size: int = _QUAD_MIN_SIZE,
     process_tile(0, 0, W, H)
     return mask
 
+def try_auto_contrast(img: np.ndarray) -> np.ndarray:
+    """Try to auto-contrast the image.
+    return auto_contrast(img)
+    """
+    return auto_contrast(img)
 
 def brightfield_binarize(img: np.ndarray, min_size: int = _QUAD_MIN_SIZE,
                          max_std: float = _QUAD_MAX_STD) -> np.ndarray:
-    """Brightfield -> uint8 blob mask (0/255) via quadtree-adaptive Otsu."""
-    gray = _to_gray(img).astype(np.float32, copy=False)
-    mask = quadtree_threshold(gray, min_size=min_size, max_std=max_std)
-    return (mask.astype(np.uint8) * 255)
+    """Brightfield -> uint8 blob mask (0/255) via to_uint8 scaling."""
+    return to_uint8(img)
 
 
 def _blob_centroids(gray_u8: np.ndarray, max_pts: int = 4000) -> np.ndarray:
@@ -121,6 +126,90 @@ def _to_gray(img: np.ndarray) -> np.ndarray:
     raise ValueError(f"Unsupported image shape {img.shape}")
 
 
+def infer_tile_size(img: np.ndarray) -> int:
+    """Infer the pixel size of individual tiles composing a stitched image.
+    
+    Uses 1D profile autocorrelation on both row-wise and column-wise intensity
+    averages to detect periodic shading boundaries, robustly detrending the signal
+    and snapping the detected period to standard microscope tile sizes.
+    """
+    try:
+        gray = _to_gray(img)
+        h, w = gray.shape[:2]
+        
+        profiles = []
+        if w >= 256:
+            profiles.append((np.mean(gray, axis=0), w))
+        if h >= 256:
+            profiles.append((np.mean(gray, axis=1), h))
+            
+        if not profiles:
+            return 2000
+            
+        detected_sizes = []
+        
+        for profile, n in profiles:
+            x = np.arange(n)
+            poly = np.polyfit(x, profile, deg=2)
+            detrended = profile - np.polyval(poly, x)
+            
+            min_lag = max(128, n // 20)
+            max_lag = min(4096, n // 2)
+            if max_lag <= min_lag:
+                continue
+                
+            lags = np.arange(min_lag, max_lag)
+            corrs = []
+            
+            d_mean = detrended.mean()
+            d_std = detrended.std()
+            if d_std <= 1e-5:
+                continue
+            norm_sig = (detrended - d_mean) / d_std
+            
+            for lag in lags:
+                sig1 = norm_sig[:-lag]
+                sig2 = norm_sig[lag:]
+                c = np.mean(sig1 * sig2)
+                corrs.append(c)
+                
+            corrs = np.array(corrs)
+            if len(corrs) < 3:
+                continue
+                
+            peaks = []
+            for i in range(1, len(corrs) - 1):
+                val = corrs[i]
+                if val > corrs[i - 1] and val > corrs[i + 1]:
+                    left_trough = np.min(corrs[max(0, i - 50):i])
+                    right_trough = np.min(corrs[i:min(len(corrs), i + 50)])
+                    prominence = val - max(left_trough, right_trough)
+                    
+                    if val > 0.05 and prominence > 0.02:
+                        lag = lags[i]
+                        peaks.append((lag, val, prominence))
+                        
+            if peaks:
+                peaks.sort(key=lambda x: (x[2], x[1]), reverse=True)
+                detected_sizes.append(peaks[0][0])
+                
+        if not detected_sizes:
+            return 2000
+            
+        best_size = int(np.median(detected_sizes))
+        
+        common_sizes = [256, 512, 1024, 2048, 2560, 3072, 4096]
+        for standard in common_sizes:
+            if abs(best_size - standard) <= max(16, int(standard * 0.05)):
+                logger.info("Snapping inferred tile size %d to standard microscope size %d", best_size, standard)
+                return standard
+                
+        return best_size
+    except Exception as exc:
+        logger.warning("Failed to infer tile size from shading: %s. Using default 2000.", exc)
+        return 2000
+
+
 class CropAnchorFinder(QThread):
     """Worker that proposes ranked crop-anchor candidates via ORB matching."""
 
@@ -132,19 +221,25 @@ class CropAnchorFinder(QThread):
         self,
         reference_img: np.ndarray,
         moving_img: np.ndarray,
-        patch_size: int = 2000,
+        patch_size: int = 0,
         num_candidates: int = 5,
         n_features: int = 50000,
         ratio: float = 0.75,
         ransac_thresh: float = 8.0,
         quad_min_size: int = _QUAD_MIN_SIZE,
         quad_max_std: float = _QUAD_MAX_STD,
+        assume_no_transform: bool = False,
         parent=None,
     ):
         super().__init__(parent)
         self.reference_img = reference_img
         self.moving_img = moving_img
-        self.patch_size = int(patch_size)
+        self.assume_no_transform = bool(assume_no_transform)
+        if patch_size is None or int(patch_size) <= 0:
+            self.patch_size = infer_tile_size(reference_img)
+            logger.info("Inferred optimal patch size from reference shading: %d px", self.patch_size)
+        else:
+            self.patch_size = int(patch_size)
         self.num_candidates = max(1, int(num_candidates))
         self.n_features = int(n_features)
         self.ratio = float(ratio)
@@ -165,97 +260,133 @@ class CropAnchorFinder(QThread):
         ref = _to_gray(self.reference_img)
         mov = _to_gray(self.moving_img)
 
-        # Small top-left reference patch, quadtree-binarized to a blob mask.
         s = min(self.patch_size, ref.shape[0], ref.shape[1])
-        self.progress.emit(10, "Binarizing reference (quadtree)")
-        patch = brightfield_binarize(
-            ref[:s, :s], self.quad_min_size, self.quad_max_std
-        )
-        self.progress.emit(20, "Binarizing moving image (quadtree)")
-        mov_u8 = brightfield_binarize(mov, self.quad_min_size, self.quad_max_std)
+        self.progress.emit(10, "Extracting reference patch")
+        patch = to_uint8(ref[:s, :s])
+        mov_u8 = to_uint8(mov)
 
-        orb = cv2.ORB_create(nfeatures=self.n_features)
-        self.progress.emit(30, "Detecting reference features")
-        kp1, des1 = orb.detectAndCompute(patch, None)
-        self.progress.emit(45, "Detecting moving features")
-        kp2, des2 = orb.detectAndCompute(mov_u8, None)
-        if des1 is None or des2 is None or len(kp1) < _MIN_INLIERS or len(kp2) < _MIN_INLIERS:
-            logger.warning("Not enough ORB features for matching.")
+        # Pyramidal downscaling factor (e.g., 8x)
+        downscale = 8
+        self.progress.emit(30, "Downscaling images for global template match")
+        
+        ref_h, ref_w = patch.shape[:2]
+        mov_h, mov_w = mov_u8.shape[:2]
+        
+        s_w, s_h = ref_w // downscale, ref_h // downscale
+        m_w, m_h = mov_w // downscale, mov_h // downscale
+        
+        if s_w < 4 or s_h < 4 or m_w < s_w or m_h < s_h:
+            downscale = 1
+            ref_small = patch
+            mov_small = mov_u8
+        else:
+            ref_small = cv2.resize(patch, (s_w, s_h), interpolation=cv2.INTER_AREA)
+            mov_small = cv2.resize(mov_u8, (m_w, m_h), interpolation=cv2.INTER_AREA)
+
+        self.progress.emit(50, "Performing template matching")
+        try:
+            res = cv2.matchTemplate(mov_small, ref_small, cv2.TM_CCOEFF_NORMED)
+        except Exception as exc:
+            logger.error("Template matching failed: %s", exc)
             return []
 
-        self.progress.emit(60, "Matching features")
-        matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
-        knn = matcher.knnMatch(des1, des2, k=2)
-        good = [
-            m
-            for pair in knn
-            if len(pair) == 2
-            for m, n in [pair]
-            if m.distance < self.ratio * n.distance
-        ]
-        if len(good) < _MIN_INLIERS:
-            logger.warning("Too few good matches (%d).", len(good))
-            return []
+        # Find up to self.num_candidates distinct peaks using neighborhood suppression
+        template_h, template_w = ref_small.shape[:2]
+        suppress_h = max(1, template_h // 2)
+        suppress_w = max(1, template_w // 2)
+        
+        peaks = []
+        res_copy = res.copy()
+        
+        for _ in range(self.num_candidates):
+            _, max_val, _, max_loc = cv2.minMaxLoc(res_copy)
+            if max_val < 0.05:
+                break
+            
+            peaks.append((max_loc[0], max_loc[1], float(max_val)))
+            
+            x, y = max_loc
+            y_start = max(0, y - suppress_h)
+            y_end = min(res_copy.shape[0], y + suppress_h)
+            x_start = max(0, x - suppress_w)
+            x_end = min(res_copy.shape[1], x + suppress_w)
+            
+            res_copy[y_start:y_end, x_start:x_end] = -1.0
 
-        # patch coords == reference-absolute coords (patch is the top-left).
-        src_all = np.float32([kp1[m.queryIdx].pt for m in good])
-        dst_all = np.float32([kp2[m.trainIdx].pt for m in good])
+        if not peaks:
+            logger.warning("No template match peaks found.")
+            return []
 
         candidates = []
-        remaining = list(range(len(good)))
-        for _ in range(self.num_candidates):
-            if len(remaining) < _MIN_INLIERS:
-                break
-            src = src_all[remaining]
-            dst = dst_all[remaining]
-            M, inliers = cv2.estimateAffinePartial2D(
-                src,
-                dst,
-                method=cv2.RANSAC,
-                ransacReprojThreshold=self.ransac_thresh,
-                maxIters=10000,
-                confidence=0.99,
-            )
-            if M is None or inliers is None:
-                break
-            inl = inliers.flatten().astype(bool)
-            n_inl = int(inl.sum())
-            if n_inl < _MIN_INLIERS:
-                break
+        self.progress.emit(70, f"Found {len(peaks)} candidate locations; starting optical flow refinement")
 
-            T = M.astype(np.float64)
-            inl_src = src[inl]
-            inl_dst = dst[inl]
-            proj = (T[:, :2] @ inl_src.T).T + T[:, 2]
-            residual = float(np.mean(np.linalg.norm(proj - inl_dst, axis=1)))
-            spread = float(np.hypot(inl_src[:, 0].std(), inl_src[:, 1].std()))
-            candidates.append(
-                {
-                    "anchor": (float(T[0, 2]), float(T[1, 2])),
-                    "angle": float(np.degrees(np.arctan2(T[1, 0], T[0, 0]))),
-                    "inliers": n_inl,
-                    "inlier_ratio": float(n_inl / len(remaining)),
-                    "residual": residual,
-                    "spread": spread,
-                    "blob_fraction": 0.0,  # filled below
-                    "score": float(n_inl),  # refined to NCC below
-                    "T": T,
-                }
-            )
-            remaining = [remaining[i] for i in range(len(remaining)) if not inl[i]]
+        for idx, (x_small, y_small, coeff) in enumerate(peaks):
+            x_full = float(x_small * downscale)
+            y_full = float(y_small * downscale)
+            
+            T0 = np.array([[1.0, 0.0, x_full], [0.0, 1.0, y_full]], dtype=np.float64)
+            warped = self._derotate(T0, mov_u8, s)
+            best_flow_M = None
+            best_flow_inliers = 0
+            
+            if warped is not None:
+                moving_pts_dict = find_points_robust(warped, top_k=5000)
+                fixed_pts_dict = find_points_robust(patch, top_k=5000)
+                
+                for key in moving_pts_dict:
+                    if key not in fixed_pts_dict:
+                        continue
+                    mv_pts = moving_pts_dict[key]
+                    fx_pts = fixed_pts_dict[key]
+                    if len(mv_pts) < 4 or len(fx_pts) < 4:
+                        continue
+                    
+                    M_flow, flow_inliers = try_optical_flow_alignment(warped, patch, mv_pts, fx_pts)
+                    if M_flow is not None and flow_inliers > best_flow_inliers:
+                        best_flow_inliers = flow_inliers
+                        best_flow_M = M_flow
 
-        # Photometric (NCC) + constellation (matched-blob fraction) scoring of the
-        # derotated protein region against the reference patch.
-        self.progress.emit(85, "Scoring candidates")
-        ref_pts = _blob_centroids(patch)
-        for cand in candidates:
-            warped = self._derotate(cand["T"], mov_u8, s)
+            T_refined = T0.copy()
+            if best_flow_M is not None:
+                if self.assume_no_transform:
+                    # Enforce pure translation (zero rotation/scale/shear/skewing)
+                    tx = float(best_flow_M[0, 2])
+                    ty = float(best_flow_M[1, 2])
+                    best_flow_M = np.array([[1.0, 0.0, tx], [0.0, 1.0, ty]], dtype=np.float64)
+                try:
+                    invT = self._invert(T0)  # moving -> warped
+                    A = invT[:, :2]
+                    b = invT[:, 2]
+                    C = best_flow_M[:, :2]
+                    d = best_flow_M[:, 2]
+                    
+                    refined_invT = np.hstack([C @ A, (C @ b + d).reshape(2, 1)])
+                    T_refined = self._invert(refined_invT).astype(np.float64)
+                    warped = self._derotate(T_refined, mov_u8, s)
+                except Exception as e:
+                    logger.warning("Failed combining local optical flow refinement: %s", e)
+
             ncc = calculate_ncc(warped, patch) if warped is not None else None
-            cand["score"] = float(ncc) if ncc is not None else -1.0
+            score = float(ncc) if ncc is not None else -1.0
+            
+            ref_pts = _blob_centroids(patch)
             region_pts = _blob_centroids(warped) if warped is not None else _EMPTY_PTS
-            cand["blob_fraction"] = _matched_blob_fraction(ref_pts, region_pts)
+            blob_frac = _matched_blob_fraction(ref_pts, region_pts)
+            
+            candidates.append({
+                "anchor": (float(T_refined[0, 2]), float(T_refined[1, 2])),
+                "angle": float(np.degrees(np.arctan2(T_refined[1, 0], T_refined[0, 0]))),
+                "inliers": int(best_flow_inliers),
+                "inlier_ratio": 1.0,
+                "residual": 0.0,
+                "spread": 1.0,
+                "blob_fraction": blob_frac,
+                "score": score,
+                "flow_inliers": int(best_flow_inliers),
+                "T": T_refined
+            })
 
-        candidates.sort(key=lambda c: (c["score"], c["inliers"]), reverse=True)
+        candidates.sort(key=lambda c: (c["score"], c["flow_inliers"]), reverse=True)
         self.progress.emit(100, "Done")
         return candidates
 

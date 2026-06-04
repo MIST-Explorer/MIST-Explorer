@@ -79,6 +79,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         tc = ThemeManager.instance().get_current()
         self.setStyleSheet(f"QGraphicsView {{ border: 1px solid {tc['border']}; }}")
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
 
         # Add size grip for visual handle only - we'll override its behavior
@@ -146,18 +147,23 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         if event is None:
             return
         if self.pixmap_item is not None:
-            zooming_out = event.angleDelta().y() > 0
+            logger.debug("Reference view wheel event: %d", event.angleDelta().y())
+            # y > 0 is scroll UP (Zoom IN), y < 0 is scroll DOWN (Zoom OUT)
+            zooming_out = event.angleDelta().y() < 0
 
-            # Prevent excessive zooming in either direction
-            if self.zoom > 1.1**90 and zooming_out:  # Max zoom out
+            # Prevent excessive zooming out (image too small)
+            if self.zoom <= 0.1 and zooming_out:
                 return
 
-            zoom_factor = 1.1 if zooming_out else 0.9
+            # Prevent excessive zooming in (image too large)
+            if self.zoom >= 5000 and not zooming_out:
+                return
+
+            zoom_factor = 0.9 if zooming_out else 1.1
             self.zoom *= zoom_factor
             self.scale(zoom_factor, zoom_factor)
             self.position_arrows()
-
-            # self.slideshow(self.zoom)
+            self.viewport().update()
         else:
             super().wheelEvent(event)
 
@@ -254,6 +260,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         item_rect = self.pixmap_item.boundingRect()
         self.setSceneRect(item_rect)
         self.fitInView(item_rect, Qt.AspectRatioMode.KeepAspectRatio)
+        self.zoom = 1.0  # Reset zoom level when fitting to view
         self.arrow_visibility()
 
     def _center_image(self):
@@ -287,6 +294,7 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         item_rect = self.pixmap_item.boundingRect()
         self.setSceneRect(item_rect)
         self.fitInView(item_rect, Qt.AspectRatioMode.KeepAspectRatio)
+        self.zoom = 1.0  # Reset zoom level when fitting to view
         if self.pixmap.width() > 0:
             self.add_arrows()
             self.position_arrows()
@@ -310,6 +318,12 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         self.arrow_visibility()
 
     # pylint: disable=invalid-name
+    def mousePressEvent(self, event):
+        """Handle mouse press event"""
+        self.setFocus()
+        super().mousePressEvent(event)
+
+    # pylint: disable=invalid-name
     def resizeEvent(self, event):
         """Handle resize event"""
         super().resizeEvent(event)
@@ -325,6 +339,9 @@ class ReferenceGraphicsViewUI(QGraphicsView):
             self.fitInView(
                 self.pixmap_item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio
             )
+            # Apply the preserved zoom factor on top of the fit-in-view scale
+            if self.zoom != 1.0:
+                self.scale(self.zoom, self.zoom)
         self.position_arrows()
 
     def get_scene(self):

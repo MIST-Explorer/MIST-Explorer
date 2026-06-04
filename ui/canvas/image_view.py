@@ -196,7 +196,10 @@ class ImageGraphicsViewUI(QGraphicsView):
         for pixmap in self.view_pixmaps:
             self.get_scene().removeItem(pixmap)
         self.view_pixmaps = []
-        self.show_images_tab_image()
+        if self.enc.stacked_widget and self.enc.stacked_widget.currentIndex() == 0:
+            self.show_images_tab_image()
+        else:
+            self.show_view_tab_image()
         self._center_image()
 
     def flip_horizontal(self):
@@ -474,9 +477,15 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.centerOn(pixmap_item)
 
     def _center_image(self):
-        pixmap_item = (
-            self.pixmap_item if self.pixmap_item.isVisible() else self.view_pixmaps[0]
-        )
+        if self.pixmap_item.isVisible():
+            pixmap_item = self.pixmap_item
+        elif self.view_pixmaps:
+            pixmap_item = self.view_pixmaps[0]
+        elif self.pixmap_item is not None and not self.pixmap_item.pixmap().isNull():
+            pixmap_item = self.pixmap_item
+        else:
+            return
+
         item_rect = pixmap_item.boundingRect()
         item_rect = QRectF(
             item_rect.x() - item_rect.width() // 2,

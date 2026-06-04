@@ -303,7 +303,12 @@ class Controller:
             combined = (fine_3x3 @ pre_3x3)[:2, :]
             self._commit_registration(aligned_data, combined, payload.get("action", "add_layer"))
 
-        preview_dialog = AlignmentPreviewDialog(snapshot)
+        def progress_cb(value, message):
+            self.view.update_progress_bar(value, message)
+            from PyQt6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
+
+        preview_dialog = AlignmentPreviewDialog(snapshot, progress_callback=progress_cb)
         preview_dialog.transformation_ready.connect(on_accepted)
         preview_dialog.exec()
 
@@ -323,7 +328,12 @@ class Controller:
             out_data = {k: ImageWrapper(aligned_data["data"][k], k) for k in layer}
             self.model_canvas.add_to_canvas(out_data, True, "Registered_" + item["name"])
 
-        preview_dialog = AlignmentViewDialog(snapshot)
+        def progress_cb(value, message):
+            self.view.update_progress_bar(value, message)
+            from PyQt6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
+
+        preview_dialog = AlignmentViewDialog(snapshot, progress_callback=progress_cb)
         preview_dialog.moving_image_changed.connect(on_accepted)
         preview_dialog.exec()
 
@@ -338,7 +348,12 @@ class Controller:
                 "preview_aligned_shape": aligned_small.shape,
             },
         }
-        preview_dialog = AlignmentPreviewDialog(snapshot)
+        def progress_cb(value, message):
+            self.view.update_progress_bar(value, message)
+            from PyQt6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
+
+        preview_dialog = AlignmentPreviewDialog(snapshot, progress_callback=progress_cb)
         result = preview_dialog.exec()
         return result == 1 and preview_dialog.result_accepted
 

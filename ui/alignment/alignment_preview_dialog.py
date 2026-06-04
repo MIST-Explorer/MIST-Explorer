@@ -64,9 +64,9 @@ class AlignmentPreviewDialog(AlignmentViewDialog):
     # Payload: {"matrix": np.ndarray (2x3 combined), "action": "add_layer" | "replace_channel"}
     transformation_ready = pyqtSignal(object)
 
-    def __init__(self, snapshot_data: dict, can_edit: bool = True):
+    def __init__(self, snapshot_data: dict, can_edit: bool = True, progress_callback=None):
         # can_edit param kept for backward compatibility (always True in subclass)
-        super().__init__(snapshot_data)
+        super().__init__(snapshot_data, progress_callback=progress_callback)
 
     # ------------------------------------------------------------------
     # Template overrides

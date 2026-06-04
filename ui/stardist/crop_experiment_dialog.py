@@ -58,6 +58,13 @@ class CropImageView(QGraphicsView):
         self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
         self._current_zoom = 1.0
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._pixmap_item and not self._pixmap_item.pixmap().isNull():
+            self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
+            if self._current_zoom != 1.0:
+                self.scale(self._current_zoom, self._current_zoom)
+
     # -- rubber-band crop via mouse ----------------------------------------
 
     def mousePressEvent(self, event):
@@ -131,6 +138,13 @@ class PreviewImageView(QGraphicsView):
         self._scene.setSceneRect(self._pixmap_item.boundingRect())
         self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
         self._current_zoom = 1.0
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._pixmap_item and not self._pixmap_item.pixmap().isNull():
+            self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
+            if self._current_zoom != 1.0:
+                self.scale(self._current_zoom, self._current_zoom)
 
     def update_image(self, pixmap: QPixmap):
         self._pixmap_item.setPixmap(pixmap)

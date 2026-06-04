@@ -1959,9 +1959,13 @@ class ImageGraphicsView(BaseGraphicsView):
         for channel_name, wrapper in src_channels.items():
             if "Channel" not in channel_name:
                 continue
+            original_dtype = wrapper.data.dtype
+            src = np.ascontiguousarray(wrapper.data)
             warped = cv2.warpAffine(
-                wrapper.data, M, (crop_w, crop_h), flags=cv2.INTER_LINEAR
+                src, M, (crop_w, crop_h), flags=cv2.INTER_LINEAR
             )
+            if warped.dtype != original_dtype:
+                warped = warped.astype(original_dtype)
             new_wrapper = ImageWrapper(warped, name=wrapper.name, cmap=wrapper.cmap)
             new_wrapper.contrast_min = wrapper.contrast_min
             new_wrapper.contrast_max = wrapper.contrast_max
@@ -2127,6 +2131,14 @@ class ImageDialog(QDialog):
 
         self.setLayout(self._layout)
         self.cropped_image = None  # QPixmap owns its own buffer; numpy ref no longer needed
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "cropped_pixmap_item") and not self.cropped_pixmap_item.pixmap().isNull():
+            self.image_view.fitInView(
+                self.cropped_pixmap_item, Qt.AspectRatioMode.KeepAspectRatio
+            )
+            self.image_view.centerOn(self.cropped_pixmap_item)
 
     def confirm(self):
         self.confirm_crop = True

@@ -11,25 +11,15 @@ import logging
 
 import cv2
 import numpy as np
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QPointF, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap, QPolygonF
-from PyQt6.QtCore import QPointF
-from PyQt6.QtWidgets import (
-    QDialog,
-    QGraphicsPixmapItem,
-    QGraphicsScene,
-    QGraphicsView,
-    QHBoxLayout,
-    QLabel,
-    QListWidget,
-    QProgressBar,
-    QPushButton,
-    QSpinBox,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QDialog, QGraphicsPixmapItem, QGraphicsScene,
+                             QGraphicsView, QHBoxLayout, QLabel, QListWidget,
+                             QProgressBar, QPushButton, QSpinBox, QVBoxLayout,
+                             QWidget)
 
-from core.crop_anchor_finder import CropAnchorFinder, brightfield_binarize
+from core.crop_anchor_finder import (CropAnchorFinder, brightfield_binarize,
+                                     infer_tile_size)
 from core.image_utils import numpy_to_qimage
 
 logger = logging.getLogger(__name__)
@@ -63,8 +53,6 @@ class CropAnchorDialog(QDialog):
         self.candidates: list[dict] = []
         self.selected_index = -1
         self._order_ncc: list[int] = []
-        self._order_inliers: list[int] = []
-        self._order_blob: list[int] = []
         self._finder = None
 
         # Overview of the (large) protein image, downscaled for display.
@@ -89,9 +77,11 @@ class CropAnchorDialog(QDialog):
 
         left.addWidget(QLabel("Anchor patch size (px)"))
         self.patch_size = QSpinBox()
-        self.patch_size.setRange(100, 20000)
+        self.patch_size.setRange(0, 20000)
+        self.patch_size.setSpecialValueText("Auto")
         self.patch_size.setSingleStep(100)
-        self.patch_size.setValue(min(1500, min(self.ref_h, self.ref_w)))
+        self.patch_size.setValue(0)
+        self.patch_size.valueChanged.connect(lambda: self._show_reference_patch())
         left.addWidget(self.patch_size)
 
         left.addWidget(QLabel("Number of candidates"))
@@ -102,7 +92,7 @@ class CropAnchorDialog(QDialog):
 
         left.addWidget(QLabel("ORB features"))
         self.n_features = QSpinBox()
-        self.n_features.setRange(1000, 500000)
+        self.n_features.setRange(1000, 260000)
         self.n_features.setSingleStep(5000)
         self.n_features.setValue(50000)
         left.addWidget(self.n_features)
@@ -122,26 +112,12 @@ class CropAnchorDialog(QDialog):
         self.progress.setValue(0)
         left.addWidget(self.progress)
 
-        left.addWidget(QLabel("Ranked by NCC"))
+        left.addWidget(QLabel("Ranked Candidates (NCC)"))
         self.list_ncc = QListWidget()
         self.list_ncc.currentRowChanged.connect(
             lambda r: self._on_list_selected(self.list_ncc, self._order_ncc, r)
         )
         left.addWidget(self.list_ncc, stretch=1)
-
-        left.addWidget(QLabel("Ranked by inliers"))
-        self.list_inliers = QListWidget()
-        self.list_inliers.currentRowChanged.connect(
-            lambda r: self._on_list_selected(self.list_inliers, self._order_inliers, r)
-        )
-        left.addWidget(self.list_inliers, stretch=1)
-
-        left.addWidget(QLabel("Ranked by blob match"))
-        self.list_blob = QListWidget()
-        self.list_blob.currentRowChanged.connect(
-            lambda r: self._on_list_selected(self.list_blob, self._order_blob, r)
-        )
-        left.addWidget(self.list_blob, stretch=1)
 
         self.approve_button = QPushButton("Approve && Crop")
         self.approve_button.setEnabled(False)
@@ -156,6 +132,11 @@ class CropAnchorDialog(QDialog):
         self.overview_scene.addItem(self._overview_pixmap_item)
         self.overview_view = QGraphicsView(self.overview_scene)
         self.overview_view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.overview_view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.overview_view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self._ov_zoom = 1.0
+        # Install wheel event filter for zooming
+        self.overview_view.viewport().installEventFilter(self)
         root.addWidget(self.overview_view, stretch=1)
 
         # Right: reference patch (top) and crop preview (bottom).
@@ -198,7 +179,10 @@ class CropAnchorDialog(QDialog):
         )
 
     def _show_reference_patch(self):
-        s = min(self.patch_size.value(), self.ref_h, self.ref_w)
+        val = self.patch_size.value()
+        if val <= 0:
+            val = infer_tile_size(self.reference_img)
+        s = min(val, self.ref_h, self.ref_w)
         patch = brightfield_binarize(self.reference_img[:s, :s])
         pix = _to_pixmap(patch).scaled(
             _PREVIEW_SIDE,
@@ -235,10 +219,9 @@ class CropAnchorDialog(QDialog):
         self._finder.start()
 
     def _clear_lists(self):
-        for widget in (self.list_ncc, self.list_inliers, self.list_blob):
-            widget.blockSignals(True)
-            widget.clear()
-            widget.blockSignals(False)
+        self.list_ncc.blockSignals(True)
+        self.list_ncc.clear()
+        self.list_ncc.blockSignals(False)
 
     def _on_error(self, msg):
         self.find_button.setEnabled(True)
@@ -249,14 +232,10 @@ class CropAnchorDialog(QDialog):
     def _on_candidates_ready(self, candidates):
         self.candidates = candidates or []
         self._draw_boxes()
-
+        
         self._order_ncc = self._rank_by(lambda c: c["score"])
-        self._order_inliers = self._rank_by(lambda c: c.get("inliers", 0))
-        self._order_blob = self._rank_by(lambda c: c.get("blob_fraction", 0.0))
         self._populate_list(self.list_ncc, self._order_ncc)
-        self._populate_list(self.list_inliers, self._order_inliers)
-        self._populate_list(self.list_blob, self._order_blob)
-
+        
         if self.candidates:
             self.list_ncc.setCurrentRow(0)  # triggers selection + preview
             self.approve_button.setEnabled(True)
@@ -327,12 +306,6 @@ class CropAnchorDialog(QDialog):
     def _on_list_selected(self, active_widget, order, row):
         if row < 0 or row >= len(order):
             return
-        # Selecting in one list clears the others so the active pick is unambiguous.
-        for widget in (self.list_ncc, self.list_inliers, self.list_blob):
-            if widget is not active_widget:
-                widget.blockSignals(True)
-                widget.setCurrentRow(-1)
-                widget.blockSignals(False)
         self.selected_index = order[row]
         self._draw_boxes()
         self._show_preview(self.candidates[self.selected_index])
@@ -380,3 +353,20 @@ class CropAnchorDialog(QDialog):
             self.overview_view.fitInView(
                 self._overview_pixmap_item, Qt.AspectRatioMode.KeepAspectRatio
             )
+            if self._ov_zoom != 1.0:
+                self.overview_view.scale(self._ov_zoom, self._ov_zoom)
+
+    def eventFilter(self, source, event):
+        if source == self.overview_view.viewport() and event.type() == event.Type.Wheel:
+            # Zoom logic for the overview view
+            zooming_out = event.angleDelta().y() < 0
+            if self._ov_zoom <= 0.1 and zooming_out:
+                return True
+            if self._ov_zoom >= 100 and not zooming_out:
+                return True
+
+            zoom_factor = 0.85 if zooming_out else 1.15
+            self._ov_zoom *= zoom_factor
+            self.overview_view.scale(zoom_factor, zoom_factor)
+            return True
+        return super().eventFilter(source, event)

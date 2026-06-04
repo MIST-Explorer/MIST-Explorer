@@ -508,11 +508,16 @@ class CellLayerAlignmentUI(QWidget):
             else moving_wrapper.data
         )
 
+        def progress_cb(value, message):
+            self.progress.emit(value, message)
+            QCoreApplication.processEvents()
+
         preview_dialog = AlignmentPreviewDialog(
             {
                 "target_image": target_display,
                 "aligned_image": moving_display,
             },
+            progress_callback=progress_cb,
         )
         preview_dialog.transformation_ready.connect(self._on_alignment_ready)
         preview_dialog.exec()
