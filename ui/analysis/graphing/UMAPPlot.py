@@ -631,9 +631,23 @@ class HeatmapView(QWidget):
         # Controls
         self.controls_layout = QHBoxLayout()
 
-        self.chk_scale = QCheckBox("Scale Data (Max=3)")
-        self.chk_scale.stateChanged.connect(self.on_ui_change)
-        self.controls_layout.addWidget(self.chk_scale)
+        self.controls_layout.addWidget(QLabel("Color Scaling:"))
+        self.combo_scale = QComboBox()
+        self.combo_scale.addItems([
+            "No Scaling",
+            "Scale per Protein (Z-Score)",
+            "Scale per Protein (0-1)",
+            "Scale per Cell (0-1)"
+        ])
+        self.combo_scale.setToolTip(
+            "Color Scaling Options:\n\n"
+            "• No Scaling: Plot raw log1p expression values directly.\n"
+            "• Scale per Protein (Z-Score): Standardize each protein's expression to mean=0, std=1 across cells.\n"
+            "• Scale per Protein (0-1): Min-max scale each protein to [0,1] across cells.\n"
+            "• Scale per Cell (0-1): Min-max scale each cell's expression across selected proteins to [0,1]."
+        )
+        self.combo_scale.currentIndexChanged.connect(self.on_ui_change)
+        self.controls_layout.addWidget(self.combo_scale)
 
         self.chk_sort_y = QCheckBox("Sort Y (Features)")
         self.chk_sort_y.stateChanged.connect(self.on_ui_change)
@@ -682,7 +696,7 @@ class HeatmapView(QWidget):
             self.layout_container.removeWidget(self.canvas)
             self.canvas.setParent(None)
             self.canvas.deleteLater()
-        except:
+        except Exception:
             pass
 
         c = ThemeManager.get_current()
@@ -707,14 +721,36 @@ class HeatmapView(QWidget):
                 show_msg(Locale.get("HM_VOID"))
                 return
 
-            heatmap_data = adata[mask_cells, :][:, list(selected_features)].copy()
+            sub_adata = adata[mask_cells, :][:, list(selected_features)].copy()
 
-            # Apply scaling if checkbox is checked
-            if self.chk_scale.isChecked():
+            # Initialize heatmap_data with raw log1p expression values to avoid pre-scaled data
+            if adata.raw is not None:
+                raw_subset = adata.raw[mask_cells, list(selected_features)]
+                X_data = raw_subset.X.copy() if hasattr(raw_subset.X, "copy") else raw_subset.X
+                if hasattr(X_data, "toarray"):
+                    X_data = X_data.toarray()
+                heatmap_data = sc.AnnData(
+                    X=X_data,
+                    obs=sub_adata.obs.copy(),
+                    var=sub_adata.var.copy(),
+                    uns=sub_adata.uns.copy()
+                )
+            else:
+                heatmap_data = sub_adata
+
+            # Apply scaling/normalization based on user selection
+            scale_mode = self.combo_scale.currentText()
+            standard_scale = None
+
+            if scale_mode == "Scale per Protein (Z-Score)":
                 try:
                     sc.pp.scale(heatmap_data, max_value=3)
                 except Exception as e:
                     logger.warning(f"Scaling failed: {e}")
+            elif scale_mode == "Scale per Protein (0-1)":
+                standard_scale = "var"
+            elif scale_mode == "Scale per Cell (0-1)":
+                standard_scale = "obs"
 
             # Sort Features (Y)
             final_features = list(selected_features)
@@ -775,6 +811,8 @@ class HeatmapView(QWidget):
                     groupby="display_label",
                     swap_axes=True,
                     show=False,
+                    use_raw=False,
+                    standard_scale=standard_scale,
                     cmap="magma"
                     if ThemeManager._get_current_mode() == "DARK"
                     else "viridis",
@@ -825,6 +863,23 @@ class RankedGenesView(QWidget):
         controls_layout.addWidget(self.cluster_combo)
         controls_layout.addWidget(QLabel("Top Genes:"))
         controls_layout.addWidget(self.genes_spin)
+        controls_layout.addWidget(QLabel("Color Scaling:"))
+        self.combo_scale = QComboBox()
+        self.combo_scale.addItems([
+            "No Scaling",
+            "Scale per Protein (Z-Score)",
+            "Scale per Protein (0-1)",
+            "Scale per Cell (0-1)"
+        ])
+        self.combo_scale.setToolTip(
+            "Color Scaling Options:\n\n"
+            "• No Scaling: Plot raw log1p expression values directly.\n"
+            "• Scale per Protein (Z-Score): Standardize each protein's expression to mean=0, std=1 across cells.\n"
+            "• Scale per Protein (0-1): Min-max scale each protein to [0,1] across cells.\n"
+            "• Scale per Cell (0-1): Min-max scale each cell's expression across ranked genes to [0,1]."
+        )
+        self.combo_scale.currentIndexChanged.connect(self.on_update)
+        controls_layout.addWidget(self.combo_scale)
         controls_layout.addStretch()
 
         layout.addLayout(controls_layout)
@@ -922,8 +977,45 @@ class RankedGenesView(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
+        genes_list = list(dc_cluster_genes)
+        # Extract expression matrix
+        if len(genes_list) > 0:
+            expr_matrix = np.zeros((self.adata.n_obs, len(genes_list)), dtype=np.float64)
+            for j, gene in enumerate(genes_list):
+                if self.adata.raw is not None and gene in self.adata.raw.var_names:
+                    gene_idx = list(self.adata.raw.var_names).index(gene)
+                    col_data = self.adata.raw.X[:, gene_idx]
+                    if hasattr(col_data, "toarray"):
+                        col_data = col_data.toarray()
+                    expr_matrix[:, j] = np.asarray(col_data).ravel()
+                else:
+                    expr_matrix[:, j] = sc.get.obs_df(self.adata, keys=[gene])[gene].values
+
+            # Apply scaling on the entire matrix based on user selection
+            scale_mode = self.combo_scale.currentText()
+            if scale_mode == "Scale per Protein (Z-Score)":
+                means = expr_matrix.mean(axis=0)
+                stds = expr_matrix.std(axis=0)
+                stds[stds == 0] = 1.0
+                expr_matrix = (expr_matrix - means) / stds
+                expr_matrix = np.clip(expr_matrix, -3, 3)
+            elif scale_mode == "Scale per Protein (0-1)":
+                mins = expr_matrix.min(axis=0)
+                maxs = expr_matrix.max(axis=0)
+                diffs = maxs - mins
+                diffs[diffs == 0] = 1.0
+                expr_matrix = (expr_matrix - mins) / diffs
+            elif scale_mode == "Scale per Cell (0-1)":
+                mins = expr_matrix.min(axis=1, keepdims=True)
+                maxs = expr_matrix.max(axis=1, keepdims=True)
+                diffs = maxs - mins
+                diffs[diffs == 0] = 1.0
+                expr_matrix = (expr_matrix - mins) / diffs
+        else:
+            expr_matrix = np.empty((self.adata.n_obs, 0))
+
         try:
-            colors = [self.key, *dc_cluster_genes]
+            colors = [self.key, *genes_list]
             ncols = 3
             c = ThemeManager.get_current()
 
@@ -982,9 +1074,7 @@ class RankedGenesView(QWidget):
                             cat_y = y[cat_mask].mean()
                             ax.text(cat_x, cat_y, str(cat), ha="center", va="center")
                 else:
-                    c_values = sc.get.obs_df(self.adata, keys=[color_key])[
-                        color_key
-                    ].values[visible_mask]
+                    c_values = expr_matrix[:, i - 1][visible_mask]
                     sort_idx = np.argsort(c_values)
                     ax.scatter(
                         x[sort_idx],
@@ -1024,7 +1114,25 @@ class RankedGenesView(QWidget):
                 # Manually add colorbar for continuous data
                 if not is_categorical and ax.collections:
                     mappable = ax.collections[-1]
-                    fig.colorbar(mappable, ax=ax, fraction=0.046, pad=0.04)
+                    cbar = fig.colorbar(mappable, ax=ax, fraction=0.046, pad=0.04)
+                    
+                    if len(c_values) > 0:
+                        c_min = float(c_values.min())
+                        c_max = float(c_values.max())
+                        c_med = float(np.median(c_values))
+                        
+                        unique_ticks = np.unique([c_min, c_med, c_max])
+                        cbar.set_ticks(unique_ticks)
+                        
+                        labels_dict = {
+                            c_min: f"Min\n{c_min:.2f}",
+                            c_med: f"Med\n{c_med:.2f}",
+                            c_max: f"Max\n{c_max:.2f}"
+                        }
+                        cbar.set_ticklabels([labels_dict[t] for t in unique_ticks])
+                    
+                    cbar.ax.yaxis.set_tick_params(colors=fg_color, labelsize=7)
+                    cbar.outline.set_edgecolor(c["accent_dim"])
                 else:
                     ax.axis("off")
 

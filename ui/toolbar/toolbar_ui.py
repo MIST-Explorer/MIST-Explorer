@@ -176,7 +176,7 @@ class ToolBarUI(QToolBar):
             self.channelChanged.emit(index)
 
     def _init_status_line(self):
-        self.statusLine = QLabel("Welcome! Please load an image to get started.")
+        self.statusLine = QLabel("")
         self.statusLine.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )

@@ -134,6 +134,22 @@ Projects the high-dimensional protein expression data into 2D using Uniform Mani
    * - Top Proteins Count
      - 5
      - Number of top differentially expressed proteins shown per cluster in the cluster summary view.
+   * - Color Scaling
+     - No Scaling
+     - Scaling applied during visualization in the Heatmap and Ranked Genes tabs.
+       
+       * **No Scaling**: Plots raw log1p expression values directly.
+         
+         * *Use case*: Comparing absolute abundance levels between different proteins (e.g., structural vs. activation markers).
+       * **Scale per Protein (Z-Score)**: Standardizes each protein's expression to zero mean and unit variance across all cells.
+         
+         * *Use case*: Identifying cluster-specific marker proteins and enrichment relative to overall dataset baseline.
+       * **Scale per Protein (0-1)**: Min-max scales each protein to a range of [0, 1] across cells.
+         
+         * *Use case*: Bounded alternative to Z-score that maps directly to the colormap range, less outlier-sensitive.
+       * **Scale per Cell (0-1)**: Min-max scales each cell's expression across the selected proteins to a range of [0, 1].
+         
+         * *Use case*: Comparing relative protein dominance *within* the same cell or cluster (e.g. showing a low-abundance marker is still the dominant protein inside a specific cluster).
 
 Typical Workflow
 ----------------
