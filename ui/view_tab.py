@@ -636,7 +636,7 @@ class ImageOverlay(QWidget):
 
             # Instantiate and show UMAP window
             # We keep a reference to avoid garbage collection
-            self.umap_window = UMAPVisualizer(df_for_umap, self.reduced_cell_img)
+            self.umap_window = UMAPVisualizer(df_for_umap, self.reduced_cell_img, view_tab=self)
             self.umap_window.show()
         except Exception as e:
             tb = traceback.format_exc()
@@ -663,6 +663,8 @@ class ImageOverlay(QWidget):
                 continue
 
             value = c.cell_image[y, x]
+            if hasattr(c, "label_mapping") and c.label_mapping is not None:
+                value = c.label_mapping.get(value, value)
             layer_values.append((c.name, value))
 
         return layer_values
@@ -1150,7 +1152,10 @@ class ImageOverlay(QWidget):
         # Contrast row (grid row 1)
         con_lbl = QLabel("Contrast")
         con_lbl.setStyleSheet(lbl_style)
-        initial_contrast = self._default_contrast_for_image(c.image)
+        if getattr(c, "is_label_layer", False):
+            initial_contrast = (0, 255)
+        else:
+            initial_contrast = self._default_contrast_for_image(c.image)
         con_lo_edit = QLineEdit(str(int(initial_contrast[0])))
         con_lo_edit.setFixedWidth(36)
         con_lo_edit.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -1389,9 +1394,13 @@ class ImageOverlay(QWidget):
         upper=DEFAULT_PROTEIN_UPPER_PERCENTILE,
     ):
         idx = self.scroll_layout.indexOf(gb)
-        img = self.controls[idx].image
-        assert isinstance(img, np.ndarray)
-        new_min, new_max = auto_contrast_helper(img, lower, upper)
+        c = self.controls[idx]
+        if getattr(c, "is_label_layer", False):
+            new_min, new_max = 0, 255
+        else:
+            img = c.image
+            assert isinstance(img, np.ndarray)
+            new_min, new_max = auto_contrast_helper(img, lower, upper)
         self.contrast_sliders[idx].setValue((int(new_min), int(new_max)))
         self.update_contrast([new_min, new_max], idx)
 
@@ -1546,6 +1555,53 @@ class ImageOverlay(QWidget):
         except Exception as e:
             logger.error(f"Error saving TIFF file: {e}")
             # Consider showing a QMessageBox to the user here for better UX
+
+    def add_cluster_layer(self, adata, cluster_key, cluster_colors, visible, renames):
+        c = ControlsBox()
+        c.is_label_layer = True
+        c.tint_yn = False
+
+        valid_ids = adata.obs["cell_id"].values.astype(int)
+        codes = adata.obs[cluster_key].cat.codes.values
+
+        max_id = max(self.reduced_cell_img.max(), valid_ids.max())
+        mapping = np.zeros(max_id + 1, dtype=np.int32)
+
+        visible_set = set(visible)
+        for val_id, code in zip(valid_ids, codes):
+            if code in visible_set:
+                mapping[val_id] = code + 1
+            else:
+                mapping[val_id] = 0
+
+        safe_seg = self.reduced_cell_img.copy()
+        mask_overflow = safe_seg >= len(mapping)
+        safe_seg[mask_overflow] = 0
+
+        c.image = mapping[safe_seg].astype(np.uint8)
+        c.base_image = c.image.copy()
+        c.cell_image = c.image.copy()
+
+        label_mapping = {0: "Background"}
+        for code in range(len(cluster_colors)):
+            label_mapping[code + 1] = renames.get(code, f"Cluster {code}")
+        c.label_mapping = label_mapping
+
+        c.name = f"{cluster_key.capitalize()} Clusters"
+
+        self.add_layer(c)
+
+        idx = len(self.controls) - 1
+
+        lut = np.zeros((256, 3), dtype=np.uint8)
+        for code in range(len(cluster_colors)):
+            hex_color = cluster_colors[code]
+            h = hex_color.lstrip("#")
+            rgb_u8 = [int(h[i : i + 2], 16) for i in (0, 2, 4)]
+            if code in visible_set:
+                lut[code + 1] = rgb_u8
+
+        self.update_layer_cmap_sig.emit(idx, lut)
 
 
 def numpy_to_qimage(array):

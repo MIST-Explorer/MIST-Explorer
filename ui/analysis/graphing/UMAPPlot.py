@@ -21,6 +21,9 @@ from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFileDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -33,6 +36,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSlider,
     QSpinBox,
     QSplitter,
@@ -184,11 +188,13 @@ class ThemeManager:
         QListWidget::item {{
             padding: 5px;
             border-bottom: 1px solid {c["grid"]};
+            border-left: 4px solid transparent;
             color: {c["text_main"]};
         }}
         QListWidget::item:selected {{
-            background-color: {c["accent"]};
-            color: {c["bg_dark"]};
+            background-color: {c["bg_dark"]};
+            color: {c["text_main"]};
+            border-left: 4px solid {c["accent"]};
         }}
 
         /* BUTTONS */
@@ -227,6 +233,15 @@ class ThemeManager:
             left: 10px;
             background-color: {c["bg_dark"]};
             color: {c["text_main"]};
+            font-size: 11pt;
+        }}
+
+        /* SPLITTER */
+        QSplitter::handle {{
+            background-color: {c["grid"]};
+        }}
+        QSplitter::handle:hover {{
+            background-color: {c["accent"]};
         }}
 
         /* SLIDERS */
@@ -333,10 +348,403 @@ sys.excepthook = excepthook
 # ==========================================
 
 
+class CollapsibleGroupBox(QGroupBox):
+    def __init__(self, title="", parent=None):
+        self.base_title = title
+        self.is_collapsed = False
+        super().__init__(f"▼ {title}", parent)
+        self.setMouseTracking(True)
+
+    def _get_display_title(self):
+        arrow = "▶" if self.is_collapsed else "▼"
+        return f"{arrow} {self.base_title}"
+
+    def mouseMoveEvent(self, event):
+        if event.pos().y() < 30:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and event.pos().y() < 30:
+            self.toggle_collapse()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def toggle_collapse(self):
+        self.is_collapsed = not self.is_collapsed
+        super().setTitle(self._get_display_title())
+        layout = self.layout()
+        if layout:
+            self._set_layout_visible(layout, not self.is_collapsed)
+        
+        if self.is_collapsed:
+            self.setMaximumHeight(30)
+        else:
+            self.setMaximumHeight(16777215)
+
+    def _set_layout_visible(self, layout, visible):
+        if not layout:
+            return
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            w = item.widget()
+            if w:
+                w.setVisible(visible)
+            elif item.layout():
+                self._set_layout_visible(item.layout(), visible)
+
+
+class ThresholdDialog(QDialog):
+    def __init__(self, model, features, parent=None):
+        super().__init__(parent)
+        self.model = model
+        self.features = features
+        self.original_threshold_mode = self.model.threshold_mode
+        self.original_thresholds = self.model.thresholds.copy()
+        self.setWindowTitle("Adjust Protein Thresholds")
+        self.resize(600, 680)
+        self.setStyleSheet(ThemeManager.get_stylesheet())
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
+
+        label_info = QLabel(
+            "Set the threshold below which the value of each protein is set to 0.\n"
+            "If a cell has all zeros across selected proteins post-threshold, it will be filtered from UMAP/Clustering."
+        )
+        label_info.setWordWrap(True)
+        label_info.setStyleSheet("color: #bbbbbb; font-size: 10pt; margin-bottom: 5px;")
+        layout.addWidget(label_info)
+
+        # Checkbox for pre-normalization thresholding mode
+        self.chk_pre_norm = QCheckBox("Apply thresholds to raw counts (pre-normalization)")
+        self.chk_pre_norm.setChecked(self.model.threshold_mode == "pre")
+        self.chk_pre_norm.setStyleSheet("font-weight: bold; font-size: 10pt; margin-bottom: 10px;")
+        self.chk_pre_norm.toggled.connect(self.on_mode_toggled)
+        layout.addWidget(self.chk_pre_norm)
+
+        # Scroll area for proteins
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet(f"border: 1px solid {ThemeManager.get_current()['grid']};")
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(10, 10, 10, 10)
+        scroll_layout.setSpacing(15)
+
+        self.controls_data = {}
+
+        # Get the normalized values from the model
+        var_names = list(self.model.adata.var_names)
+        is_pre = self.model.threshold_mode == "pre"
+
+        # Custom stylesheets to match opacity sliders
+        tc = ThemeManager.get_current()
+        _edit_style = (
+            f"QLineEdit {{"
+            f"  font-size: 11px; font-weight: bold;"
+            f"  color: {tc['accent']};"
+            f"  background: {tc['bg_panel']};"
+            f"  border: 1px solid {tc['grid']};"
+            f"  border-radius: 2px; padding: 2px 4px;"
+            f"}}"
+            f"QLineEdit:focus {{"
+            f"  border: 1px solid {tc['accent']};"
+            f"  background-color: {tc['bg_dark']};"
+            f"}}"
+        )
+
+        for idx, feat in enumerate(features):
+            feat_idx = var_names.index(feat)
+            
+            # Select reference values depending on threshold mode
+            if is_pre:
+                feat_values = self.model.raw_pre_threshold[:, feat_idx]
+            else:
+                feat_values = self.model.normalized_pre_threshold[:, feat_idx]
+                
+            min_val = float(np.min(feat_values))
+            max_val = float(np.max(feat_values))
+
+            # Pre-compute statistics
+            p50 = float(np.percentile(feat_values, 50))
+            p90 = float(np.percentile(feat_values, 90))
+            p95 = float(np.percentile(feat_values, 95))
+
+            nz_mask = feat_values > 0.0
+            nz_pct = float(np.mean(nz_mask) * 100)
+            nz_vals = feat_values[nz_mask]
+            mean_nz = float(np.mean(nz_vals)) if len(nz_vals) > 0 else 0.0
+            std_nz = float(np.std(nz_vals)) if len(nz_vals) > 0 else 0.0
+
+            # Create widgets
+            lbl_name = QLabel(feat)
+            lbl_name.setStyleSheet("font-weight: bold; font-size: 10pt; min-width: 80px;")
+
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(0, 1000)
+
+            edit = QLineEdit()
+            edit.setFixedWidth(60)
+            edit.setAlignment(Qt.AlignmentFlag.AlignRight)
+            edit.setStyleSheet(_edit_style)
+
+            lbl_subtext = QLabel()
+            lbl_subtext.setStyleSheet("color: #888888; font-size: 9pt; margin-top: 2px;")
+            lbl_subtext.setWordWrap(True)
+
+            # Initialize values
+            curr_thresh = self.model.thresholds.get(feat, 1.0)
+            curr_thresh = max(min_val, min(max_val, curr_thresh))
+
+            # Store control widgets and data
+            self.controls_data[feat] = {
+                "min": min_val,
+                "max": max_val,
+                "values": feat_values,
+                "p50": p50,
+                "p90": p90,
+                "p95": p95,
+                "nz_pct": nz_pct,
+                "mean_nz": mean_nz,
+                "std_nz": std_nz,
+                "slider": slider,
+                "edit": edit,
+                "subtext": lbl_subtext
+            }
+
+            # Connect slider and text edits
+            slider.valueChanged.connect(lambda v, f=feat: self.on_slider_changed(f, v))
+            edit.editingFinished.connect(lambda f=feat: self.on_edit_finished(f))
+
+            # Set the initial UI values
+            self.set_ui_value(feat, curr_thresh)
+
+            # Sub-grid layout for aligning Name, Slider, and TextField
+            grid = QGridLayout()
+            grid.setContentsMargins(0, 0, 0, 0)
+            grid.setColumnStretch(1, 1)
+            grid.addWidget(lbl_name, 0, 0)
+            grid.addWidget(slider, 0, 1)
+            grid.addWidget(edit, 0, 2)
+            grid.addWidget(lbl_subtext, 1, 0, 1, 3)
+
+            scroll_layout.addLayout(grid)
+
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+
+        btn_reset = QPushButton("Reset All to 1.0")
+        btn_reset.setAutoDefault(False)
+        btn_reset.setDefault(False)
+        btn_reset.clicked.connect(self.reset_to_default)
+        btn_layout.addWidget(btn_reset)
+
+        btn_layout.addStretch()
+
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.setAutoDefault(False)
+        btn_cancel.setDefault(False)
+        btn_cancel.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancel)
+
+        btn_save = QPushButton("Save")
+        btn_save.setAutoDefault(False)
+        btn_save.setDefault(False)
+        btn_save.clicked.connect(self.save_thresholds)
+        btn_save.setStyleSheet(f"border: 2px solid {ThemeManager.get_current()['accent']}; font-weight: bold;")
+        btn_layout.addWidget(btn_save)
+
+        layout.addLayout(btn_layout)
+
+    def on_mode_toggled(self, checked):
+        # Update mode
+        new_mode = "pre" if checked else "post"
+        self.model.threshold_mode = new_mode
+
+        # Parent is UMAPControls, we can find normalization from combo_norm
+        parent_controls = self.parent()
+        if parent_controls and hasattr(parent_controls, "combo_norm"):
+            normalization = parent_controls.combo_norm.currentText()
+        else:
+            normalization = self.model.normalization_method
+
+        try:
+            self.model.reprocess_data(normalization, self.features)
+        except Exception as e:
+            logger.error(f"Failed to reprocess data on mode toggle: {e}")
+
+        self.refresh_ui()
+
+    def refresh_ui(self):
+        var_names = list(self.model.adata.var_names)
+        is_pre = self.model.threshold_mode == "pre"
+
+        for feat in self.features:
+            feat_idx = var_names.index(feat)
+
+            if is_pre:
+                feat_values = self.model.raw_pre_threshold[:, feat_idx]
+            else:
+                feat_values = self.model.normalized_pre_threshold[:, feat_idx]
+
+            min_val = float(np.min(feat_values))
+            max_val = float(np.max(feat_values))
+
+            # Recalculate stats
+            p50 = float(np.percentile(feat_values, 50))
+            p90 = float(np.percentile(feat_values, 90))
+            p95 = float(np.percentile(feat_values, 95))
+
+            nz_mask = feat_values > 0.0
+            nz_pct = float(np.mean(nz_mask) * 100)
+            nz_vals = feat_values[nz_mask]
+            mean_nz = float(np.mean(nz_vals)) if len(nz_vals) > 0 else 0.0
+            std_nz = float(np.std(nz_vals)) if len(nz_vals) > 0 else 0.0
+
+            curr_thresh = self.model.thresholds.get(feat, 1.0)
+            curr_thresh = max(min_val, min(max_val, curr_thresh))
+
+            self.controls_data[feat].update({
+                "min": min_val,
+                "max": max_val,
+                "values": feat_values,
+                "p50": p50,
+                "p90": p90,
+                "p95": p95,
+                "nz_pct": nz_pct,
+                "mean_nz": mean_nz,
+                "std_nz": std_nz
+            })
+
+            # Update ui value
+            self.set_ui_value(feat, curr_thresh)
+
+    def set_ui_value(self, feat, val):
+        data = self.controls_data[feat]
+        min_val = data["min"]
+        max_val = data["max"]
+
+        data["slider"].blockSignals(True)
+        data["edit"].blockSignals(True)
+
+        data["edit"].setText(f"{val:.3f}")
+
+        if max_val > min_val:
+            slider_val = int((val - min_val) / (max_val - min_val) * 1000)
+            data["slider"].setValue(slider_val)
+        else:
+            data["slider"].setValue(0)
+
+        data["slider"].blockSignals(False)
+        data["edit"].blockSignals(False)
+
+        self.update_subtext(feat, val)
+
+    def on_slider_changed(self, feat, slider_val):
+        data = self.controls_data[feat]
+        min_val = data["min"]
+        max_val = data["max"]
+
+        if max_val > min_val:
+            val = min_val + (slider_val / 1000.0) * (max_val - min_val)
+        else:
+            val = min_val
+
+        data["edit"].blockSignals(True)
+        data["edit"].setText(f"{val:.3f}")
+        data["edit"].blockSignals(False)
+
+        self.update_subtext(feat, val)
+
+    def on_edit_finished(self, feat):
+        data = self.controls_data[feat]
+        min_val = data["min"]
+        max_val = data["max"]
+
+        try:
+            val = float(data["edit"].text())
+        except ValueError:
+            slider_val = data["slider"].value()
+            if max_val > min_val:
+                val = min_val + (slider_val / 1000.0) * (max_val - min_val)
+            else:
+                val = min_val
+
+        val = max(min_val, min(max_val, val))
+        self.set_ui_value(feat, val)
+
+    def update_subtext(self, feat, val):
+        data = self.controls_data[feat]
+        feat_values = data["values"]
+
+        # Calculate dynamic % of cells below threshold
+        pct_below = float(np.mean(feat_values < val) * 100)
+
+        subtext = (
+            f"Percentiles: 50th={data['p50']:.2f}, 90th={data['p90']:.2f}, 95th={data['p95']:.2f} | "
+            f"Non-zero Fraction: {data['nz_pct']:.1f}% | "
+            f"Mean±SD (Non-zero): {data['mean_nz']:.2f}±{data['std_nz']:.2f}\n"
+            f"Cells below threshold: {pct_below:.1f}%"
+        )
+        data["subtext"].setText(subtext)
+
+    def reset_to_default(self):
+        for feat in self.features:
+            min_val = self.controls_data[feat]["min"]
+            max_val = self.controls_data[feat]["max"]
+            val = max(min_val, min(max_val, 1.0))
+            self.set_ui_value(feat, val)
+
+    def save_thresholds(self):
+        for feat in self.features:
+            try:
+                val = float(self.controls_data[feat]["edit"].text())
+            except ValueError:
+                min_val = self.controls_data[feat]["min"]
+                max_val = self.controls_data[feat]["max"]
+                slider_val = self.controls_data[feat]["slider"].value()
+                val = min_val + (slider_val / 1000.0) * (max_val - min_val)
+
+            min_val = self.controls_data[feat]["min"]
+            max_val = self.controls_data[feat]["max"]
+            val = max(min_val, min(max_val, val))
+            self.model.thresholds[feat] = val
+        self.accept()
+
+    def reject(self):
+        # Restore original settings
+        self.model.threshold_mode = self.original_threshold_mode
+        self.model.thresholds = self.original_thresholds.copy()
+
+        # Reprocess data back to original state
+        parent_controls = self.parent()
+        if parent_controls and hasattr(parent_controls, "combo_norm"):
+            normalization = parent_controls.combo_norm.currentText()
+        else:
+            normalization = self.model.normalization_method
+
+        try:
+            self.model.reprocess_data(normalization, self.features)
+        except Exception as e:
+            logger.error(f"Failed to restore data on cancel: {e}")
+
+        super().reject()
+
+
 class UMAPControls(QWidget):
     apply_data_signal = pyqtSignal(str, list)
     run_signal = pyqtSignal(dict)
     resolution_change_signal = pyqtSignal(float)
+    recalc_pca_signal = pyqtSignal()
 
     def __init__(self, model, max_pca_components=50, all_features=[]):
         super().__init__()
@@ -351,7 +759,8 @@ class UMAPControls(QWidget):
         layout.setSpacing(15)
 
         # === 0. Data Setup ===
-        data_group = QGroupBox(Locale.get("GRP_DATA"))
+        data_group = CollapsibleGroupBox(Locale.get("GRP_DATA"))
+        data_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         data_layout = QVBoxLayout()
         data_layout.addWidget(QLabel(Locale.get("LBL_NORM")))
         self.combo_norm = QComboBox()
@@ -360,6 +769,8 @@ class UMAPControls(QWidget):
             if hasattr(self.model, "get_normalization_methods")
             else ["Log1p", "Z-Score"]
         )
+        if hasattr(self.model, "normalization_method"):
+            self.combo_norm.setCurrentText(self.model.normalization_method)
         # on change emit
         self.combo_norm.currentIndexChanged.connect(self.emit_apply_data)
         data_layout.addWidget(self.combo_norm)
@@ -369,11 +780,6 @@ class UMAPControls(QWidget):
         self.search_bar.setPlaceholderText(Locale.get("PLACEHOLDER_SEARCH"))
         self.search_bar.textChanged.connect(self.filter_feature_list)
         input_row.addWidget(self.search_bar)
-
-        self.btn_select_input = QPushButton(Locale.get("BTN_SCAN"))
-        self.btn_select_input.setFixedWidth(60)
-        self.btn_select_input.clicked.connect(self.select_features_from_input)
-        input_row.addWidget(self.btn_select_input)
         data_layout.addLayout(input_row)
 
         btn_row = QHBoxLayout()
@@ -386,31 +792,40 @@ class UMAPControls(QWidget):
         data_layout.addLayout(btn_row)
 
         self.feature_list = QListWidget()
+        self.feature_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.feature_list.setMinimumHeight(200)
         self.populate_features(all_features)
         data_layout.addWidget(self.feature_list)
         self.feature_list.itemChanged.connect(self.emit_apply_data)
 
+        self.btn_adjust_thresholds = QPushButton("Adjust Thresholds")
+        self.btn_adjust_thresholds.clicked.connect(self.show_threshold_dialog)
+        data_layout.addWidget(self.btn_adjust_thresholds)
+
         data_group.setLayout(data_layout)
-        layout.addWidget(data_group)
+        layout.addWidget(data_group, 1)
 
         # === 1. PCA ===
-        pca_group = QGroupBox(Locale.get("GRP_PCA"))
+        pca_group = CollapsibleGroupBox(Locale.get("GRP_PCA"))
         pca_layout = QVBoxLayout()
-        self.lbl_pca = QLabel(Locale.get("LBL_COMPONENTS", 5))
+        self.lbl_pca = QLabel("")
         self.slider_pca = QSlider(Qt.Orientation.Horizontal)
         self.slider_pca.setRange(2, max_pca_components)
         self.slider_pca.setValue(5)
-        self.slider_pca.valueChanged.connect(
-            lambda v: self.lbl_pca.setText(Locale.get("LBL_COMPONENTS", v))
-        )
+        self.slider_pca.valueChanged.connect(self.update_pca_label)
         pca_layout.addWidget(self.lbl_pca)
         pca_layout.addWidget(self.slider_pca)
+        
+        self.btn_recalc_pca = QPushButton(Locale.get("BTN_RECALC_PCA"))
+        self.btn_recalc_pca.clicked.connect(self.recalc_pca_signal.emit)
+        pca_layout.addWidget(self.btn_recalc_pca)
+        
         pca_group.setLayout(pca_layout)
         layout.addWidget(pca_group)
+        self.update_pca_label()
 
         # === 2. UMAP ===
-        umap_group = QGroupBox(Locale.get("GRP_UMAP"))
+        umap_group = CollapsibleGroupBox(Locale.get("GRP_UMAP"))
         umap_layout = QVBoxLayout()
         self.lbl_neighbors = QLabel(Locale.get("LBL_NEIGHBORS", 15))
         self.slider_neighbors = QSlider(Qt.Orientation.Horizontal)
@@ -435,7 +850,7 @@ class UMAPControls(QWidget):
         layout.addWidget(umap_group)
 
         # === 3. Clustering ===
-        cluster_group = QGroupBox(Locale.get("GRP_CLUSTER"))
+        cluster_group = CollapsibleGroupBox(Locale.get("GRP_CLUSTER"))
         cluster_layout = QVBoxLayout()
         self.lbl_res = QLabel(Locale.get("LBL_RES", 0.30))
         self.slider_res = QSlider(Qt.Orientation.Horizontal)
@@ -462,30 +877,6 @@ class UMAPControls(QWidget):
         val = self.slider_res.value() / 100.0
         self.resolution_change_signal.emit(val)
 
-    def select_features_from_input(self):
-        raw_text = self.search_bar.text()
-        if not raw_text:
-            return
-        tokens = raw_text.split(",")
-        target_set = set()
-        for t in tokens:
-            clean = t.strip().strip("'").strip("'")
-            if clean:
-                target_set.add(clean)
-        if not target_set:
-            return
-        self.feature_list.blockSignals(True)
-        self.select_none(emit=False)
-        count = 0
-        for i in range(self.feature_list.count()):
-            item = self.feature_list.item(i)
-            if item.text() in target_set:
-                item.setCheckState(Qt.CheckState.Checked)
-                count += 1
-        self.feature_list.blockSignals(False)
-        self.search_bar.clear()
-        self.emit_apply_data()
-
     def populate_features(self, features):
         self.feature_list.clear()
         for f in features:
@@ -495,9 +886,21 @@ class UMAPControls(QWidget):
             self.feature_list.addItem(item)
 
     def filter_feature_list(self, text):
-        for i in range(self.feature_list.count()):
-            item = self.feature_list.item(i)
-            item.setHidden(text.lower() not in item.text().lower())
+        if "," in text:
+            tokens = [t.strip().lower() for t in text.split(",")]
+            tokens = [t for t in tokens if t]
+            if not tokens:
+                for i in range(self.feature_list.count()):
+                    self.feature_list.item(i).setHidden(False)
+            else:
+                for i in range(self.feature_list.count()):
+                    item = self.feature_list.item(i)
+                    item_text = item.text().lower()
+                    item.setHidden(not any(token in item_text for token in tokens))
+        else:
+            for i in range(self.feature_list.count()):
+                item = self.feature_list.item(i)
+                item.setHidden(text.lower() not in item.text().lower())
 
     def select_all(self, _=None):
         self.feature_list.blockSignals(True)
@@ -539,8 +942,53 @@ class UMAPControls(QWidget):
             }
         )
 
+    def update_pca_label(self, v=None):
+        if v is None:
+            v = self.slider_pca.value()
+        try:
+            var_ratios = self.model.get_pca_variance_ratio()
+            captured = float(np.sum(var_ratios[:v]) * 100)
+            self.lbl_pca.setText(f"Principal Components [{v:02d}] (Captured: {captured:.1f}%)")
+        except Exception:
+            self.lbl_pca.setText(Locale.get("LBL_COMPONENTS", v))
+
     def set_max_pca(self, max_val):
         self.slider_pca.setMaximum(max_val)
+        self.update_pca_label()
+
+    def show_threshold_dialog(self):
+        normalization = self.combo_norm.currentText()
+        selected_features = self.get_selected_features()
+        if len(selected_features) < 1:
+            QMessageBox.warning(self, "Input Error", "Please select at least one protein.")
+            return
+
+        try:
+            self.model.reprocess_data(normalization, selected_features)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to normalize data: {e}")
+            return
+
+        dialog = ThresholdDialog(self.model, selected_features, parent=self)
+        if dialog.exec():
+            try:
+                self.model.reprocess_data(normalization, selected_features)
+                self.update_pca_label()
+                self.apply_data_signal.emit(normalization, selected_features)
+
+                total_cells = len(self.model.adata)
+                filtered_cells = int(np.sum(self.model.adata.obs["is_filtered"]))
+                pct_filtered = (filtered_cells / total_cells * 100) if total_cells > 0 else 0.0
+
+                QMessageBox.information(
+                    self,
+                    "Filtering Results",
+                    f"Thresholds applied successfully.\n\n"
+                    f"Cells filtered: {filtered_cells:,} / {total_cells:,} ({pct_filtered:.2f}%)"
+                )
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to apply thresholds: {e}")
+
 
 
 class PlotView(QWidget):
@@ -583,16 +1031,24 @@ class PlotView(QWidget):
 
         c = ThemeManager.get_current()
         try:
-            adata_plot = adata[adata.obs[color_key].notna()] if hide_hidden else adata
-            sc.pl.umap(
-                adata_plot,
-                color=color_key,
-                ax=self.ax,
-                show=False,
-                title=f"{color_key.upper().split('_')[0]} UMAP",
-                legend_loc="on data",
-                frameon=False,
-            )
+            # Exclude 'Filtered' cells and cells with NaN coordinates from the UMAP plot
+            mask_valid = adata.obs[color_key].notna() & (adata.obs[color_key] != "Filtered")
+            if "X_umap" in adata.obsm:
+                mask_valid = mask_valid & (~np.isnan(adata.obsm["X_umap"]).any(axis=1))
+            adata_plot = adata[mask_valid]
+
+            if len(adata_plot) > 0:
+                sc.pl.umap(
+                    adata_plot,
+                    color=color_key,
+                    ax=self.ax,
+                    show=False,
+                    title=f"{color_key.upper().split('_')[0]} UMAP",
+                    legend_loc="on data",
+                    frameon=False,
+                )
+            else:
+                self.ax.text(0.5, 0.5, "No non-filtered cells to plot", ha="center", va="center", color=c["text_main"])
             for text_obj in list(self.ax.texts):
                 if text_obj.get_text() in ("NA", "NaN", "nan"):
                     text_obj.remove()
@@ -625,13 +1081,28 @@ class PlotView(QWidget):
 class HeatmapView(QWidget):
     def __init__(self):
         super().__init__()
-        self.layout_container = QVBoxLayout(self)
-        self.layout_container.setContentsMargins(0, 0, 0, 0)
+        # Main layout holds a QSplitter
+        self.main_layout = QHBoxLayout(self)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout.setSpacing(10)
 
-        # Controls
-        self.controls_layout = QHBoxLayout()
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_layout.addWidget(self.splitter)
 
-        self.controls_layout.addWidget(QLabel("Color Scaling:"))
+        # Left: Controls Panel
+        self.controls_widget = QWidget()
+        self.controls_layout = QVBoxLayout(self.controls_widget)
+        self.controls_layout.setContentsMargins(0, 0, 0, 0)
+        self.controls_layout.setSpacing(15)
+
+        # Config GroupBox
+        self.config_group = QGroupBox("Heatmap Configuration")
+        self.config_layout = QVBoxLayout(self.config_group)
+        self.config_layout.setContentsMargins(15, 20, 15, 15)
+        self.config_layout.setSpacing(12)
+
+        # Scaling Option
+        self.config_layout.addWidget(QLabel("Color Scaling:"))
         self.combo_scale = QComboBox()
         self.combo_scale.addItems([
             "No Scaling",
@@ -647,23 +1118,79 @@ class HeatmapView(QWidget):
             "• Scale per Cell (0-1): Min-max scale each cell's expression across selected proteins to [0,1]."
         )
         self.combo_scale.currentIndexChanged.connect(self.on_ui_change)
-        self.controls_layout.addWidget(self.combo_scale)
+        self.config_layout.addWidget(self.combo_scale)
 
+        # Colormap Option
+        self.config_layout.addWidget(QLabel("Colormap:"))
+        self.combo_cmap = QComboBox()
+        self.combo_cmap.addItems([
+            "Default (Theme-Based)",
+            "magma",
+            "viridis",
+            "plasma",
+            "inferno",
+            "cividis",
+            "coolwarm",
+            "RdBu_r",
+            "seismic",
+            "Blues",
+            "Reds"
+        ])
+        self.combo_cmap.setToolTip(
+            "Select the color palette for the heatmap.\n"
+            "Diverging palettes (like coolwarm or RdBu_r) are recommended for Z-Score scaled data."
+        )
+        self.combo_cmap.currentIndexChanged.connect(self.on_ui_change)
+        self.config_layout.addWidget(self.combo_cmap)
+
+        # Feature Sort Checkbox
         self.chk_sort_y = QCheckBox("Sort Y (Features)")
         self.chk_sort_y.stateChanged.connect(self.on_ui_change)
-        self.controls_layout.addWidget(self.chk_sort_y)
+        self.config_layout.addWidget(self.chk_sort_y)
 
+        # Equiwidth Checkbox
         self.chk_equiwidth = QCheckBox("Equiwidth")
         self.chk_equiwidth.stateChanged.connect(self.on_ui_change)
-        self.controls_layout.addWidget(self.chk_equiwidth)
+        self.config_layout.addWidget(self.chk_equiwidth)
 
-        self.controls_layout.addStretch()
-        self.layout_container.addLayout(self.controls_layout)
+        # Show Dendrogram Checkbox
+        self.chk_dendrogram = QCheckBox("Show Dendrogram")
+        self.chk_dendrogram.setToolTip("Show dendrogram hierarchically clustering features along the Y-axis.")
+        self.chk_dendrogram.stateChanged.connect(self.on_ui_change)
+        self.config_layout.addWidget(self.chk_dendrogram)
+
+        # Swap Axes Checkbox
+        self.chk_swap_axes = QCheckBox("Swap Axes")
+        self.chk_swap_axes.setChecked(True)
+        self.chk_swap_axes.setToolTip("Swap X and Y axes. If checked, features are on Y-axis and clusters are on X-axis.")
+        self.chk_swap_axes.stateChanged.connect(self.on_ui_change)
+        self.config_layout.addWidget(self.chk_swap_axes)
+
+        self.config_layout.addStretch()
+        self.controls_layout.addWidget(self.config_group)
+
+        # Export Button at the bottom of the left sidebar
+        self.btn_export = QPushButton("EXPORT HEATMAP")
+        self.btn_export.clicked.connect(self.export_heatmap)
+        self.btn_export.setToolTip("Save the current heatmap to a PNG, PDF, or SVG file.")
+        self.controls_layout.addWidget(self.btn_export)
+
+        # Right: Plot Panel
+        self.plot_widget = QWidget()
+        self.plot_layout = QVBoxLayout(self.plot_widget)
+        self.plot_layout.setContentsMargins(0, 0, 0, 0)
 
         self.figure = Figure(figsize=(8, 6), dpi=100)
         apply_matplotlib_theme(self.figure)
         self.canvas = FigureCanvas(self.figure)
-        self.layout_container.addWidget(self.canvas)
+        self.plot_layout.addWidget(self.canvas)
+
+        # Add widgets to Splitter
+        self.splitter.addWidget(self.controls_widget)
+        self.splitter.addWidget(self.plot_widget)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 4)
+
         # Store last params to allow re-drawing on theme switch
         self.last_params = None
 
@@ -679,6 +1206,23 @@ class HeatmapView(QWidget):
             apply_matplotlib_theme(self.figure)
             self.canvas.draw()
 
+    def export_heatmap(self):
+        if not self.figure:
+            return
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Heatmap",
+            "",
+            "PNG Image (*.png);;PDF Document (*.pdf);;SVG Vector (*.svg)"
+        )
+        if file_path:
+            try:
+                self.figure.savefig(file_path, dpi=300, bbox_inches="tight")
+                QMessageBox.information(self, "Export Success", f"Heatmap successfully exported to:\n{file_path}")
+            except Exception as e:
+                logger.exception("HEATMAP_EXPORT_FAIL")
+                QMessageBox.critical(self, "Export Error", f"Failed to export heatmap:\n{str(e)}")
+
     def update_heatmap(
         self,
         adata,
@@ -693,7 +1237,7 @@ class HeatmapView(QWidget):
 
         # Cleanup old canvas
         try:
-            self.layout_container.removeWidget(self.canvas)
+            self.plot_layout.removeWidget(self.canvas)
             self.canvas.setParent(None)
             self.canvas.deleteLater()
         except Exception:
@@ -708,15 +1252,15 @@ class HeatmapView(QWidget):
             ax.text(0.5, 0.5, text, ha="center", color=c["alert"])
             ax.axis("off")
             self.canvas = FigureCanvas(self.figure)
-            self.layout_container.addWidget(self.canvas)
+            self.plot_layout.addWidget(self.canvas)
 
         if adata is None:
             show_msg(Locale.get("HM_WAITING"))
             return
 
         try:
-            # Drop cells where cluster_key is nan
-            mask_cells = adata.obs[cluster_key].notna()
+            # Drop cells where cluster_key is nan or 'Filtered'
+            mask_cells = adata.obs[cluster_key].notna() & (adata.obs[cluster_key] != "Filtered")
             if np.sum(mask_cells) == 0:
                 show_msg(Locale.get("HM_VOID"))
                 return
@@ -733,7 +1277,8 @@ class HeatmapView(QWidget):
                     X=X_data,
                     obs=sub_adata.obs.copy(),
                     var=sub_adata.var.copy(),
-                    uns=sub_adata.uns.copy()
+                    uns=sub_adata.uns.copy(),
+                    obsm=sub_adata.obsm.copy() if sub_adata.obsm is not None else None
                 )
             else:
                 heatmap_data = sub_adata
@@ -792,6 +1337,24 @@ class HeatmapView(QWidget):
                 except Exception as e:
                     logger.warning(f"Equiwidth resampling failed: {e}")
 
+            # Compute dendrogram if enabled
+            show_dendrogram = False
+            if self.chk_dendrogram.isChecked():
+                try:
+                    # sc.tl.dendrogram calculates hierarchical clustering of categories
+                    sc.tl.dendrogram(heatmap_data, groupby="display_label", use_rep="X")
+                    show_dendrogram = True
+                except Exception as e:
+                    logger.warning(f"Could not compute dendrogram: {e}")
+                    show_dendrogram = False
+
+            # Determine colormap
+            cmap_choice = self.combo_cmap.currentText()
+            if cmap_choice == "Default (Theme-Based)":
+                cmap = "magma" if ThemeManager._get_current_mode() == "DARK" else "viridis"
+            else:
+                cmap = cmap_choice
+
             # Generate Plot
             plt.close("all")
             # Force Matplotlib RC for this plot
@@ -809,14 +1372,12 @@ class HeatmapView(QWidget):
                     heatmap_data,
                     var_names=final_features,
                     groupby="display_label",
-                    swap_axes=True,
+                    swap_axes=self.chk_swap_axes.isChecked(),
                     show=False,
                     use_raw=False,
                     standard_scale=standard_scale,
-                    cmap="magma"
-                    if ThemeManager._get_current_mode() == "DARK"
-                    else "viridis",
-                    dendrogram=False,
+                    cmap=cmap,
+                    dendrogram=show_dendrogram,
                 )
 
             # Extract Figure
@@ -832,10 +1393,20 @@ class HeatmapView(QWidget):
             else:
                 new_fig = ax_dict.figure
 
+            # Remove titles from all axes and the main figure
+            if new_fig:
+                new_fig.suptitle("")
+                for ax in new_fig.axes:
+                    ax.set_title("")
+                    if ax.get_xlabel() == "display_label":
+                        ax.set_xlabel("")
+                    if ax.get_ylabel() == "display_label":
+                        ax.set_ylabel("")
+
             apply_matplotlib_theme(new_fig)
             self.figure = new_fig
             self.canvas = FigureCanvas(self.figure)
-            self.layout_container.addWidget(self.canvas)
+            self.plot_layout.addWidget(self.canvas)
 
         except Exception as e:
             logger.exception("HEATMAP_FAIL")
@@ -940,6 +1511,17 @@ class RankedGenesView(QWidget):
                 except Exception as e:
                     logger.error(f"Failed to rank genes: {e}")
 
+    def update_cluster_names(self, renames):
+        """
+        Updates the displayed names in the combo box based on the dictionary
+        renames: { int_code : str_new_name }
+        """
+        self.cluster_combo.blockSignals(True)
+        for i in range(self.cluster_combo.count()):
+            if i in renames:
+                self.cluster_combo.setItemText(i, renames[i])
+        self.cluster_combo.blockSignals(False)
+
     def on_update(self):
         if self.adata is None or self.key is None:
             return
@@ -1031,9 +1613,9 @@ class RankedGenesView(QWidget):
                 is_categorical = color_key == self.key
 
                 visible_mask = (
-                    self.adata.obs[self.key].notna()
+                    self.adata.obs[self.key].notna() & (self.adata.obs[self.key] != "Filtered")
                     if self.hide_hidden
-                    else slice(None)
+                    else (self.adata.obs[self.key] != "Filtered").values
                 )
                 x = self.adata.obsm["X_umap"][:, 0][visible_mask]
                 y = self.adata.obsm["X_umap"][:, 1][visible_mask]
@@ -1154,8 +1736,11 @@ class RankedGenesView(QWidget):
 class SegmentationView(QWidget):
     cluster_state_changed = pyqtSignal(list, dict)
 
-    def __init__(self, segmentation_data=None):
+    def __init__(self, segmentation_data=None, view_tab=None):
         super().__init__()
+        self.view_tab = view_tab
+        self.adata = None
+        self.cluster_key = None
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.seg_data = segmentation_data
@@ -1206,6 +1791,13 @@ class SegmentationView(QWidget):
         )
         r_layout.addWidget(self.chk_hide_hidden)
 
+        self.btn_export_to_view = QPushButton(Locale.get("BTN_EXPORT_VIEW"))
+        self.btn_export_to_view.setEnabled(False)
+        if self.view_tab is None:
+            self.btn_export_to_view.setVisible(False)
+        self.btn_export_to_view.clicked.connect(self.export_to_view_tab)
+        r_layout.addWidget(self.btn_export_to_view)
+
         self.splitter.addWidget(right_w)
         self.splitter.setStretchFactor(0, 4)
         main_layout.addWidget(self.splitter)
@@ -1237,14 +1829,16 @@ class SegmentationView(QWidget):
         if self.seg_data is None:
             return
 
+        self.adata = adata
+        self.cluster_key = cluster_key
         self.refresh_theme()
-        if f"{cluster_key}_colors" not in adata.uns:
+        categories = adata.obs[cluster_key].cat.categories
+        if f"{cluster_key}_colors" not in adata.uns or len(adata.uns[f"{cluster_key}_colors"]) != len(categories):
             import matplotlib.colors as mcolors
             import matplotlib.pyplot as plt
 
             c = ThemeManager.get_current()
             palette_name = c.get("plot_palette", "tab20")
-            categories = adata.obs[cluster_key].cat.categories
             cmap = plt.get_cmap(palette_name)
             base_colors = (
                 cmap.colors
@@ -1257,7 +1851,6 @@ class SegmentationView(QWidget):
             ]
             adata.uns[f"{cluster_key}_colors"] = np.array(colors)
         cluster_colors = adata.uns[f"{cluster_key}_colors"]
-        categories = adata.obs[cluster_key].cat.categories
         self.npy_cat_idx_to_rgb = np.array([to_rgb(c) for c in cluster_colors])
 
         if self.seg_data is not None:
@@ -1280,6 +1873,7 @@ class SegmentationView(QWidget):
             self.cluster_list.addItem(item)
         self.regenerate_image(force=True)
         self.cluster_list.blockSignals(False)
+        self.btn_export_to_view.setEnabled(True)
         self.cluster_state_changed.emit(*self.get_state())
 
     def on_item_changed(self, item):
@@ -1343,10 +1937,48 @@ class SegmentationView(QWidget):
         )
         self.info_label.setText(Locale.get("SEG_ACTIVE_COUNT", count))
 
+    def export_to_view_tab(self):
+        if self.view_tab is None:
+            QMessageBox.warning(self, "Export Warning", "View tab reference is not available.")
+            return
+
+        if self.seg_data is None:
+            QMessageBox.warning(self, "Export Warning", "No segmentation data loaded.")
+            return
+
+        if not hasattr(self, "adata") or self.adata is None or not hasattr(self, "cluster_key") or self.cluster_key is None:
+            QMessageBox.warning(self, "Export Warning", "No clustering data available. Please run UMAP clustering first.")
+            return
+
+        visible, renames = self.get_state()
+        cluster_colors = self.adata.uns.get(f"{self.cluster_key}_colors", [])
+
+        try:
+            self.view_tab.add_cluster_layer(
+                self.adata,
+                self.cluster_key,
+                cluster_colors,
+                visible,
+                renames
+            )
+            QMessageBox.information(
+                self,
+                "Export Success",
+                "Successfully exported cluster labels to the View Tab as a new layer."
+            )
+        except Exception as e:
+            logger.exception("EXPORT_TO_VIEW_TAB_FAIL")
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export cluster labels to view tab:\n{str(e)}"
+            )
+
 
 class UMAPVisualizer(QMainWindow):
-    def __init__(self, df, segmentation=None):
-        super().__init__()
+    def __init__(self, df, segmentation=None, parent=None, view_tab=None):
+        super().__init__(parent)
+        self.view_tab = view_tab
         self.setWindowTitle(Locale.get("APP_TITLE"))
         self.resize(1300, 900)
         self.setStyleSheet(ThemeManager.get_stylesheet())
@@ -1355,7 +1987,7 @@ class UMAPVisualizer(QMainWindow):
         self.clustering_worker = None
 
         try:
-            self.model = DataModel(df, normalization="RC")
+            self.model = DataModel(df, normalization="none")
             self.segmentation = segmentation
         except Exception as e:
             logger.critical(f"DataModel init failed: {e}", exc_info=True)
@@ -1383,6 +2015,12 @@ class UMAPVisualizer(QMainWindow):
             self.btn_theme.clicked.connect(self.toggle_theme)
             top_bar.addWidget(self.btn_theme)
 
+            self.btn_export = QPushButton(Locale.get("EXPORT_BTN"))
+            self.btn_export.setFixedWidth(200)
+            self.btn_export.setEnabled(False)
+            self.btn_export.clicked.connect(self.export_cluster_labels)
+            top_bar.addWidget(self.btn_export)
+
             main_layout.addLayout(top_bar)
 
             # === TABS ===
@@ -1393,7 +2031,7 @@ class UMAPVisualizer(QMainWindow):
             self.setup_umap_tab()
             self.tabs.addTab(self.umap_tab, Locale.get("TAB_UMAP"))
 
-            self.seg_view = SegmentationView(segmentation)
+            self.seg_view = SegmentationView(segmentation, view_tab=self.view_tab)
             self.seg_view.cluster_state_changed.connect(self.trigger_heatmap_update)
             self.tabs.addTab(self.seg_view, Locale.get("TAB_SEG"))
 
@@ -1437,6 +2075,7 @@ class UMAPVisualizer(QMainWindow):
         self.controls.run_signal.connect(self.start_full_analysis)
         self.controls.apply_data_signal.connect(self.apply_data_changes)
         self.controls.resolution_change_signal.connect(self.start_clustering_only)
+        self.controls.recalc_pca_signal.connect(self.recalculate_pca)
 
         self.plot_view = PlotView()
         splitter.addWidget(self.controls)
@@ -1528,7 +2167,7 @@ class UMAPVisualizer(QMainWindow):
     def start_clustering_only(self, resolution):
         if self.is_running_full_pipeline:
             return
-        if self.model.adata is None or "neighbors" not in self.model.adata.uns:
+        if self.model.adata is None or self.model.adata_clean is None or "neighbors" not in self.model.adata_clean.uns:
             self.status_label.setText("ERR: PIPELINE_REQUIRED")
             return
 
@@ -1554,6 +2193,7 @@ class UMAPVisualizer(QMainWindow):
             f"COMPLETED: {n_clusters} CLUSTERS IDENTIFIED ({key.upper()})"
         )
         self.seg_view.render_clusters(adata, key)
+        self.btn_export.setEnabled(True)
 
     def on_analysis_error(self, error_msg):
         self.set_busy_state(False)
@@ -1565,10 +2205,33 @@ class UMAPVisualizer(QMainWindow):
         """Lightweight update when proteins/normalization change — no reprocessing."""
         if len(features) < 1:
             return
-        # Max PCs = n_features - 1 (PCA constraint)
-        self.controls.set_max_pca(max(len(features) - 1, 2))
+        # Max PCs = n_features (PCA limit)
+        self.controls.set_max_pca(max(len(features), 2))
         msg = f"SELECTED: {len(features)} FEATS | {normalization} — click Run Analysis to apply"
         self.status_label.setText(msg)
+
+    def recalculate_pca(self):
+        """Reprocess data and recalculate PCA with current settings."""
+        features = self.controls.get_selected_features()
+        if len(features) < 1:
+            QMessageBox.warning(self, "INPUT_ERR", "MIN_FEATURES_REQUIRED: 1")
+            return
+
+        normalization = self.controls.combo_norm.currentText()
+        self.status_label.setText("Recalculating PCA...")
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            self.model.reprocess_data(normalization, features)
+            new_max_pcs = self.model.get_max_pcs()
+            self.controls.set_max_pca(new_max_pcs)
+            self.controls.update_pca_label()
+            self.status_label.setText("PCA recalculated successfully.")
+        except Exception as e:
+            logger.error(f"Failed to recalculate PCA: {e}", exc_info=True)
+            QMessageBox.critical(self, "Error", f"Failed to recalculate PCA:\n\n{e}")
+            self.status_label.setText("PCA recalculation failed.")
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def cancel_analysis(self):
         """Cancel any running analysis or clustering worker."""
@@ -1635,6 +2298,54 @@ class UMAPVisualizer(QMainWindow):
             QProgressBar::chunk {{ background-color: {c["accent"]}; width: 5px; }}
         """
         )
+
+    def export_cluster_labels(self):
+        """Export cluster labels assigned to cell IDs to a CSV file."""
+        if self.model.adata is None or "cell_id" not in self.model.adata.obs:
+            QMessageBox.warning(self, "Export Warning", "No cell data available to export.")
+            return
+
+        cluster_key = "leiden"
+        if cluster_key not in self.model.adata.obs:
+            QMessageBox.warning(self, "Export Warning", "No clustering data available to export.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export Cluster Labels", "", "CSV Files (*.csv);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        try:
+            adata = self.model.adata
+            view_key = f"{cluster_key}_view"
+            
+            # Use leiden_view (which has active/renamed labels) if present
+            cluster_labels = (
+                adata.obs[view_key].values
+                if view_key in adata.obs
+                else adata.obs[cluster_key].values
+            )
+
+            export_df = pd.DataFrame({
+                "Cell_ID": adata.obs["cell_id"].values,
+                "Cluster": cluster_labels,
+                "Original_Cluster": adata.obs[cluster_key].values
+            })
+
+            export_df.to_csv(file_path, index=False)
+            QMessageBox.information(
+                self,
+                "Export Success",
+                f"Successfully exported cluster labels to:\n{file_path}"
+            )
+        except Exception as e:
+            logger.exception("EXPORT_FAIL")
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export cluster labels:\n{str(e)}"
+            )
 
 
 if __name__ == "__main__":

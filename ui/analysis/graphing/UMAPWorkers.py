@@ -83,18 +83,7 @@ class ClusteringWorker(QThread):
                 f"Worker: Starting Re-clustering (Resolution={self.resolution})..."
             )
 
-            key = "leiden"
-            sc.tl.leiden(
-                self.model.adata,
-                resolution=self.resolution,
-                key_added=key,
-                flavor="igraph",
-                n_iterations=2,
-                random_state=42,
-            )
-
-            if f"{key}_colors" in self.model.adata.uns:
-                del self.model.adata.uns[f"{key}_colors"]
+            adata, key = self.model.run_clustering_only(self.resolution)
 
             if self._cancelled:
                 logger.info("Worker: Cancelled, discarding results.")

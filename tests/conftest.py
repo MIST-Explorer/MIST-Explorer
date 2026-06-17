@@ -13,6 +13,8 @@ def qapp():
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
+    from ui.theme import ThemeManager
+    ThemeManager.init(app)
     yield app
 
 # --- Mock Data Fixtures ---

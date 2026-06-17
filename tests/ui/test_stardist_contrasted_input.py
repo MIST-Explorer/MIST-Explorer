@@ -124,7 +124,7 @@ def test_run_cellprofiler_like_method_skips_stardist_model_load(monkeypatch):
     def _fail_model_load(*_args, **_kwargs):
         raise AssertionError("StarDist model should not be loaded")
 
-    monkeypatch.setattr("core.stardist.StarDist2D.from_pretrained", _fail_model_load)
+    monkeypatch.setattr("core.stardist.StarDist2D.from_openvino", _fail_model_load)
 
     emitted = []
     model.stardist_done.connect(lambda wrapper, *_: emitted.append(wrapper))

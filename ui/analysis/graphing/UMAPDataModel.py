@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataModel:
-    def __init__(self, data=None, normalization="lognorm"):
+    def __init__(self, data=None, normalization="none"):
         if data is None:
             raise ValueError("No data provided")
 
@@ -27,7 +27,12 @@ class DataModel:
         # Default: Use all features
         self.selected_features = self.all_features.copy()
 
+        self.thresholds = {feature: 1.0 for feature in self.all_features}
+        self.threshold_mode = "pre"
         self.adata = None
+        self.adata_clean = None
+        self.normalized_pre_threshold = None
+        self.raw_pre_threshold = None
         self.hvg_rankings = None
 
         # Initial Build
@@ -75,15 +80,21 @@ class DataModel:
         else:
             labels = np.arange(1, len(clean_df) + 1)
             data_values = clean_df.values.astype(np.float64)
-        if normalization != "none":
-            data_values[data_values < 1] = 0
+
+        # Store raw pre-threshold values
+        self.raw_pre_threshold = data_values.copy()
+
+        # 6. Apply Customizable Thresholds (Pre-normalization)
+        if self.threshold_mode == "pre":
+            for j, feature in enumerate(features):
+                thresh = self.thresholds.get(feature, 1.0)
+                data_values[:, j][data_values[:, j] < thresh] = 0.0
 
         self.adata = sc.AnnData(X=data_values)
         self.adata.obs["cell_id"] = labels
         self.adata.var_names = features
 
-        # 4. Standard Filtering
-        sc.pp.filter_cells(self.adata, min_genes=1)
+        # 4. Standard Filtering (No longer filtering cells in-place to preserve all-zero cells for UI mapping)
         xmin = float(self.adata.X.min())
         xmax = float(self.adata.X.max())
         logger.info(f"Data range before counts cast: min={xmin}, max={xmax}")
@@ -104,10 +115,26 @@ class DataModel:
         # 5. Apply Selected Normalization
         self._apply_normalization()
 
-        # 6. Recompute PCA
+        # Store post-normalization, pre-threshold values
+        self.normalized_pre_threshold = self.adata.X.copy()
+
+        # 6. Apply Customizable Thresholds (Post-normalization)
+        if self.threshold_mode == "post":
+            for j, feature in enumerate(features):
+                thresh = self.thresholds.get(feature, 1.0)
+                self.adata.X[:, j][self.adata.X[:, j] < thresh] = 0.0
+
+        # 7. Identify cells that are all-zeros post-threshold
+        all_zero_mask = np.all(self.adata.X == 0.0, axis=1)
+        self.adata.obs["is_filtered"] = all_zero_mask
+
+        # Subset to non-zero cells for PCA, UMAP, and Clustering
+        self.adata_clean = self.adata[~all_zero_mask].copy()
+
+        # 8. Recompute PCA
         self._compute_hvg_and_pca()
 
-        logger.info(f"Data reprocessed. Shape: {self.adata.shape}")
+        logger.info(f"Data reprocessed. Shape: {self.adata.shape}, Clean: {self.adata_clean.shape}")
 
     def get_normalization_methods(self):
         """Returns the list of available normalization methods"""
@@ -145,27 +172,27 @@ class DataModel:
             logger.info("Z-normalization applied.")
 
     def _compute_hvg_and_pca(self):
-        assert isinstance(self.adata, sc.AnnData)
+        assert isinstance(self.adata_clean, sc.AnnData)
 
-        # PCA on all features
-        sc.pp.pca(self.adata, random_state=0, svd_solver="auto")
+        # PCA on all features, safely capped at min(n_obs, n_vars) to avoid ValueError
+        n_comps = min(self.adata_clean.n_obs, self.adata_clean.n_vars)
+        if n_comps > 0:
+            sc.pp.pca(self.adata_clean, n_comps=n_comps, random_state=0, svd_solver="auto")
 
-        n_vars = self.adata.n_vars
+        n_vars = self.adata_clean.n_vars
 
         # Mimic "all variables are highly variable"
-        self.adata.var["highly_variable"] = True
+        self.adata_clean.var["highly_variable"] = True
 
         # Optional: fake dispersion fields (some UI code expects them)
-        self.adata.var["means"] = self.adata.X.mean(axis=0)
-        self.adata.var["variances"] = self.adata.X.var(axis=0)
+        self.adata_clean.var["means"] = self.adata_clean.X.mean(axis=0)
+        self.adata_clean.var["variances"] = self.adata_clean.X.var(axis=0)
         # based on varriances
-        self.adata.var["highly_variable_rank"] = (
-            np.argsort(-self.adata.var["variances"]).astype(np.int32) + 1
+        self.adata_clean.var["highly_variable_rank"] = (
+            np.argsort(-self.adata_clean.var["variances"]).astype(np.int32) + 1
         )  # 1-based ranking
 
-        self.hvg_rankings = self.adata.var["highly_variable_rank"].copy()
-
-        # PCA
+        self.hvg_rankings = self.adata_clean.var["highly_variable_rank"].copy()
 
     # --- Public Accessors for UI ---
     def get_num_cells(self):
@@ -178,31 +205,71 @@ class DataModel:
 
     def get_max_pcs(self):
         """Returns the maximum number of PCs available for UMAP selection"""
-        assert self.adata is not None, "adata is not initialized"
-        return len(self.adata.varm["PCs"]) - 1 if "PCs" in self.adata.varm else 0
+        if self.adata_clean is not None and "PCs" in self.adata_clean.varm:
+            return self.adata_clean.varm["PCs"].shape[1]
+        return 0
 
     def get_pca_variance_ratio(self):
         """Returns the variance ratio array for the 'Variance Threshold' UI logic"""
-        assert self.adata is not None, "adata is not initialized"
-        return self.adata.uns["pca"]["variance_ratio"]
+        assert self.adata_clean is not None, "adata_clean is not initialized"
+        return self.adata_clean.uns["pca"]["variance_ratio"]
 
     # --- Heavy Calculation Methods (To be called by Worker Thread) ---
+
+    def _merge_clean_back_to_full(self):
+        if self.adata_clean is None or self.adata is None:
+            return
+
+        import pandas as pd
+
+        # 1. Merge Leiden clustering labels
+        if "leiden" in self.adata_clean.obs:
+            clean_cats = list(self.adata_clean.obs["leiden"].cat.categories)
+            has_filtered = np.any(self.adata.obs["is_filtered"])
+
+            if has_filtered and "Filtered" not in clean_cats:
+                clean_cats.append("Filtered")
+
+            # Create array of labels filled with "Filtered"
+            full_labels = np.full(self.adata.n_obs, "Filtered", dtype=object)
+            clean_indices = np.where(~self.adata.obs["is_filtered"])[0]
+
+            # Place clean labels
+            full_labels[clean_indices] = self.adata_clean.obs["leiden"].astype(str).values
+
+            # Assign category mapping to self.adata.obs
+            self.adata.obs["leiden"] = pd.Categorical(full_labels, categories=clean_cats)
+
+            # 2. Merge Leiden cluster colors
+            if "leiden_colors" in self.adata_clean.uns:
+                clean_colors = list(self.adata_clean.uns["leiden_colors"])
+                if has_filtered and len(clean_colors) < len(clean_cats):
+                    # Dedicate a gray color for filtered cells
+                    clean_colors.append("#555555")
+                self.adata.uns["leiden_colors"] = np.array(clean_colors)
+
+        # 3. Merge UMAP coordinates
+        if "X_umap" in self.adata_clean.obsm:
+            full_umap = np.full((self.adata.n_obs, 2), np.nan)
+            clean_indices = np.where(~self.adata.obs["is_filtered"])[0]
+            full_umap[clean_indices] = self.adata_clean.obsm["X_umap"]
+            self.adata.obsm["X_umap"] = full_umap
 
     def run_clustering_only(self, resolution):
         """Runs only Leiden clustering (fast update for slider)"""
         logger.info(f"Re-running clustering at resolution {resolution}")
-        assert isinstance(self.adata, sc.AnnData), "adata is not initialized"
+        assert isinstance(self.adata_clean, sc.AnnData), "adata_clean is not initialized"
         key = "leiden"
         sc.tl.leiden(
-            self.adata,
+            self.adata_clean,
             key_added=key,
             resolution=resolution,
-            # flavor="vtraag",
             flavor="igraph",
             n_iterations=2,
             random_state=0,
             directed=False,
         )
+        self._merge_clean_back_to_full()
         return self.adata, key
 
     def run_umap_pipeline(
@@ -215,11 +282,11 @@ class DataModel:
         logger.info(
             f"Running UMAP Pipeline: neighbors={n_neighbors}, dist={min_dist}, pcs={n_components}"
         )
-        assert isinstance(self.adata, sc.AnnData), "adata is not initialized"
+        assert isinstance(self.adata_clean, sc.AnnData), "adata_clean is not initialized"
 
-        # 1. Compute Neighbors (using AnnoyTransformer as originally requested)
+        # 1. Compute Neighbors
         sc.pp.neighbors(
-            self.adata,
+            self.adata_clean,
             random_state=random_state,
             n_neighbors=n_neighbors,
             n_pcs=n_components,
@@ -229,10 +296,10 @@ class DataModel:
         logger.info("Neighbors computed.")
         # 2. Run UMAP
         sc.tl.umap(
-            self.adata,
+            self.adata_clean,
             min_dist=min_dist,
             random_state=random_state,
-            maxiter=None,  # removed restriction as per original 'n_epochs=None' comment
+            maxiter=None,
         )
         logger.info("UMAP embedding computed.")
         # 3. Initial Clustering
