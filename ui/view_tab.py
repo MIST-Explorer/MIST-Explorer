@@ -677,32 +677,27 @@ class ImageOverlay(QWidget):
         )
 
         resp = reply.exec()
+        if resp != QMessageBox.StandardButton.Yes:
+            return
 
         while len(self.controls) > 0:
             self.delete_layer(self.controls[0].layout)
 
-        self.enc.analysis_tab.view_index = 0
+        self.enc.analysis_tab.reset_rois()
 
-        # while self.enc.analysis_tab.deleteLater():
-        #     pass
+        self.open_image.setVisible(True)
+        self.open_image_label.setVisible(False)
 
-        # for i in range(len(self. )):
-        #     self.delete_layer(0)
+        self.open_df.setVisible(True)
+        self.open_df_label.setVisible(False)
 
-        if resp == QMessageBox.StandardButton.Yes:
-            self.open_image.setVisible(True)
-            self.open_image_label.setVisible(False)
+        self.apply_button.setVisible(True)
 
-            self.open_df.setVisible(True)
-            self.open_df_label.setVisible(False)
-
-            self.apply_button.setVisible(True)
-
-            self.add_layer_button.setVisible(False)
-            self.cancel_reset.setVisible(False)
-            self.add_other_image_button.setVisible(False)
-            self.export_tif_button.setVisible(False)
-            self.export_png_button.setVisible(False)
+        self.add_layer_button.setVisible(False)
+        self.cancel_reset.setVisible(False)
+        self.add_other_image_button.setVisible(False)
+        self.export_tif_button.setVisible(False)
+        self.export_png_button.setVisible(False)
         self.reset_view_tab.emit()
 
     def initUI(self):

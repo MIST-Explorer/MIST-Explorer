@@ -196,6 +196,33 @@ class ImageGraphicsViewUI(QGraphicsView):
         for pixmap in self.view_pixmaps:
             self.get_scene().removeItem(pixmap)
         self.view_pixmaps = []
+
+        # Remove and clear rubber bands from scene and tracking lists
+        for rb in list(self.rubber_bands):
+            scene = rb.scene()
+            if scene:
+                scene.removeItem(rb)
+        self.rubber_bands = []
+        self.rubber_band_colors = []
+
+        # Remove and clear polygons from scene and tracking lists
+        for poly in list(self.polygons):
+            scene = poly.scene()
+            if scene:
+                scene.removeItem(poly)
+        self.polygons = []
+        self.polygon_colors = []
+
+        if self.current_polygon is not None:
+            scene = self.current_polygon.scene()
+            if scene:
+                scene.removeItem(self.current_polygon)
+            self.current_polygon = None
+
+        self.select = False
+        self.origin = None
+        self._roi_origin_scene = None
+
         if self.enc.stacked_widget and self.enc.stacked_widget.currentIndex() == 0:
             self.show_images_tab_image()
         else:

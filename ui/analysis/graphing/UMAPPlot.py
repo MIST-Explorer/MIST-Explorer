@@ -117,7 +117,7 @@ class ThemeManager:
 
         # Resolve icon path (use resource_path for PyInstaller compatibility)
         icons_dir = resource_path(
-            os.path.join("ui", "analysis", "graphing", "icons")
+            os.path.join("assets", "icons")
         ).replace("\\", "/")
 
         # Select icon based on theme
@@ -914,7 +914,9 @@ class UMAPControls(QWidget):
     def select_none(self, _=None):
         self.feature_list.blockSignals(True)
         for i in range(self.feature_list.count()):
-            self.feature_list.item(i).setCheckState(Qt.CheckState.Unchecked)
+            item = self.feature_list.item(i)
+            if not item.isHidden():
+                item.setCheckState(Qt.CheckState.Unchecked)
         self.feature_list.blockSignals(False)
         self.emit_apply_data()
 
@@ -1228,11 +1230,13 @@ class HeatmapView(QWidget):
         adata,
         cluster_key,
         selected_features,
+        visible_categories=None,
     ):
         self.last_params = (
             adata,
             cluster_key,
             selected_features,
+            visible_categories,
         )
 
         # Cleanup old canvas
@@ -1261,6 +1265,8 @@ class HeatmapView(QWidget):
         try:
             # Drop cells where cluster_key is nan or 'Filtered'
             mask_cells = adata.obs[cluster_key].notna() & (adata.obs[cluster_key] != "Filtered")
+            if visible_categories is not None:
+                mask_cells = mask_cells & adata.obs[cluster_key].isin(visible_categories)
             if np.sum(mask_cells) == 0:
                 show_msg(Locale.get("HM_VOID"))
                 return
@@ -1413,6 +1419,20 @@ class HeatmapView(QWidget):
             show_msg(f"ERR: Need to rerunning UMAP.\n{str(e)}")
 
 
+class AspectRatioCanvas(FigureCanvas):
+    def __init__(self, fig):
+        super().__init__(fig)
+        sp = self.sizePolicy()
+        sp.setHeightForWidth(True)
+        self.setSizePolicy(sp)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, w):
+        return w
+
+
 class RankedGenesView(QWidget):
     def __init__(self):
         super().__init__()
@@ -1496,7 +1516,7 @@ class RankedGenesView(QWidget):
                     # Check if all current categories are present in the ranked results
                     stored_names = (
                         set(rgg["names"].dtype.names)
-                        if hasattr(rgg["names"], "dtype")
+                        if "names" in rgg and hasattr(rgg["names"], "dtype")
                         else set()
                     )
                     current_cats = set(str(c) for c in cats)
@@ -1605,7 +1625,7 @@ class RankedGenesView(QWidget):
                 # Create individual Figure and Canvas
                 fig = Figure(figsize=(4, 4), dpi=100)
                 apply_matplotlib_theme(fig)
-                canvas = FigureCanvas(fig)
+                canvas = AspectRatioCanvas(fig)
                 canvas.setMinimumSize(350, 350)  # Ensure minimum size per plot
 
                 ax = fig.add_subplot(111)
@@ -1724,6 +1744,13 @@ class RankedGenesView(QWidget):
                 row = i // ncols
                 col = i % ncols
                 self.plot_layout.addWidget(canvas, row, col)
+
+            # Add a vertical spacer to push the rows to the top if they don't fill the vertical space
+            if len(colors) > 0:
+                last_row = (len(colors) - 1) // ncols
+                spacer = QWidget()
+                spacer.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+                self.plot_layout.addWidget(spacer, last_row + 1, 0, 1, ncols)
 
         except Exception as e:
             logger.error(f"Error updating ranked genes view: {e}")
@@ -2089,13 +2116,19 @@ class UMAPVisualizer(QMainWindow):
         if visible is None or renames is None:
             visible, renames = self.seg_view.get_state()
 
+        hide_hidden = self.seg_view.chk_hide_hidden.isChecked()
+
         adata = self.model.adata
         base_key = "leiden"
         view_key = f"{base_key}_view"
 
         orig_categories = list(adata.obs[base_key].cat.categories)
 
-        present_codes = sorted([c for c in renames.keys() if c in visible])
+        if hide_hidden:
+            present_codes = sorted([c for c in renames.keys() if c in visible])
+        else:
+            present_codes = sorted(list(renames.keys()))
+
         unique_new_labels = []
         for c in present_codes:
             lbl = renames.get(c, str(orig_categories[c]))
@@ -2104,7 +2137,7 @@ class UMAPVisualizer(QMainWindow):
 
         new_labels = []
         for code in adata.obs[base_key].cat.codes:
-            if code >= 0 and code in visible:
+            if code >= 0 and (not hide_hidden or code in visible):
                 new_labels.append(renames.get(code, str(orig_categories[code])))
             else:
                 new_labels.append(np.nan)
@@ -2116,7 +2149,7 @@ class UMAPVisualizer(QMainWindow):
 
             color_map = {}
             for i, cat_name in enumerate(orig_categories):
-                if i in visible:
+                if not hide_hidden or i in visible:
                     new_name = renames.get(i, str(cat_name))
                     if new_name not in color_map:
                         color_map[new_name] = orig_colors[i]
@@ -2124,12 +2157,19 @@ class UMAPVisualizer(QMainWindow):
             view_colors = [color_map[cat] for cat in unique_new_labels]
             adata.uns[f"{view_key}_colors"] = np.array(view_colors)
 
-        hide_hidden = self.seg_view.chk_hide_hidden.isChecked()
         self.plot_view.update_plot(adata, view_key, hide_hidden)
         self.ranked_genes_view.set_data(adata, view_key, hide_hidden)
 
         selected_features = self.controls.get_selected_features()
-        self.heatmap_view.update_heatmap(adata, view_key, selected_features)
+        visible_categories = []
+        for c in visible:
+            lbl = renames.get(c, str(orig_categories[c]))
+            if lbl not in visible_categories:
+                visible_categories.append(lbl)
+
+        self.heatmap_view.update_heatmap(
+            adata, view_key, selected_features, visible_categories=visible_categories
+        )
 
     def start_full_analysis(self, params):
         features = self.controls.get_selected_features()

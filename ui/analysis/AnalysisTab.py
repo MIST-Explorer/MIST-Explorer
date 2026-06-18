@@ -43,6 +43,7 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 
 from core.dataframe_utils import get_marker_columns
+from utils import resource_path
 from ui.analysis.graphing.DistributionViewer import DistributionViewer
 from ui.analysis.graphing.PieChartCanvas import PieChartCanvas
 from ui.analysis.graphing.SpatialHeatmapUpdated import HeatmapWindow
@@ -84,6 +85,10 @@ class AnalysisTab(QWidget):
         """Update existing ROI region"""
         self.tabs.setCurrentWidget(self.roi_view)
         return self.roi_view.update_roi_region(rubberband, region)
+
+    def reset_rois(self):
+        """Reset all ROIs in the analysis tab."""
+        self.roi_view.reset_rois()
 
     def on_tab_changed(self, index):
         # Index 0 is ROI Analysis, 1 is Full Image
@@ -200,9 +205,9 @@ class ROIAnalysisView(QWidget):
             )
 
         # Set icons for the buttons
-        self.rect_button.setIcon(QIcon("ui/graphing/icons/rectangle.png"))
-        self.circle_button.setIcon(QIcon("ui/graphing/icons/circle.png"))
-        self.poly_button.setIcon(QIcon("ui/graphing/icons/polygon.png"))
+        self.rect_button.setIcon(QIcon(resource_path("assets/icons/rectangle.png")))
+        self.circle_button.setIcon(QIcon(resource_path("assets/icons/circle.png")))
+        self.poly_button.setIcon(QIcon(resource_path("assets/icons/poly.png")))
 
         # Connect button signals
         self.rect_button.clicked.connect(
@@ -308,7 +313,25 @@ class ROIAnalysisView(QWidget):
         self.graphs.pop(self.current_view_index)
 
         if self.rubberbands:
-            self.rubberbands[self.current_view_index].hide()
+            rb = self.rubberbands[self.current_view_index]
+            rb.hide()
+            scene = rb.scene()
+            if scene:
+                scene.removeItem(rb)
+
+            # Remove from canvas tracking lists
+            if hasattr(self.enc, "canvas") and self.enc.canvas:
+                canvas = self.enc.canvas
+                if rb in canvas.rubber_bands:
+                    canvas.rubber_bands.remove(rb)
+                    if hasattr(rb, "color") and rb.color in canvas.rubber_band_colors:
+                        canvas.rubber_band_colors.remove(rb.color)
+                if rb in canvas.polygons:
+                    canvas.polygons.remove(rb)
+                    if hasattr(rb, "color"):
+                        color_rgb = rb.color.getRgb()[:3]
+                        if color_rgb in canvas.polygon_colors:
+                            canvas.polygon_colors.remove(color_rgb)
             self.rubberbands.pop(self.current_view_index)
 
         if self.regions:
@@ -323,6 +346,27 @@ class ROIAnalysisView(QWidget):
             self.navigate_to_roi(new_index)
 
         return True
+
+    def reset_rois(self):
+        """Clear all ROIs and associated graphs/rubberbands from the analysis tab."""
+        # Close any popped-out windows
+        for window in list(self.windows):
+            try:
+                window.close()
+            except Exception:
+                pass
+        self.windows = []
+
+        self.rois = []
+        self.graphs = []
+        self.rubberbands = []
+        self.regions = []
+        self.current_view_index = 0
+        self.current_graph_index = 0
+        if hasattr(self, "view_graph_interfaces"):
+            self.view_graph_interfaces = {}
+        self.clear_scroll_content()
+        self.update_navigation_buttons()
 
     def add_graph_to_current_view(self, graph_widget):
         """Add a graph to the current roi"""
@@ -583,11 +627,11 @@ class ROIAnalysisView(QWidget):
         ]
 
         self.icon_paths = [
-            "ui/graphing/icons/linechart.png",
-            "ui/graphing/icons/heatmap.png",
-            "ui/graphing/icons/piechart.png",
-            "ui/graphing/icons/barchart.png",
-            "ui/graphing/icons/scatter.png",
+            resource_path("assets/icons/linechart.png"),
+            resource_path("assets/icons/heatmap.png"),
+            resource_path("assets/icons/piechart.png"),
+            resource_path("assets/icons/barchart.png"),
+            resource_path("assets/icons/scatter.png"),
         ]
 
         self.stacked_widget = QStackedWidget()
@@ -903,7 +947,7 @@ class FullImageAnalysisView(QWidget):
         ]
 
         self.icon_paths = [
-            "ui/graphing/icons/scatter.png",
+            resource_path("assets/icons/scatter.png"),
         ]
 
         self.icon_list_page = GraphsList(
