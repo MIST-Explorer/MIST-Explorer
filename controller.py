@@ -28,6 +28,7 @@ from core.project_naming import is_segmentation_channel, is_temp_project_name
 from ui.alignment.alignment_preview_dialog import AlignmentPreviewDialog
 from ui.alignment.alignment_view_dialog import AlignmentViewDialog
 from ui.alignment.crop_anchor_dialog import CropAnchorDialog
+from ui.alignment.crosstalk_preview_dialog import CrosstalkPreviewDialog
 from ui.stardist.crop_experiment_dialog import CropExperimentDialog
 
 logger = logging.getLogger(__name__)
@@ -1192,6 +1193,12 @@ class SignalConnectionManager:
         self.c.view.cell_intensity_groupbox.radius_bg.valueChanged.connect(
             self.c.model_cell_intensity.set_radius_bg
         )
+        self.c.view.cell_intensity_groupbox.crosstalk_slider.valueChanged.connect(
+            self.c.model_cell_intensity.set_crosstalk_ratio
+        )
+        self.c.view.cell_intensity_groupbox.testCrosstalkRequested.connect(
+            self._handle_test_crosstalk_requested
+        )
         self.c.view.cell_intensity_groupbox.generate_cell_data.connect(
             self.c.model_cell_intensity.generate_cell_intensity_table
         )
@@ -1247,6 +1254,46 @@ class SignalConnectionManager:
         if value >= 100:
             self.c.view.cell_intensity_groupbox.set_processing_buttons_enabled(True)
 
+    def _handle_test_crosstalk_requested(self):
+        ui = self.c.view.cell_intensity_groupbox
+        model = self.c.model_cell_intensity
+        
+        # Sync latest data from UI to model
+        if ui.bead_data_file is not None:
+            model.set_bead_data(ui.bead_data_file)
+        if ui.channel_to_color_code:
+            model.set_color_codes(ui.channel_to_color_code)
+
+        if getattr(model, "bead_data", None) is None:
+            self.c.handle_error("Please load bead data first.")
+            return
+        if not model.channel_to_color_code:
+            self.c.handle_error("Please load at least one color code file first.")
+            return
+
+        try:
+            ratio = model.params.get("crosstalk_ratio", 10.0)
+            
+            # Retrieve background-subtracted images
+            images_dict = model._get_background_subtracted_images()
+            
+            dialog = CrosstalkPreviewDialog(
+                parent=self.c.view,
+                model=model,
+                images_dict=images_dict,
+                bead_data=model.bead_data,
+                channel_names=list(model.channel_to_color_code.keys()),
+                ratio=ratio,
+            )
+            if dialog.exec() == 1:
+                final_ratio = dialog.ratio
+                model.set_crosstalk_ratio(final_ratio)
+                ui.crosstalk_slider.setValue(int(final_ratio))
+                ui.crosstalk_val_label.setText(f"{int(final_ratio)}:1")
+        except Exception as e:
+            logger.error("Crosstalk ratio test failed: %s", e)
+            self.c.handle_error(f"Error testing crosstalk: {str(e)}")
+
     def _repopulate_generation_selector(self):
         """Rebuild the Generation tab image selector list."""
         self.c.view.cell_intensity_groupbox.image_selector.refresh_images(
@@ -1258,12 +1305,22 @@ class SignalConnectionManager:
         storage = self.c.view.images_tab.storage
         img_data = storage.get_data(uuid)
         if img_data is None:
+            self.c.model_cell_intensity.clear_segmentation_labels()
             return
         channels = img_data["data"]
         self.c.view.cell_intensity_groupbox.update_channels(channels)
         self.c.view.cell_intensity_groupbox.image_selector.set_channels(channels)
         self.c.model_cell_intensity.set_source_uuid(uuid)
         self.c.view.cell_intensity_groupbox.set_generation_enabled(True)
+
+        # Load stardist labels if present
+        stardist_channel = self.c.view.images_tab.image_tree_view._find_virtual_stardist_channel(uuid)
+        if stardist_channel is not None:
+            self.c.model_cell_intensity.load_segmentation_labels_from_storage(
+                uuid, int(stardist_channel)
+            )
+        else:
+            self.c.model_cell_intensity.clear_segmentation_labels()
 
     def _handle_generation_source_selected(self, item_uuid, stardist_channel):
         """Enable generation only after source selection and auto-load virtual StarDist labels."""

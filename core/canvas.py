@@ -1037,9 +1037,7 @@ class ImageGraphicsView(BaseGraphicsView):
             return "gray" if fallback_cmap == "label_image" else fallback_cmap
 
         if is_segmentation_channel(wrapper) and wrapper.cmap == "label_image":
-            resolved_cmap = self._resolve_stardist_virtual_cmap(fallback_cmap)
-            wrapper.cmap = resolved_cmap
-            return resolved_cmap
+            return self._resolve_stardist_virtual_cmap(fallback_cmap)
 
         return wrapper.cmap
 

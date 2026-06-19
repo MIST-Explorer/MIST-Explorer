@@ -147,6 +147,7 @@ class ProjectManager:
         original_filename: str = "",
         contrast_settings: Optional[Dict[str, Tuple[int, int]]] = None,
         channel_display_names: Optional[Dict[str, str]] = None,
+        channel_cmaps: Optional[Dict[str, str]] = None,
     ) -> ImageMetadata:
         image_folder = project_path / "images" / image_uuid
         image_folder.mkdir(parents=True, exist_ok=True)
@@ -186,6 +187,8 @@ class ProjectManager:
             contrast_settings = {}
         if channel_display_names is None:
             channel_display_names = {}
+        if channel_cmaps is None:
+            channel_cmaps = {}
 
         image_metadata = ImageMetadata(
             uuid=image_uuid,
@@ -194,6 +197,7 @@ class ProjectManager:
             original_filename=original_filename,
             contrast_settings=contrast_settings,
             channel_display_names=channel_display_names,
+            channel_cmaps=channel_cmaps,
         )
 
         metadata = ProjectManager.load_metadata(project_path)

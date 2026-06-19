@@ -230,12 +230,14 @@ class ImageManager(QWidget):
 
         contrast_settings = {}
         channel_display_names = {}
+        channel_cmaps = {}
         for channel_name, wrapper in item_data.items():
             contrast_settings[channel_name] = (
                 wrapper.contrast_min,
                 wrapper.contrast_max,
             )
             channel_display_names[channel_name] = wrapper.name or channel_name
+            channel_cmaps[channel_name] = wrapper.cmap or "gray"
 
         try:
             ProjectManager.save_image(
@@ -247,6 +249,7 @@ class ImageManager(QWidget):
                 original_filename=original_filename,
                 contrast_settings=contrast_settings,
                 channel_display_names=channel_display_names,
+                channel_cmaps=channel_cmaps,
             )
             return True
         except Exception as e:

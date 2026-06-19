@@ -49,7 +49,15 @@ TOOLTIP_BOX_PADDING_PX = 6
 
 pg.setConfigOption("imageAxisOrder", "row-major")
 pg.setConfigOption("useOpenGL", True)
-pg.setConfigOption("useCupy", True)
+
+# Only enable CuPy if the library is available and can be imported
+try:
+    import cupy
+    has_cupy = True
+except Exception:
+    has_cupy = False
+pg.setConfigOption("useCupy", has_cupy)
+
 pg.setConfigOption("useNumba", False)
 
 

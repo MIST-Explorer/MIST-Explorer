@@ -8,27 +8,13 @@ import numpy as np
 import pandas as pd
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSignal
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QSlider,
-    QSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog,
+                             QGroupBox, QHBoxLayout, QLabel, QMessageBox,
+                             QPushButton, QSlider, QSpinBox, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
 
 from core.project_naming import is_segmentation_channel
 from ui.processing.segmentation_image_selector import SegmentationImageSelector
-
 
 _SLIDER_STEPS = [0.55, 0.70, 0.85, 1.00, 1.15, 1.30]
 _SLIDER_DEFAULT_INDEX = 3  # 1.00
@@ -129,6 +115,7 @@ class CellIntensityUI(QWidget):
     generate_cell_data = pyqtSignal()
     requestFilteredStats = pyqtSignal(int)
     thresholdApplied = pyqtSignal(float, int)
+    testCrosstalkRequested = pyqtSignal()
 
     def __init__(self, parent=None, containing_layout: typing.Optional[QVBoxLayout] = None):
         super().__init__(parent)
@@ -154,6 +141,12 @@ class CellIntensityUI(QWidget):
         self.radius_bg_layout = None
         self.radius_bg_label = None
         self.radius_bg = None
+        self.crosstalk_layout = None
+        self.crosstalk_label_layout = None
+        self.crosstalk_label = None
+        self.crosstalk_val_label = None
+        self.crosstalk_slider = None
+        self.test_crosstalk_button = None
         self.run_button = None
         self.cancel_button = None
         self.save_button = None
@@ -234,6 +227,31 @@ class CellIntensityUI(QWidget):
         self.radius_bg.setProperty("value", 6)
         self.radius_bg_layout.addWidget(self.radius_bg)
         self.cellintensity_components_vlayout.addLayout(self.radius_bg_layout)
+
+        # crosstalk ratio
+        self.crosstalk_layout = QVBoxLayout()
+        
+        self.crosstalk_label_layout = QHBoxLayout()
+        self.crosstalk_label = QLabel(self.cell_intensity_groupbox)
+        self.crosstalk_label.hide()
+        self.crosstalk_val_label = QLabel("10:1", self.cell_intensity_groupbox)
+        self.crosstalk_val_label.hide()
+        self.crosstalk_label_layout.addWidget(self.crosstalk_label)
+        self.crosstalk_label_layout.addWidget(self.crosstalk_val_label)
+        self.crosstalk_layout.addLayout(self.crosstalk_label_layout)
+        
+        self.crosstalk_slider = QSlider(Qt.Orientation.Horizontal, self.cell_intensity_groupbox)
+        self.crosstalk_slider.setRange(1, 100)
+        self.crosstalk_slider.setValue(10)
+        self.crosstalk_slider.valueChanged.connect(self._handle_crosstalk_ratio_changed)
+        self.crosstalk_slider.hide()
+        self.crosstalk_layout.addWidget(self.crosstalk_slider)
+        
+        self.test_crosstalk_button = QPushButton(self.cell_intensity_groupbox)
+        self.test_crosstalk_button.clicked.connect(self._handle_test_crosstalk)
+        self.crosstalk_layout.addWidget(self.test_crosstalk_button)
+        
+        self.cellintensity_components_vlayout.addLayout(self.crosstalk_layout)
 
         # run button
         self.run_button = QPushButton(self.cell_intensity_groupbox)
@@ -378,6 +396,7 @@ class CellIntensityUI(QWidget):
                     pd.read_csv(file_name).to_numpy().astype("uint16")
                 )
                 self.bead_data_label.setText(os.path.basename(file_name))
+                self.emitBeadData.emit(self.bead_data_file)
             except UnicodeDecodeError:
                 self.errorSignal.emit("Please select a valid file type")
 
@@ -420,6 +439,12 @@ class CellIntensityUI(QWidget):
             self.filter_status_label.setVisible(True)
             self.thresholdApplied.emit(threshold, num_proteins)
 
+    def _handle_crosstalk_ratio_changed(self, value):
+        self.crosstalk_val_label.setText(f"{value}:1")
+
+    def _handle_test_crosstalk(self):
+        self.testCrosstalkRequested.emit()
+
     def _retranslate_ui(self):
         _translate = QCoreApplication.translate
         self.cell_intensity_groupbox.setTitle(
@@ -431,6 +456,8 @@ class CellIntensityUI(QWidget):
         self.bead_data.setText(_translate("MainWindow", "Open Bead Data"))
         self.radius_fg_label.setText(_translate("MainWindow", "Radius fg"))
         self.radius_bg_label.setText(_translate("MainWindow", "Radius bg"))
+        self.crosstalk_label.setText(_translate("MainWindow", "Crosstalk Ratio Threshold"))
+        self.test_crosstalk_button.setText(_translate("MainWindow", "Reduce Crosstalk"))
         self.run_button.setText(_translate("MainWindow", "Run"))
         self.save_button.setText(_translate("MainWindow", "Save"))
         self.cancel_button.setText(_translate("MainWindow", "Cancel"))

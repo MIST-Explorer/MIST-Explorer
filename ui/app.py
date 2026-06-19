@@ -335,9 +335,10 @@ class MainWindow(QMainWindow):
                         channel_name, channel_name
                     )
                     stored_cmap = image_meta.channel_cmaps.get(channel_name)
-                    channel_cmap = stored_cmap or (
-                        "label_image" if is_segmentation_name(display_name) else "gray"
-                    )
+                    if is_segmentation_name(display_name):
+                        channel_cmap = "label_image"
+                    else:
+                        channel_cmap = stored_cmap or "gray"
                     wrapper = ImageWrapper(
                         channel_array,
                         name=display_name,
