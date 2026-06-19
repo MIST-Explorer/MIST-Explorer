@@ -1,31 +1,19 @@
-import os
 import logging
+import os
+
 import numpy as np
-import qtrangeslider
-from utils import resource_path
 import pyqtgraph as pg
-from PyQt6.QtCore import Qt, QCoreApplication
-from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QCursor
-from PyQt6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QWidget,
-    QCheckBox,
-    QSlider,
-    QLabel,
-    QFrame,
-    QPushButton,
-    QScrollArea,
-    QSplitter,
-    QToolTip,
-    QLineEdit,
-    QSizePolicy,
-    QSpinBox,
-    QProgressBar,
-)
-from ui.theme import ThemeManager
+import qtrangeslider
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QBrush, QColor, QCursor, QPainter, QPen
+from PyQt6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QScrollArea,
+                             QSizePolicy, QSlider, QSplitter,
+                             QToolTip, QVBoxLayout, QWidget)
+
 from core.image_utils import auto_contrast_helper
+from ui.theme import ThemeManager
+from utils import resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +35,13 @@ class CrosstalkPreviewDialog(QDialog):
 
         # Dialog-level cache for suppression masks per ratio
         self.suppressed_mask_cache = {}
+
+        # Precalculate and cache all suppression masks for ratio thresholds 1 to 100 on startup
+        if self.bead_data is not None and len(self.bead_data) > 0:
+            # Prime the model cache first (does the heavy lifting of raw_intensities/ratios calculation)
+            self.get_suppressed_mask(1.0)
+            for r in range(1, 101):
+                self.get_suppressed_mask(float(r))
 
         # Initial calculate of crosstalk suppression
         self.suppressed_mask = self.get_suppressed_mask(self.ratio)
@@ -303,122 +298,7 @@ class CrosstalkPreviewDialog(QDialog):
 
         controls_layout.addWidget(threshold_box)
 
-        # --- Precalculate Ratios UI Card ---
-        precalc_box = QFrame()
-        precalc_box.setObjectName("PrecalcBox")
-        precalc_box.setStyleSheet(f"""
-            QFrame#PrecalcBox {{
-                background-color: {self.bg_color};
-                border: 1px solid {self.border_color};
-                border-radius: 8px;
-                padding: 10px;
-                margin-top: 5px;
-            }}
-        """)
-        precalc_layout = QVBoxLayout(precalc_box)
-        precalc_layout.setSpacing(8)
 
-        precalc_title = QLabel("Precalculate Ratios")
-        precalc_title.setStyleSheet(f"color: {self.accent_color}; font-weight: bold; font-size: 12px; border: none;")
-        precalc_layout.addWidget(precalc_title)
-
-        range_layout = QHBoxLayout()
-        range_layout.setSpacing(6)
-
-        lbl_from = QLabel("From:")
-        lbl_from.setStyleSheet(f"color: {self.text_color}; border: none; font-size: 11px;")
-        self.spin_x1 = QSpinBox()
-        self.spin_x1.setRange(1, 100)
-        self.spin_x1.setValue(1)
-        self.spin_x1.setStyleSheet(f"""
-            QSpinBox {{
-                background-color: {self.card_color};
-                border: 1px solid {self.border_color};
-                border-radius: 4px;
-                padding: 3px;
-                color: {self.accent_color};
-                font-weight: bold;
-                font-size: 11px;
-            }}
-            QSpinBox:focus {{
-                border: 1.5px solid {self.accent_color};
-            }}
-        """)
-
-        lbl_to = QLabel("To:")
-        lbl_to.setStyleSheet(f"color: {self.text_color}; border: none; font-size: 11px;")
-        self.spin_x2 = QSpinBox()
-        self.spin_x2.setRange(1, 100)
-        self.spin_x2.setValue(100)
-        self.spin_x2.setStyleSheet(f"""
-            QSpinBox {{
-                background-color: {self.card_color};
-                border: 1px solid {self.border_color};
-                border-radius: 4px;
-                padding: 3px;
-                color: {self.accent_color};
-                font-weight: bold;
-                font-size: 11px;
-            }}
-            QSpinBox:focus {{
-                border: 1.5px solid {self.accent_color};
-            }}
-        """)
-
-        range_layout.addWidget(lbl_from)
-        range_layout.addWidget(self.spin_x1)
-        range_layout.addWidget(lbl_to)
-        range_layout.addWidget(self.spin_x2)
-        precalc_layout.addLayout(range_layout)
-
-        # Precalculate Button
-        self.precalc_btn = QPushButton("Precalculate Range")
-        self.precalc_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {self.accent_color};
-                border: 1px solid {self.accent_color};
-                border-radius: 6px;
-                padding: 5px;
-                font-weight: bold;
-                font-size: 11px;
-            }}
-            QPushButton:hover {{
-                background-color: {self.accent_color};
-                color: {tc.get("text_on_accent", "#0b0c10")};
-            }}
-            QPushButton:disabled {{
-                border-color: {self.border_color};
-                color: {self.border_color};
-            }}
-        """)
-        self.precalc_btn.clicked.connect(self.on_precalculate_clicked)
-        precalc_layout.addWidget(self.precalc_btn)
-
-        # Progress Bar
-        self.precalc_progress = QProgressBar()
-        self.precalc_progress.setRange(0, 100)
-        self.precalc_progress.setValue(0)
-        self.precalc_progress.setTextVisible(True)
-        self.precalc_progress.hide()
-        self.precalc_progress.setStyleSheet(f"""
-            QProgressBar {{
-                border: 1px solid {self.border_color};
-                border-radius: 4px;
-                text-align: center;
-                background-color: {self.bg_color};
-                color: {self.text_color};
-                font-size: 10px;
-                height: 14px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {self.accent_color};
-                border-radius: 3px;
-            }}
-        """)
-        precalc_layout.addWidget(self.precalc_progress)
-
-        controls_layout.addWidget(precalc_box)
 
         # Separator line
         sep1 = QFrame()
@@ -806,7 +686,7 @@ class CrosstalkPreviewDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(cancel_btn)
 
-        apply_btn = QPushButton("Apply & Exit")
+        apply_btn = QPushButton("Apply && Exit")
         apply_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self.accent_color};
@@ -978,43 +858,6 @@ class CrosstalkPreviewDialog(QDialog):
                 
                 # Perform auto-contrast for this channel
                 self.auto_contrast_channel(ch_name)
-
-    def on_precalculate_clicked(self):
-        """Precalculate and cache suppression masks for a range of ratio thresholds."""
-        x1 = self.spin_x1.value()
-        x2 = self.spin_x2.value()
-
-        if x1 > x2:
-            x1, x2 = x2, x1
-            self.spin_x1.setValue(x1)
-            self.spin_x2.setValue(x2)
-
-        # Disable controls
-        self.precalc_btn.setEnabled(False)
-        self.spin_x1.setEnabled(False)
-        self.spin_x2.setEnabled(False)
-
-        self.precalc_progress.setFormat("%p%")
-        self.precalc_progress.setValue(0)
-        self.precalc_progress.show()
-
-        total_steps = x2 - x1 + 1
-
-        # Prime the model cache first with the first ratio
-        self.get_suppressed_mask(float(x1))
-
-        for idx, ratio_val in enumerate(range(x1, x2 + 1)):
-            self.get_suppressed_mask(float(ratio_val))
-            progress_pct = int((idx + 1) / total_steps * 100)
-            self.precalc_progress.setValue(progress_pct)
-            # Yield control back to Qt to process GUI updates and keep window responsive
-            QCoreApplication.processEvents()
-
-        # Re-enable controls
-        self.precalc_btn.setEnabled(True)
-        self.spin_x1.setEnabled(True)
-        self.spin_x2.setEnabled(True)
-        self.precalc_progress.setFormat("Precalculated!")
 
     def on_cell_beads_toggled(self, checked):
         """Handler for toggling 'Only show beads within cells'."""
