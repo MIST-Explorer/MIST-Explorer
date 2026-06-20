@@ -60,7 +60,6 @@ class ZScoreHeatmapWindow(QMainWindow):
         # Extract base arrays once for faster shuffling in the loop
         orig_x = filtered_data["Global X"].values
         orig_y = filtered_data["Global Y"].values
-        orig_coords = filtered_data[["Global X", "Global Y"]].values
 
         # monte carlo simulation to generate random distributions
         print(f"Running {num_simulations} simulations...")

@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import cm
 import matplotlib.colors as mcolors
 
 
@@ -131,7 +130,7 @@ def microshow(
         else:
             try:
                 cmap = plt.get_cmap(cmap_name)
-            except:
+            except Exception:
                 cmap = create_pure_cmap("pure_red")
 
         # Apply colormap to get RGBA

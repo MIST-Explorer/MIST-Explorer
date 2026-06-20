@@ -3,8 +3,7 @@ import math
 import cv2
 import numpy as np
 import pytest
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QListWidget
+from PyQt6.QtWidgets import QApplication
 from scipy.ndimage import center_of_mass
 
 #
@@ -82,7 +81,6 @@ def dialog(qtbot):
     dialog_instance.scale_factor = 2.0
     
     def test_mock_get_current_aligned_image():
-        import copy
 
         # The logic of the test assumes that accepting computes the final image and returns it.
         # But accept_alignment() emits it and closes the dialog.

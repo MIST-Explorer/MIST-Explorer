@@ -70,9 +70,14 @@ def _crash_handler(exc_type, exc_value, exc_tb):
 sys.excepthook = _crash_handler
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-from PyQt6.QtCore import QCoreApplication, Qt
-from PyQt6.QtWidgets import (QApplication, QDialog, QLabel, QProgressBar,
-                             QVBoxLayout)
+from PyQt6.QtCore import QCoreApplication, Qt  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QDialog,
+    QLabel,
+    QProgressBar,
+    QVBoxLayout,
+)
 
 if sys.stdout is None:
     sys.stdout = io.StringIO()

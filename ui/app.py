@@ -7,7 +7,20 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ui.alignment.cell_intensity_ui import CellIntensityUI
+    from ui.alignment.cell_layer_alignment_ui import CellLayerAlignmentUI
+    from ui.alignment.register_ui import RegisterUI
+    from ui.analysis.AnalysisTab import AnalysisTab
+    from ui.canvas import ImageGraphicsViewUI, ReferenceGraphicsViewUI
+    from ui.image_manager import ImageManager
+    from ui.processing.crop_ui import CropUI
+    from ui.processing.gaussian_blur import GaussianBlur
+    from ui.processing.rotation_ui import RotateUI
+    from ui.stardist.stardist_ui import StarDistUI
+    from ui.view_tab import ImageOverlay
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import (QCoreApplication, QMetaObject, QPointF, QSize, Qt)
@@ -21,7 +34,7 @@ from PyQt6.QtWidgets import (QFileDialog, QGroupBox, QHBoxLayout, QLabel,
 
 from core import MetaData
 from core.project_manager import ProjectManager
-from core.project_naming import is_segmentation_channel, is_segmentation_name
+from core.project_naming import is_segmentation_name
 from ui.toolbar.menubar_ui import MenuBarUI
 from ui.toolbar.toolbar_ui import ToolBarUI
 from utils import resource_path
@@ -761,8 +774,6 @@ class MainWindow(QMainWindow):
 
     def _on_theme_changed(self, mode: str):
         """Refresh elements that the global QSS cannot reach."""
-        from ui.theme import ThemeManager
-        c = ThemeManager.instance().get_current()
         # Sidebar handle buttons
         handle = self.splitter.handle(1) if self.splitter.count() > 1 else None
         if handle and hasattr(handle, "_apply_btn_theme"):

@@ -18,8 +18,10 @@ import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal
 from scipy.spatial import cKDTree
 
-from core.alignment_utils import (adjust_contrast, find_points_robust,
+from core.alignment_utils import (find_points_robust,
                                   try_optical_flow_alignment)
+from skimage.filters import threshold_otsu
+
 from core.image_utils import auto_contrast
 from utils import calculate_ncc, to_uint8
 

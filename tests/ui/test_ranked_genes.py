@@ -1,5 +1,3 @@
-import pytest
-from PyQt6.QtCore import Qt
 from ui.analysis.graphing import UMAPPlot
 
 def test_ranked_genes_renaming(mock_adata, qtbot):

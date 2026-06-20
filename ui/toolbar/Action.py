@@ -1,5 +1,4 @@
 from PyQt6.QtGui import QIcon, QPixmap, QAction
-from PyQt6.QtGui import QPixmap
 
 
 class Action(QAction):

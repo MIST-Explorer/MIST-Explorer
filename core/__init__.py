@@ -2,7 +2,6 @@
 Expose main classes and functions for easy import from the core package
 """
 import importlib
-import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

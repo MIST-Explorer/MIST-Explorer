@@ -242,9 +242,6 @@ class CellIntensity(QThread):
         # Setup coordinate boundaries and mapping (same for all channels)
         radius_bg = self.params["radius_bg"]
         max_size = self.params["max_size"]
-        x_limit = self.segmentation_labels.shape[1]
-        y_limit = self.segmentation_labels.shape[0]
-
         bead_xs_all = self.bead_data[:, 0].astype(int)
         bead_ys_all = self.bead_data[:, 1].astype(int)
 

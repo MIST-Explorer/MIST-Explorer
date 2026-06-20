@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QRubberBand
-from PyQt6.QtGui import QPainter, QPen, QColor
-from PyQt6.QtCore import QPoint, pyqtSignal
+from PyQt6.QtGui import QColor
+from PyQt6.QtCore import pyqtSignal
 import colorsys
 import math
 import random
@@ -17,8 +17,8 @@ def pick_distinct_color(existing_rgb_tuples, num_candidates=20):
     for _ in range(num_candidates):
         h = random.random()
         s = random.uniform(0.5, 1.0)
-        l = random.uniform(0.35, 0.65)
-        r, g, b = colorsys.hls_to_rgb(h, l, s)
+        lightness = random.uniform(0.35, 0.65)
+        r, g, b = colorsys.hls_to_rgb(h, lightness, s)
         candidate = (int(r * 255), int(g * 255), int(b * 255))
         if not existing_rgb_tuples:
             return candidate + (50,)

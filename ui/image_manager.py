@@ -97,11 +97,11 @@ class ImageManager(QWidget):
     def _on_tree_item_renamed(self, item):
         print(f"[rename] itemChanged fired: text={item.text()!r} parent={item.parent()}")
         if item.parent() is not None:
-            print(f"[rename] skipping — child item")
+            print("[rename] skipping — child item")
             return
         print(f"[rename] _can_save_project={self._can_save_project()} path={self.current_project_path} is_temp={self.current_project_is_temp}")
         if not self._can_save_project():
-            print(f"[rename] skipping — cannot save project")
+            print("[rename] skipping — cannot save project")
             return
         item_uuid = item.data(Qt.ItemDataRole.UserRole)
         storage_item = self.storage.get_data(item_uuid)
@@ -109,7 +109,7 @@ class ImageManager(QWidget):
         if storage_item:
             print(f"[rename] calling _save_image_reference for uuid={item_uuid} name={storage_item.get('name')!r}")
             self._save_image_reference(item_uuid, storage_item)
-            print(f"[rename] _save_image_reference done")
+            print("[rename] _save_image_reference done")
 
     def save_all_images(self, copy_data: bool = False):
         """Sync current in-memory images to disk.

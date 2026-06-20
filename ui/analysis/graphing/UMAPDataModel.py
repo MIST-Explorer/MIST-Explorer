@@ -1,6 +1,8 @@
 import logging
+import re
 
 import numpy as np
+import pandas as pd
 import scanpy as sc
 
 # Setup logger for this module
@@ -179,8 +181,6 @@ class DataModel:
         if n_comps > 0:
             sc.pp.pca(self.adata_clean, n_comps=n_comps, random_state=0, svd_solver="auto")
 
-        n_vars = self.adata_clean.n_vars
-
         # Mimic "all variables are highly variable"
         self.adata_clean.var["highly_variable"] = True
 
@@ -307,11 +307,6 @@ class DataModel:
         logger.info("Leiden clustering computed.")
 
         return adata, key
-
-
-import re
-
-import pandas as pd
 
 
 def clean_panel_df(df: pd.DataFrame) -> pd.DataFrame:

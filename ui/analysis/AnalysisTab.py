@@ -19,8 +19,6 @@ Features:
 
 import logging
 import traceback
-
-# Use TYPE_CHECKING to avoid circular imports
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -29,28 +27,31 @@ import seaborn as sns
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QColor, QIcon, QStandardItem, QStandardItemModel
-from PyQt6.QtWidgets import *
 from PyQt6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-logger = logging.getLogger(__name__)
-
 from core.dataframe_utils import get_marker_columns
-from utils import resource_path
 from ui.analysis.graphing.DistributionViewer import DistributionViewer
 from ui.analysis.graphing.PieChartCanvas import PieChartCanvas
 from ui.analysis.graphing.SpatialHeatmapUpdated import HeatmapWindow
 from ui.analysis.graphing.ZScoreHeatmapWindow import ZScoreHeatmapWindow
+from utils import resource_path
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from app import MainWindow
+    from ui.app import MainWindow
 
 
 class AnalysisTab(QWidget):
@@ -106,7 +107,7 @@ class AnalysisTab(QWidget):
 
 
 class ROIAnalysisView(QWidget):
-    def __init__(self, pixmap_label, enc: "Ui_MainWindow"):
+    def __init__(self, pixmap_label, enc: "MainWindow"):
         super().__init__()
         self.enc = enc
 
@@ -486,9 +487,6 @@ class ROIAnalysisView(QWidget):
         # Update the region
         self.regions[index] = region
 
-        # Save current view index
-        old_index = self.current_view_index
-
         # Set current index to the one being updated
         self.current_view_index = index
 
@@ -581,9 +579,6 @@ class ROIAnalysisView(QWidget):
         delete_button = QPushButton("Delete")
         delete_button.clicked.connect(self.delete_current_view)
 
-        # Add region info
-        bounds_label = QLabel(f"Bounds: {region}")
-
         # Add color indicator
         color_label = QLabel()
         color_label.setFixedSize(100, 50)
@@ -594,7 +589,6 @@ class ROIAnalysisView(QWidget):
 
         # Create button layout
         button_layout = QVBoxLayout()
-        # button_layout.addWidget(bounds_label)
         button_layout.addWidget(delete_button)
 
         # Create combo and apply layout
@@ -787,15 +781,6 @@ class ROIAnalysisView(QWidget):
         # Clear current graphs
         self.graphs[self.current_view_index] = []
 
-        # Get filtered data
-        region = self.regions[self.current_view_index]
-        if self.regions[self.current_view_index][0] == "rect":
-            data = self.get_rect_data(region[1])
-        if self.regions[self.current_view_index][0] == "circle":
-            data = self.get_circle_data(region[1])
-        if self.regions[self.current_view_index][0] == "poly":
-            data = self.get_poly_data(region[1])
-
         self.columns = checked_items
 
         # Regenerate graphs
@@ -860,7 +845,6 @@ class ROIAnalysisView(QWidget):
         layout = QVBoxLayout()
 
         # Retrieve the current graph widget from the encoder
-        index = self.current_graph_index
         widget = self.get_current_graph()
         widget.setSizePolicy(
             widget.sizePolicy().Policy.Expanding, widget.sizePolicy().Policy.Expanding
@@ -886,7 +870,6 @@ class ROIAnalysisView(QWidget):
         As of writing this, this is the regenerate_callback called in open_in_new_window that the RegenerateOnCloseWindowCalls.
         """
         # When the new window is closed, regenerate the graph in the main window
-        index = self.current_graph_index
         new_graph = self.get_current_graph()
 
         # Clear old content and update layout with the regenerated graph

@@ -30,7 +30,8 @@ super = np.array(
     ]
 )
 
-in_bounds = lambda arr, i, j: i >= 0 and i < len(arr) and j >= 0 and j < len(arr)
+def in_bounds(arr, i, j):
+    return i >= 0 and i < len(arr) and j >= 0 and j < len(arr)
 
 
 def pprint(arr):

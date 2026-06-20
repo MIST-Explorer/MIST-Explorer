@@ -1,4 +1,3 @@
-import heapq
 import logging
 import math
 import re
@@ -20,7 +19,7 @@ from core.alignment_utils import (
     find_points_robust as shared_find_points_robust,
     try_optical_flow_alignment as shared_try_optical_flow_alignment,
 )
-from utils import calculate_ncc, to_uint8
+from utils import calculate_ncc
 
 logger = logging.getLogger(__name__)
 
@@ -191,8 +190,6 @@ class Register(QThread):
         #########################################################
         # move the other layers
         aligned_protein_signal = None
-        total_sr_none = 0
-        total_aa_none = 0
         total = 0
         assert isinstance(
             moving_map, TileMap), "moving_map is not a TileMap instance"
@@ -348,7 +345,6 @@ class Register(QThread):
         # Try optical flow first
         best_ncc = 0
         transf = None
-        name = ""
         ncc_after = -1
         best_registered = source
         itk_transf = None
@@ -370,7 +366,6 @@ class Register(QThread):
                 ncc_after = calculate_ncc(registered, target)
                 assert ncc_after is not None, "NCC after alignment is None"
                 if ncc_after > best_ncc:
-                    name = key
                     best_registered = registered
                     best_ncc = ncc_after
                     transf = M
@@ -395,7 +390,6 @@ class Register(QThread):
                     best_ncc = ncc_after
                     transf = t
                     best_registered = registered
-                    name = "AstroAlign"
             except Exception as e:
                 logger.warning("AstroAlign failed: %s", e)
 
@@ -416,7 +410,6 @@ class Register(QThread):
                 if ncc_after > best_ncc:
                     best_ncc = ncc_after
                     transf = M
-                    name = "SIFT"
                     best_registered = registered
         if best_ncc < self.ncc_threshold:  # If still not good, improve with ITK
             itk_transf, s, t = self.try_itk_alignment(best_registered, target)

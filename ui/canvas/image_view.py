@@ -52,7 +52,6 @@ pg.setConfigOption("useOpenGL", True)
 
 # Only enable CuPy if the library is available and can be imported
 try:
-    import cupy
     has_cupy = True
 except Exception:
     has_cupy = False

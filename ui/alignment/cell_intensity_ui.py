@@ -9,8 +9,7 @@ import pandas as pd
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSignal
 from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                             QGroupBox, QHBoxLayout, QLabel, QMessageBox,
-                             QPushButton, QSlider, QSpinBox, QTableWidget,
+                             QGroupBox, QHBoxLayout, QLabel, QPushButton, QSlider, QSpinBox, QTableWidget,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
 from core.project_naming import is_segmentation_channel

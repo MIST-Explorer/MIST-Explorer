@@ -7,6 +7,7 @@ import numpy as np
 import tifffile as tiff
 from numpy.typing import NDArray
 from PyQt6.QtGui import QImage, QPixmap
+from skimage.filters import threshold_otsu
 logger = logging.getLogger(__name__)
 
 _CV2_WARP_DTYPES = (np.uint8, np.uint16, np.int16, np.float32, np.float64)
@@ -104,16 +105,6 @@ def qimage_to_numpy(qimage: QImage):
     else:
         raise ValueError(f"Unsupported QImage format: {qimage.format()}")
 
-
-# this and qimage to numpy seems repetitive, delete one of them
-# Dead code: This function is not used anywhere in the codebase.
-def pixmap_to_image(pixmap: QPixmap):
-    if pixmap == None:
-        return None
-    # Convert QPixmap to QImage
-    qimage = pixmap.toImage()
-
-    return qimage_to_numpy(qimage)
 
 
 def to_pixmap(data: QPixmap | np.ndarray | QImage):
@@ -256,7 +247,6 @@ def adjustContrast(img, alpha=5, beta=15):
 
 
 # uint16 to uint8
-import numpy as np
 
 
 def grayscale_to_agrb(img_2d: np.ndarray) -> np.ndarray:
@@ -293,7 +283,6 @@ def gaussian_kernel_1d(sigma, radius=None):
     """Generate 1D Gaussian kernel."""
     if radius is None:
         radius = int(np.ceil(3 * sigma))
-    size = 2 * radius + 1
     x = np.arange(-radius, radius + 1, dtype=np.float32)
     kernel = np.exp(-(x**2) / (2 * sigma**2))
     kernel /= kernel.sum()
@@ -326,8 +315,6 @@ def adjust_contrast(
     img_adjusted = (img_adjusted - minval) / (maxval - minval)
     return img_adjusted
 
-
-from skimage.filters import threshold_otsu
 
 
 def background_subtraction_with_histogram(image: np.ndarray) -> np.ndarray:

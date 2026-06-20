@@ -5,7 +5,7 @@ import numpy as np
 import pyqtgraph as pg
 import qtrangeslider
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QBrush, QColor, QCursor, QPainter, QPen
+from PyQt6.QtGui import QCursor, QPainter
 from PyQt6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QScrollArea,
                              QSizePolicy, QSlider, QSplitter,
@@ -389,11 +389,11 @@ class CrosstalkPreviewDialog(QDialog):
         # --- Scroll Area for Channel Sliders ---
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet(f"""
-            QScrollArea {{
+        scroll.setStyleSheet("""
+            QScrollArea {
                 border: none;
                 background-color: transparent;
-            }}
+            }
         """)
 
         scroll_content = QWidget()

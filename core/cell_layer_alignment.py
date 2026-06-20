@@ -12,7 +12,6 @@ from pystackreg import StackReg
 from pystackreg.util import to_uint16
 from scipy.ndimage import binary_fill_holes, rotate, zoom
 
-from core.image_utils import window_image_by_contrast
 from utils import (
     adjust_contrast,
     background_subtraction_with_histogram,
@@ -374,7 +373,7 @@ class CellLayerAligner(QThread):
                 result_payload, self.target_image, final_aligned_image
             )
 
-        except Exception as e:
+        except Exception:
             self._fatal_error_message(
                 f"Error during alignment: {traceback.format_exc()}"
             )
@@ -641,15 +640,6 @@ def composite_to_matrix(composite_transform, reference_image):
                 ]
 
         # Method 2: For multiple transforms, compute equivalent matrix by sampling
-        # Get image dimensions for reasonable test points
-        size = reference_image.GetSize()
-        spacing = reference_image.GetSpacing()
-        origin = reference_image.GetOrigin()
-
-        # Define test points in physical space
-        center_x = origin[0] + (size[0] * spacing[0]) / 2
-        center_y = origin[1] + (size[1] * spacing[1]) / 2
-
         # Test points: origin, and points offset by 1 unit in each direction
         test_points = [
             [0.0, 0.0],  # Origin

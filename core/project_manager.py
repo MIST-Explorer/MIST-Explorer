@@ -3,13 +3,16 @@ import logging
 import platform
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 import uuid
 
 import numpy as np
 import tifffile
 
 from models.workspace import ImageMetadata, ProjectMetadata
+
+if TYPE_CHECKING:
+    from core.canvas import ImageWrapper
 
 logger = logging.getLogger(__name__)
 

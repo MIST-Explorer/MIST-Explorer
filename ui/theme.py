@@ -20,7 +20,6 @@ Usage:
 
 import json
 import logging
-import os
 from pathlib import Path
 
 from PyQt6.QtCore import QByteArray, QObject, pyqtSignal
@@ -28,7 +27,6 @@ from PyQt6.QtGui import QColor, QPainter, QPalette, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication
 
-from utils import resource_path
 
 logger = logging.getLogger(__name__)
 

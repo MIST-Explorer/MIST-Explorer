@@ -1388,24 +1388,23 @@ class ImageGraphicsView(BaseGraphicsView):
         )  # read contrast settings
         # use image_wrapper data if image is None
         image_to_display = None
-        prev_cmap = None
         if cmap_text == "label_image":
             # image = self.image_wrapper.data
-            image, prev_cmap = self.update_contrast_memory_efficient(
+            image, _ = self.update_contrast_memory_efficient(
                 (contrast_min, contrast_max),
                 use_cache=use_cache,
                 is_labeled=True,
                 cache_result=cache_result,
             )
         elif image is None:
-            image, prev_cmap = self.update_contrast_memory_efficient(
+            image, _ = self.update_contrast_memory_efficient(
                 (contrast_min, contrast_max),
                 use_cache=use_cache,
                 cache_result=cache_result,
             )
         if image.size == 0:
             return None
-        if cmap_text != "label_image" and prev_cmap != "label_image":
+        if cmap_text != "label_image":
             if image.ndim == 3 and image.shape[2] == 3:
                 image_to_display = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             else:

@@ -1,13 +1,16 @@
 import logging
 import os
+import time
 import traceback
 
-logger = logging.getLogger(__name__)
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
+import cv2
 import numpy as np
 import pandas as pd
 import qtrangeslider
 import tifffile as tiff
+from PIL import Image
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QImage, QPalette
 from PyQt6.QtWidgets import (
@@ -34,16 +37,11 @@ from PyQt6.QtWidgets import (
 from controller import Controller
 from core.dataframe_utils import METADATA_COLUMNS, get_marker_columns
 from core.image_utils import auto_contrast_helper, create_lut, scale_adjust
-from utils import resource_path
-
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-import os
-
-import cv2
-from PIL import Image
-
 from core.Worker import Worker
 from ui.analysis.graphing.UMAPPlot import UMAPVisualizer
+from utils import resource_path
+
+logger = logging.getLogger(__name__)
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -131,7 +129,7 @@ class ControlsBox:
         self.tint_yn = True
 
 
-import time
+
 
 # def write_protein(protein_data, reduced_cell_img):
 #     t = time.time()
@@ -287,7 +285,7 @@ def scale_image_to_255(image_array):
     try:
         if image_array.dtype == np.uint8:
             return image_array
-    except:
+    except AttributeError:
         pass
 
     scaled_image = (
@@ -332,17 +330,17 @@ class LayerDialog(QDialog):
             "selected items: %s",
             [item.text() for item in self.layer_list.selectedItems()],
         )
-        logger.debug("layer names: %s", [l["name"] for l in self.layers])
+        logger.debug("layer names: %s", [layer["name"] for layer in self.layers])
         logger.debug(
             "selected layer index: %s",
-            [l["name"] for l in self.layers].index(
+            [layer["name"] for layer in self.layers].index(
                 [item.text() for item in self.layer_list.selectedItems()][0]
             ),
         )
 
         selected_items = self.layer_list.selectedItems()
         if selected_items:
-            selected_index = [l["name"] for l in self.layers].index(
+            selected_index = [layer["name"] for layer in self.layers].index(
                 [item.text() for item in self.layer_list.selectedItems()][0]
             )
 
@@ -535,7 +533,7 @@ class ImageOverlay(QWidget):
         if not self.controller:
             self.controller = Controller.get()
             self.model_canvas = self.controller.model_canvas
-        import time
+
 
         if not hasattr(self, "im_path"):
             import ui.app
@@ -655,7 +653,7 @@ class ImageOverlay(QWidget):
 
         layer_values = []
         for c in self.controls:
-            if c.current_visibility == False:
+            if not c.current_visibility:
                 continue
 
             # Skip if this is an "other image" (RGB) which has no cell data
@@ -1098,7 +1096,6 @@ class ImageOverlay(QWidget):
         slider_grid.setColumnStretch(2, 1)  # slider column expands
 
         lbl_style = f"font-size: 10px; color: {theme['label']}; font-weight: 600;"
-        muted_style = f"font-size: 10px; color: {theme['muted']};"
 
         # Editable number fields: subtle bg + bottom accent on focus
         _edit_style = (

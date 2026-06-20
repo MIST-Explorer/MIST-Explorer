@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QFileDialog
 from stardist.models import StarDist2D
 
 from core import ImageStorage, ImageWrapper
-from core.cellprofiler_segmentation import identify_primary_objects, segment_primary_objects
+from core.cellprofiler_segmentation import segment_primary_objects
 from core.image_utils import window_image_by_contrast
 from core.project_naming import SEGMENTATION_BASE_NAME, prefix_with_project_name
 from utils import resource_path

@@ -1,5 +1,4 @@
 import sys
-from time import sleep
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,9 +8,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QScrollArea,
-    QPushButton,
-    QLabel,
-    QFileDialog,
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
@@ -87,33 +83,6 @@ class DistributionViewer(QMainWindow):
         self.plot_distributions(data)
 
 
-import pandas as pd
-
-
-def trim_outliers(data, method="iqr", factor=1.5):
-    """
-    Trims outliers from a DataFrame or Series.
-
-    Parameters:
-        data (pd.DataFrame or pd.Series): The data to trim.
-        method (str): The method to use for trimming ('iqr' or 'zscore').
-        factor (float): The threshold for identifying outliers. Default is 1.5 for IQR.
-
-    Returns:
-        pd.DataFrame or pd.Series: Data with outliers trimmed.
-    """
-    if isinstance(data, pd.Series):
-        return _trim_outliers_series(data, method, factor)
-    elif isinstance(data, pd.DataFrame):
-        return data.apply(
-            lambda col: (
-                _trim_outliers_series(col, method, factor)
-                if pd.api.types.is_numeric_dtype(col)
-                else col
-            )
-        )
-    else:
-        raise ValueError("Input must be a pandas DataFrame or Series.")
 
 
 def trim_outliers(data, method="iqr", factor=1.5):

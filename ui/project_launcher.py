@@ -5,7 +5,6 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor, QPixmap
 from PyQt6.QtWidgets import (
     QDialog,
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
@@ -152,11 +151,6 @@ class ProjectLauncher(QDialog):
         temp_project_btn.clicked.connect(self._on_temp_project)
         layout.addWidget(temp_project_btn)
 
-        open_project_btn = QPushButton("Open Existing Project...")
-        open_project_btn.setFixedHeight(32)
-        open_project_btn.clicked.connect(self._on_open_existing)
-        layout.addWidget(open_project_btn)
-
         layout.addSpacing(8)
 
         separator = QFrame()
@@ -218,25 +212,6 @@ class ProjectLauncher(QDialog):
     def _on_temp_project(self):
         self.selected_project_path = ProjectManager.create_temp_project()
         self.accept()
-
-    def _on_open_existing(self):
-        path = QFileDialog.getExistingDirectory(
-            self,
-            "Open Project",
-            str(ProjectManager.get_projects_path()),
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
-        )
-        if path:
-            project_path = Path(path)
-            if project_path.suffix != ".mist":
-                QMessageBox.warning(
-                    self,
-                    "Invalid Project",
-                    "Please select a folder with the .mist extension.",
-                )
-                return
-            self.selected_project_path = project_path
-            self.accept()
 
     def _on_open_folder(self):
         ProjectManager.ensure_storage_exists()

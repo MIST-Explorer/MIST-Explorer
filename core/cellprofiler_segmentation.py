@@ -11,7 +11,6 @@ from centrosome.threshold import (
     get_robust_background_threshold,
     get_ridler_calvard_threshold,
     get_kapur_threshold,
-    get_maximum_correlation_threshold,
     get_adaptive_threshold,
 )
 
@@ -354,7 +353,8 @@ def identify_primary_objects(image_2d, min_size, max_size, settings=None):
     )
 
     if settings.get("fill_holes_after_thresholding", True):
-        size_fn = lambda size, _: size < (float(max_size) * float(max_size))
+        def size_fn(size, _):
+            return size < (float(max_size) * float(max_size))
         binary = centrosome.cpmorphology.fill_labeled_holes(binary, size_fn=size_fn)
 
     labeled, _ = scipy.ndimage.label(binary, np.ones((3, 3), dtype=bool))

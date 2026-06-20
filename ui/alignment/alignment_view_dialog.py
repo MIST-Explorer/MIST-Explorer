@@ -2,25 +2,19 @@ import math
 
 import cv2
 import numpy as np
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QCoreApplication
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
-    QBrush,
-    QColor,
-    QFont,
     QImage,
     QIntValidator,
     QPainter,
-    QPen,
     QPixmap,
     QTransform,
 )
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
-    QGraphicsEllipseItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
-    QGraphicsSimpleTextItem,
     QGraphicsView,
     QHBoxLayout,
     QLabel,
