@@ -154,7 +154,8 @@ import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QToolTip
+from PyQt6.QtGui import QCursor
 
 from core.dataframe_utils import get_marker_columns
 
@@ -166,8 +167,15 @@ class PieChartCanvas(FigureCanvas):
         self.setParent(parent)
 
         self.df = df
+        self.wedges = []
+        self.labels = []
+        self.values = []
 
         self.plot_pie_chart()
+
+        # Connect hover event
+        self.mpl_connect("motion_notify_event", self.on_hover)
+        self.mpl_connect("figure_leave_event", lambda e: QToolTip.hideText())
 
     def plot_pie_chart(self):
 
@@ -219,6 +227,11 @@ class PieChartCanvas(FigureCanvas):
             textprops={"fontsize": 9},
         )
 
+        # Save for hover tooltips
+        self.wedges = wedges
+        self.labels = list(labels)
+        self.values = list(values)
+
         # Add white circle in the middle to create a donut effect
         center_circle = plt.Circle((0, 0), 0.4, fc="white", ec="black", lw=1)
         self.ax.add_artist(center_circle)
@@ -235,6 +248,26 @@ class PieChartCanvas(FigureCanvas):
         )
 
         plt.subplots_adjust(bottom=0.2)
+
+    def on_hover(self, event):
+        if not hasattr(self, "wedges") or not self.wedges:
+            QToolTip.hideText()
+            return
+
+        for i, wedge in enumerate(self.wedges):
+            contained, _ = wedge.contains(event)
+            if contained:
+                label = self.labels[i]
+                val = self.values[i]
+                pct = val / sum(self.values) * 100
+                tooltip_text = (
+                    f"<b>Dominant Protein:</b> {label}<br/>"
+                    f"<b>Cell Count:</b> {val}<br/>"
+                    f"<b>Percentage:</b> {pct:.1f}%"
+                )
+                QToolTip.showText(QCursor.pos(), tooltip_text, self)
+                return
+        QToolTip.hideText()
 
 
 class MainWindow(QMainWindow):

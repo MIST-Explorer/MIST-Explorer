@@ -204,20 +204,27 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
     def position_arrows(self):
         """Position the navigation arrows"""
-        vp = self.viewport()
-        assert vp is not None, "Viewport should be initialized"
-        view_width = vp.width()
-        view_height = vp.height()
+        if self.left_arrow is None or self.right_arrow is None:
+            return
 
-        y_center = self.mapToScene(QPoint(0, view_height // 2)).y()
+        try:
+            vp = self.viewport()
+            assert vp is not None, "Viewport should be initialized"
+            view_width = vp.width()
+            view_height = vp.height()
 
-        left_x = self.mapToScene(QPoint(10, 0)).x()
-        right_x = self.mapToScene(QPoint(view_width - 40, 0)).x()
+            y_center = self.mapToScene(QPoint(0, view_height // 2)).y()
 
-        self.left_arrow.setPos(
-            QPointF(left_x, y_center - 15)
-        )  # -15 to vertically center 30px arrow
-        self.right_arrow.setPos(QPointF(right_x, y_center - 15))
+            left_x = self.mapToScene(QPoint(10, 0)).x()
+            right_x = self.mapToScene(QPoint(view_width - 40, 0)).x()
+
+            self.left_arrow.setPos(
+                QPointF(left_x, y_center - 15)
+            )  # -15 to vertically center 30px arrow
+            self.right_arrow.setPos(QPointF(right_x, y_center - 15))
+        except RuntimeError:
+            self.left_arrow = None
+            self.right_arrow = None
 
     def prev_slide(self):
         """Show previous slide"""
@@ -228,22 +235,43 @@ class ReferenceGraphicsViewUI(QGraphicsView):
 
     def next_slide(self):
         """Show next slide"""
-        if self.current_index < len(self.np_channels.keys()):
+        num_channels = 0
+        if isinstance(self.np_channels, dict):
+            num_channels = len(self.np_channels.keys())
+        elif self.np_channels is not None:
+            num_channels = 1
+
+        if self.current_index < num_channels:
             self.current_index += 1
             self.update_slide()
             self.channel_changed.emit(self.current_index)
 
     def arrow_visibility(self):
         """Update visibility of arrows based on current index"""
-        if self.current_index == 1:
-            self.left_arrow.hide()
-        else:
-            self.left_arrow.show()
+        if not hasattr(self, "left_arrow") or self.left_arrow is None:
+            return
+        if not hasattr(self, "right_arrow") or self.right_arrow is None:
+            return
 
-        if self.current_index == len(self.np_channels.keys()):
-            self.right_arrow.hide()
-        else:
-            self.right_arrow.show()
+        num_channels = 0
+        if isinstance(self.np_channels, dict):
+            num_channels = len(self.np_channels.keys())
+        elif self.np_channels is not None:
+            num_channels = 1
+
+        try:
+            if self.current_index > 1:
+                self.left_arrow.show()
+            else:
+                self.left_arrow.hide()
+
+            if num_channels > self.current_index:
+                self.right_arrow.show()
+            else:
+                self.right_arrow.hide()
+        except RuntimeError:
+            self.left_arrow = None
+            self.right_arrow = None
 
     def update_slide(self):
         """Update displayed image"""
@@ -255,12 +283,14 @@ class ReferenceGraphicsViewUI(QGraphicsView):
                 utils.to_uint8(self.np_channels[f"Channel {self.current_index}"].data)
             )
         )
+        prev_rect = self.pixmap_item.boundingRect() if self.pixmap_item else QRectF()
         self.pixmap_item.setPixmap(self.pixmap)
         assert isinstance(self.pixmap_item, QGraphicsPixmapItem)
         item_rect = self.pixmap_item.boundingRect()
-        self.setSceneRect(item_rect)
-        self.fitInView(item_rect, Qt.AspectRatioMode.KeepAspectRatio)
-        self.zoom = 1.0  # Reset zoom level when fitting to view
+        if item_rect != prev_rect:
+            self.setSceneRect(item_rect)
+            self.fitInView(item_rect, Qt.AspectRatioMode.KeepAspectRatio)
+            self.zoom = 1.0  # Reset zoom level when fitting to view
         self.arrow_visibility()
 
     def _center_image(self):
@@ -277,6 +307,8 @@ class ReferenceGraphicsViewUI(QGraphicsView):
         scene = self.scene()
         assert scene is not None, "Scene should be initialized"
         scene.clear()  # Clear previous image
+        self.left_arrow = None
+        self.right_arrow = None
         # reset
         self.current_index = channel_index
 
@@ -321,7 +353,30 @@ class ReferenceGraphicsViewUI(QGraphicsView):
     def mousePressEvent(self, event):
         """Handle mouse press event"""
         self.setFocus()
+        item = self.itemAt(event.pos())
+        if item is not None:
+            parent = item
+            while parent is not None:
+                if isinstance(parent, ArrowItem):
+                    parent.mousePressEvent(event)
+                    return
+                parent = parent.parentItem()
         super().mousePressEvent(event)
+
+    # pylint: disable=invalid-name
+    def keyPressEvent(self, event):
+        """Handle arrow key presses for switching channels"""
+        if event is None:
+            return
+        if event.key() == Qt.Key.Key_Left:
+            self.prev_slide()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Right:
+            self.next_slide()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     # pylint: disable=invalid-name
     def resizeEvent(self, event):

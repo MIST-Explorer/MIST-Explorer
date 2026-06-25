@@ -22,6 +22,7 @@ class PolyLasso(QGraphicsPolygonItem):
         self.points = []  # Store scene coordinates
         col = pick_distinct_color(existing_colors or [])[:3]
         self.color = QColor(*col, 100)
+        self.fill_alpha = 100
         self.line_color = QColor(*col)  # Line color (solid)
         self.point_color = QColor(255, 0, 0)  # Point marker color (red)
         self.completed = False
@@ -163,8 +164,15 @@ class PolyLasso(QGraphicsPolygonItem):
         """Toggle the fill state of the polygon"""
         if self.completed:
             if filled:
-                self.color.setAlpha(100)  # Fill with semi-transparency
+                self.color.setAlpha(self.fill_alpha)  # Fill with semi-transparency
             else:
                 self.color.setAlpha(0)  # Make completely transparent
             self.setBrush(QBrush(self.color))  # Update the brush with new color
             self.update()  # Force a redraw
+
+    def set_fill_opacity(self, opacity: float):
+        self.fill_alpha = int(opacity * 255)
+        if self.completed and self.brush().color().alpha() > 0:
+            self.color.setAlpha(self.fill_alpha)
+            self.setBrush(QBrush(self.color))
+        self.update()

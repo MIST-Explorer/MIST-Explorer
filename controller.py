@@ -1207,9 +1207,10 @@ class SignalConnectionManager:
             self.c.model_cell_intensity.save_cell_data
         )
         self.c.model_cell_intensity.progress.connect(self.c.view.update_progress_bar)
-        self.c.view.cell_intensity_groupbox.cancel_button.clicked.connect(
+        self.c.view.cell_intensity_groupbox.cancel_requested.connect(
             self.c.model_cell_intensity.cancel
         )
+        self.c.view.cell_intensity_groupbox.model = self.c.model_cell_intensity
         self.c.view.cell_intensity_groupbox.requestFilteredStats[int].connect(
             self.c.model_cell_intensity.get_filtered_bead_count
         )
@@ -1253,6 +1254,12 @@ class SignalConnectionManager:
         """Re-enable save/filtered-stats buttons when generation completes."""
         if value >= 100:
             self.c.view.cell_intensity_groupbox.set_processing_buttons_enabled(True)
+            if msg == "Cell Data is Generated":
+                QMessageBox.information(
+                    self.c.view,
+                    "Quantification Complete",
+                    "Cell quantification generation finished successfully."
+                )
 
     def _handle_test_crosstalk_requested(self):
         ui = self.c.view.cell_intensity_groupbox

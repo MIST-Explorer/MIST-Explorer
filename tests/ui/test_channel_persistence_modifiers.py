@@ -234,3 +234,25 @@ def test_uuid_reload_restores_stardist_overlay_state(qapp, monkeypatch):
     view.set_stardist_overlay_enabled(True)
 
     assert view.stardist_overlay_enabled is True
+
+    # Verify that overlay is applied to Channel 1 (non-virtual channel)
+    test_img = np.ones((2, 2), dtype=np.uint16) * 1000
+    view.current_channel = 0  # Channel 1
+    view.image_wrapper = view.working_channels["Channel 1"]
+    result_ch1 = view._apply_stardist_overlay(test_img)
+    assert result_ch1.ndim == 3
+    assert result_ch1.shape[2] == 3
+
+    # Verify that overlay is also applied to Channel 2 (another non-virtual channel)
+    view.current_channel = 1  # Channel 2
+    view.image_wrapper = view.working_channels["Channel 2"]
+    result_ch2 = view._apply_stardist_overlay(test_img)
+    assert result_ch2.ndim == 3
+    assert result_ch2.shape[2] == 3
+
+    # Verify that overlay is NOT applied on Channel 3 (the virtual segmentation channel itself)
+    view.current_channel = 2  # Channel 3
+    view.image_wrapper = view.working_channels["Channel 3"]
+    result_ch3 = view._apply_stardist_overlay(test_img)
+    assert np.array_equal(result_ch3, test_img)
+

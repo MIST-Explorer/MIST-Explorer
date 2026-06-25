@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
     QGridLayout,
     QGroupBox,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QToolTip,
 )
 
 from core.dataframe_utils import get_marker_columns
@@ -150,6 +152,8 @@ class HeatmapWindow(QMainWindow):
         # Matplotlib figure + canvas
         self.figure, self.ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
         self._canvas = FigureCanvas(self.figure)
+        self._canvas.mpl_connect("motion_notify_event", self.on_hover)
+        self._canvas.mpl_connect("figure_leave_event", lambda e: QToolTip.hideText())
 
         # Splitter lets the user drag to resize the threshold list vs the heatmap
         self._splitter = QSplitter(Qt.Orientation.Vertical)
@@ -251,6 +255,9 @@ class HeatmapWindow(QMainWindow):
         median_distance = np.nanmedian(distances_normalized)
         vmax_value = max(2 * median_distance, 0.01)
 
+        self.distances = distances
+        self.distances_normalized = distances_normalized
+
         # Redraw on existing axes
         self.figure.clear()
         self.ax = self.figure.add_subplot(111)
@@ -279,3 +286,33 @@ class HeatmapWindow(QMainWindow):
         )
         # apply_matplotlib_theme(self.figure, self.ax)
         self._canvas.draw_idle()
+
+    def on_hover(self, event):
+        if not hasattr(self, "distances") or self.distances is None or event.inaxes != self.ax:
+            QToolTip.hideText()
+            return
+
+        x, y = event.xdata, event.ydata
+        if x is not None and y is not None:
+            p = len(self._proteins)
+            col_idx = int(np.floor(x))
+            row_idx = int(np.floor(y))
+            if 0 <= col_idx < p and 0 <= row_idx < p:
+                p1 = self._proteins[row_idx]
+                p2 = self._proteins[col_idx]
+                raw_dist = self.distances[row_idx, col_idx]
+                norm_dist = self.distances_normalized[row_idx, col_idx]
+
+                raw_dist_str = f"{raw_dist:.2f} µm" if not np.isnan(raw_dist) else "N/A"
+                norm_dist_str = f"{norm_dist:.4f}" if not np.isnan(norm_dist) else "N/A"
+
+                tooltip_text = (
+                    f"<b>Protein A:</b> {p1}<br/>"
+                    f"<b>Protein B:</b> {p2}<br/>"
+                    f"<b>Distance:</b> {raw_dist_str}<br/>"
+                    f"<b>Normalized Dist:</b> {norm_dist_str}"
+                )
+                QToolTip.showText(QCursor.pos(), tooltip_text, self._canvas)
+                return
+
+        QToolTip.hideText()

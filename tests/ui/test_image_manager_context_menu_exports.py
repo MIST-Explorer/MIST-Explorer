@@ -340,3 +340,106 @@ def test_temp_project_skips_auto_persist_on_delete(qapp, monkeypatch, tmp_path):
     manager.image_tree_view.delete_item(root_index)
     assert delete_calls == []
     assert manager.image_tree_model.rowCount() == 0
+
+
+def test_set_as_segmentation_label_moves_channel_to_parent_image(qapp, monkeypatch):
+    manager = ImageManager()
+
+    # Add two images
+    img1_uuid = _add_image(
+        manager,
+        "SourceImage",
+        {
+            "Channel 1": ImageWrapper(
+                np.array([[10, 20], [30, 40]], dtype=np.uint16), name="Channel 1"
+            ),
+            "Channel 2": ImageWrapper(
+                np.array([[0, 1], [1, 2]], dtype=np.uint16), name="Channel 2"
+            )
+        }
+    )
+    img2_uuid = _add_image(
+        manager,
+        "TargetImage",
+        {
+            "Channel 1": ImageWrapper(
+                np.array([[100, 200], [300, 400]], dtype=np.uint16), name="Channel 1"
+            )
+        }
+    )
+
+    # We want to set SourceImage's Channel 2 as a segmentation label, moving it to TargetImage.
+    # The dialog should list TargetImage.
+    # We mock QInputDialog.getItem to select "TargetImage (xxxx)"
+    mocked_getItem_calls = []
+    def mock_getItem(parent, title, label, items, current, editable):
+        mocked_getItem_calls.append(items)
+        return items[0], True # TargetImage (xxx) is the only other image
+
+    monkeypatch.setattr("PyQt6.QtWidgets.QInputDialog.getItem", mock_getItem)
+
+    # Channel index of "Channel 2" in img1 is 1.
+    manager.image_tree_view.set_as_segmentation_label(img1_uuid, 1)
+
+    # Check that getItem was called with TargetImage
+    assert len(mocked_getItem_calls) == 1
+    assert "TargetImage" in mocked_getItem_calls[0][0]
+
+    # Verify channel was removed from img1
+    img1_entry = manager.storage.get_data(img1_uuid)
+    assert "Channel 2" not in img1_entry["data"]
+    assert len(img1_entry["data"]) == 1
+
+    # Verify channel was moved to img2 and marked as a segmentation channel
+    img2_entry = manager.storage.get_data(img2_uuid)
+    assert "Channel 2" in img2_entry["data"]
+    moved_wrapper = img2_entry["data"]["Channel 2"]
+    from core.project_naming import is_segmentation_channel
+    assert is_segmentation_channel(moved_wrapper)
+    assert moved_wrapper.cmap == "label_image"
+
+    # Verify seg_label_uuid in storage points to target
+    seg_label = manager.storage.get_data("seg_label_uuid")
+    assert seg_label is not None
+    assert str(seg_label["value"]) == str(img2_uuid)
+    assert seg_label["channel"] == 1 # Channel 2 is at index 1
+
+
+def test_set_as_segmentation_label_deletes_source_if_empty(qapp, monkeypatch):
+    manager = ImageManager()
+
+    img1_uuid = _add_image(
+        manager,
+        "SourceImage",
+        {
+            "Channel 1": ImageWrapper(
+                np.array([[10, 20], [30, 40]], dtype=np.uint16), name="Channel 1"
+            )
+        }
+    )
+    img2_uuid = _add_image(
+        manager,
+        "TargetImage",
+        {
+            "Channel 1": ImageWrapper(
+                np.array([[100, 200], [300, 400]], dtype=np.uint16), name="Channel 1"
+            )
+        }
+    )
+
+    def mock_getItem(parent, title, label, items, current, editable):
+        return items[0], True
+
+    monkeypatch.setattr("PyQt6.QtWidgets.QInputDialog.getItem", mock_getItem)
+
+    # Channel index of "Channel 1" in img1 is 0.
+    manager.image_tree_view.set_as_segmentation_label(img1_uuid, 0)
+
+    # Verify SourceImage is deleted from storage and model
+    assert manager.storage.get_data(img1_uuid) is None
+    assert manager.image_tree_model.rowCount() == 1 # Only TargetImage left
+
+    # Verify TargetImage has the moved segmentation channel
+    img2_entry = manager.storage.get_data(img2_uuid)
+    assert "Channel 2" in img2_entry["data"]
+

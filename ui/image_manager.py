@@ -33,6 +33,7 @@ from core.project_naming import (
     SEGMENTATION_BASE_NAME,
     is_segmentation_channel,
     is_temp_project_name,
+    prefix_with_project_name,
 )
 from models.image_list_model import ImageTreeItem, ImageTreeModel
 from ui.status_badge_delegate import StatusBadgeDelegate
@@ -1065,10 +1066,181 @@ class ImageTreeWidget(QTreeView):
                     f"Failed to save image to {file_path}.\n\nError: {str(e)}"
                 )
 
+    def _resolve_stardist_channel_key(self, channel_map: dict) -> str:
+        for channel_key, wrapper in channel_map.items():
+            if is_segmentation_channel(wrapper):
+                return channel_key
+        # Find next available channel key
+        next_index = 0
+        for key in channel_map:
+            if not isinstance(key, str) or not key.startswith("Channel "):
+                continue
+            try:
+                idx = int(key.replace("Channel ", ""))
+            except ValueError:
+                continue
+            next_index = max(next_index, idx)
+        return f"Channel {next_index + 1}"
+
     def set_as_segmentation_label(self, i_uuid: UUID, channel: int):
-        """Set the selected image as the StarDist label image for alignment"""
-        self.storage.add_data("seg_label_uuid", {"value": i_uuid, "channel": channel})
-        self.segmentation_label.emit(i_uuid, channel)
+        """Set the selected channel as the StarDist label image and move it to a chosen parent image."""
+        model = self.model()
+        if not isinstance(model, ImageTreeModel):
+            return
+
+        source_entry = self.storage.get_data(i_uuid)
+        if source_entry is None:
+            return
+        source_data = source_entry.get("data", {})
+        channel_key = f"Channel {channel + 1}"
+        if channel_key not in source_data:
+            return
+
+        # Find all other top-level images
+        other_images = []
+        for i in range(model.rowCount()):
+            item_node = model.item(i)
+            if item_node is None:
+                continue
+            item_uuid = item_node.data(Qt.ItemDataRole.UserRole)
+            if item_uuid is None:
+                continue
+            if str(item_uuid) != str(i_uuid):
+                other_images.append((item_node.text(), str(item_uuid)))
+
+        if not other_images:
+            QMessageBox.warning(
+                self,
+                "No Other Images",
+                "There are no other existing images to set as the parent for this segmentation label."
+            )
+            return
+
+        items = [f"{name} ({uid[:8]})" for name, uid in other_images]
+        choice, ok = QInputDialog.getItem(
+            self,
+            "Select Parent Image",
+            "Choose which image should be the parent for this segmentation label:",
+            items,
+            0,
+            False
+        )
+        if not ok or not choice:
+            return
+
+        selected_index = items.index(choice)
+        target_image_uuid_str = other_images[selected_index][1]
+        target_image_uuid = UUID(target_image_uuid_str)
+
+        target_entry = self.storage.get_data(target_image_uuid)
+        if target_entry is None:
+            return
+        target_data = target_entry.get("data", {})
+
+        # Move the channel wrapper from source to target
+        wrapper = source_data.pop(channel_key)
+
+        # Update wrapper properties to be a proper segmentation channel
+        manager = self.parent()
+        project_name = None
+        is_temp = False
+        if isinstance(manager, ImageManager):
+            project_name = manager.current_project_name
+            is_temp = manager.current_project_is_temp
+
+        label_name = prefix_with_project_name(
+            SEGMENTATION_BASE_NAME,
+            project_name,
+            is_temp_project=is_temp,
+        )
+        wrapper.name = label_name
+        wrapper.cmap = "label_image"
+        wrapper.contrast_min = 0
+        wrapper.contrast_max = 255
+
+        # Resolve/add to target
+        target_channel_key = self._resolve_stardist_channel_key(target_data)
+        target_data[target_channel_key] = wrapper
+
+        # Renumber target channels
+        self._renumber_channels(target_data)
+
+        # Find the new target channel key after renumbering
+        new_target_channel_key = None
+        for k, w in target_data.items():
+            if is_segmentation_channel(w):
+                new_target_channel_key = k
+                break
+        if new_target_channel_key is None:
+            new_target_channel_key = target_channel_key
+        target_channel_index = int(new_target_channel_key.replace("Channel ", "")) - 1
+
+        # Handle source image updates
+        if not source_data:
+            # Delete source image from storage and model
+            self.storage.remove_data(i_uuid)
+            for i in range(model.rowCount()):
+                item_node = model.item(i)
+                if item_node and str(item_node.data(Qt.ItemDataRole.UserRole)) == str(i_uuid):
+                    model.removeRow(i)
+                    break
+            self.item_deleted.emit(i_uuid)
+            if self.model_canvas is not None and str(self.model_canvas.uuid) == str(i_uuid):
+                self.model_canvas.clear_canvas()
+            if isinstance(manager, ImageManager) and manager._can_save_project():
+                ProjectManager.delete_image(manager.current_project_path, str(i_uuid))
+        else:
+            # Renumber source channels and update source tree node
+            channel_mapping = self._renumber_channels(source_data)
+            for i in range(model.rowCount()):
+                item_node = model.item(i)
+                if item_node and str(item_node.data(Qt.ItemDataRole.UserRole)) == str(i_uuid):
+                    self._repair_default_channel(item_node, source_data, channel_mapping, channel_key)
+                    if isinstance(manager, ImageManager):
+                        manager._sync_channel_children(item_node, i_uuid, source_data)
+                    if isinstance(item_node, ImageTreeItem):
+                        item_node.set_icon(source_data)
+                    break
+            if isinstance(manager, ImageManager) and manager._can_save_project():
+                manager._save_image_reference(str(i_uuid), source_entry)
+
+        # Update target tree node
+        for i in range(model.rowCount()):
+            item_node = model.item(i)
+            if item_node and str(item_node.data(Qt.ItemDataRole.UserRole)) == str(target_image_uuid):
+                if isinstance(manager, ImageManager):
+                    manager._sync_channel_children(item_node, target_image_uuid, target_data)
+                if isinstance(item_node, ImageTreeItem):
+                    item_node.set_icon(target_data)
+                break
+        if isinstance(manager, ImageManager) and manager._can_save_project():
+            manager._save_image_reference(str(target_image_uuid), target_entry)
+
+        # Register the new segmentation label in storage and notify listeners
+        self.storage.add_data("seg_label_uuid", {"value": target_image_uuid, "channel": target_channel_index})
+        self.segmentation_label.emit(target_image_uuid, target_channel_index)
+
+        # Notify storage listeners of data changes
+        if source_data:
+            self.storage.data_changed.emit(str(i_uuid), channel_key)
+        self.storage.data_changed.emit(str(target_image_uuid), new_target_channel_key)
+
+        # Reload canvas if either image is active
+        if self.model_canvas is not None:
+            if str(self.model_canvas.uuid) == str(target_image_uuid):
+                current_ch_key = f"Channel {self.model_canvas.current_channel + 1}"
+                if current_ch_key not in target_data:
+                    current_ch_key = next(iter(target_data))
+                self.model_canvas.add_to_canvas(
+                    target_image_uuid, as_new_image=False, target_channel=current_ch_key
+                )
+            elif str(self.model_canvas.uuid) == str(i_uuid) and source_data:
+                current_ch_key = f"Channel {self.model_canvas.current_channel + 1}"
+                if current_ch_key not in source_data:
+                    current_ch_key = next(iter(source_data))
+                self.model_canvas.add_to_canvas(
+                    i_uuid, as_new_image=False, target_channel=current_ch_key
+                )
 
     # ------------------------------------------------------------------
     # Badge repaint helpers

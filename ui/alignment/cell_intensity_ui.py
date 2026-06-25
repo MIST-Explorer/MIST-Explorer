@@ -9,10 +9,12 @@ import pandas as pd
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSignal
 from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                             QGroupBox, QHBoxLayout, QLabel, QPushButton, QSlider, QSpinBox, QTableWidget,
-                             QTableWidgetItem, QVBoxLayout, QWidget)
+                             QGroupBox, QHBoxLayout, QLabel, QPushButton,
+                             QSlider, QSpinBox, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
 
 from core.project_naming import is_segmentation_channel
+from ui.alignment.filter_bead_stats_dialog import FilterBeadStatsDialog
 from ui.processing.segmentation_image_selector import SegmentationImageSelector
 
 _SLIDER_STEPS = [0.55, 0.70, 0.85, 1.00, 1.15, 1.30]
@@ -115,6 +117,7 @@ class CellIntensityUI(QWidget):
     requestFilteredStats = pyqtSignal(int)
     thresholdApplied = pyqtSignal(float, int)
     testCrosstalkRequested = pyqtSignal()
+    cancel_requested = pyqtSignal()
 
     def __init__(self, parent=None, containing_layout: typing.Optional[QVBoxLayout] = None):
         super().__init__(parent)
@@ -122,6 +125,8 @@ class CellIntensityUI(QWidget):
         self.channel_to_color_code = {}
         self.available_channels = []
         self.bead_data_file = None
+        self._is_running = False
+        self._generation_enabled = False
 
         # Attributes initialized in setup_ui
         self.cell_intensity_groupbox = None
@@ -147,7 +152,6 @@ class CellIntensityUI(QWidget):
         self.crosstalk_slider = None
         self.test_crosstalk_button = None
         self.run_button = None
-        self.cancel_button = None
         self.save_button = None
         self.filtered_stats_button = None
         self.filter_status_label = None
@@ -252,21 +256,10 @@ class CellIntensityUI(QWidget):
         
         self.cellintensity_components_vlayout.addLayout(self.crosstalk_layout)
 
-        # run button
-        self.run_button = QPushButton(self.cell_intensity_groupbox)
-        self.run_button.clicked.connect(self._handle_generate_cell_data)
-        self.run_button.setEnabled(False)
-        self.cellintensity_components_vlayout.addWidget(self.run_button)
 
-        # cancel button
-        self.cancel_button = QPushButton(self.cell_intensity_groupbox)
-        self.cellintensity_components_vlayout.addWidget(self.cancel_button)
 
-        # save button (disabled until a run completes)
-        self.save_button = QPushButton(self.cell_intensity_groupbox)
-        self.save_button.setEnabled(False)
-        self.cellintensity_components_vlayout.addWidget(self.save_button)
 
+ 
         # filtered bead stats button
         self.filtered_stats_button = QPushButton(self.cell_intensity_groupbox)
         self.filtered_stats_button.clicked.connect(self._show_filtered_bead_stats)
@@ -276,6 +269,17 @@ class CellIntensityUI(QWidget):
         self.filter_status_label = QLabel()
         self.filter_status_label.setVisible(False)
         self.cellintensity_components_vlayout.addWidget(self.filter_status_label)
+        
+                # run button
+        self.run_button = QPushButton(self.cell_intensity_groupbox)
+        self.run_button.clicked.connect(self._handle_generate_cell_data)
+        self.run_button.setEnabled(False)
+        self.cellintensity_components_vlayout.addWidget(self.run_button)
+        # save button (disabled until a run completes)
+        self.save_button = QPushButton(self.cell_intensity_groupbox)
+        self.save_button.setEnabled(False)
+        self.cellintensity_components_vlayout.addWidget(self.save_button)
+
 
         # channel progress label (shown while running)
         self.channel_progress_label = QLabel()
@@ -290,6 +294,10 @@ class CellIntensityUI(QWidget):
         self._retranslate_ui()
 
     def _handle_generate_cell_data(self):
+        if self._is_running:
+            self.cancel_requested.emit()
+            return
+
         if self.bead_data_file is not None:
             self.filter_status_label.setVisible(False)
             self._start_run(len(self.channel_to_color_code))
@@ -412,14 +420,23 @@ class CellIntensityUI(QWidget):
 
     def set_generation_enabled(self, enabled: bool):
         """Enable generation only when a source image is selected in the image manager."""
-        self.run_button.setEnabled(bool(enabled))
+        self._generation_enabled = bool(enabled)
+        if not self._is_running:
+            self.run_button.setEnabled(self._generation_enabled)
 
     def set_processing_buttons_enabled(self, enabled: bool):
         """Enable/disable filtered stats button during generation. Save is controlled by on_channel_done."""
         self.filtered_stats_button.setEnabled(bool(enabled))
+        self._is_running = not enabled
+        if self._is_running:
+            self.run_button.setText(QCoreApplication.translate("MainWindow", "Cancel"))
+            self.run_button.setEnabled(True)
+        else:
+            self.run_button.setText(QCoreApplication.translate("MainWindow", "Run"))
+            self.run_button.setEnabled(self._generation_enabled)
 
     def show_protein_distribution(self, payload: object):
-        dialog = ProteinDistributionDialog(payload, self)
+        dialog = FilterBeadStatsDialog(payload, self, getattr(self, "model", None))
         result = dialog.exec()
         if result == QDialog.DialogCode.Accepted:
             threshold = dialog.selected_threshold()
@@ -459,5 +476,4 @@ class CellIntensityUI(QWidget):
         self.test_crosstalk_button.setText(_translate("MainWindow", "Reduce Crosstalk"))
         self.run_button.setText(_translate("MainWindow", "Run"))
         self.save_button.setText(_translate("MainWindow", "Save"))
-        self.cancel_button.setText(_translate("MainWindow", "Cancel"))
-        self.filtered_stats_button.setText(_translate("MainWindow", "Filtered Bead Stats"))
+        self.filtered_stats_button.setText(_translate("MainWindow", "Filter cells"))

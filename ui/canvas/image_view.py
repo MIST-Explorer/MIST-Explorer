@@ -7,30 +7,12 @@ import numpy as np
 import pyqtgraph as pg
 import tifffile
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import (
-    QBrush,
-    QColor,
-    QCursor,
-    QDragEnterEvent,
-    QDragMoveEvent,
-    QIcon,
-    QImage,
-    QMouseEvent,
-    QPalette,
-    QPainter,
-    QPen,
-    QPixmap,
-)
-from PyQt6.QtWidgets import (
-    QFileDialog,
-    QGraphicsPixmapItem,
-    QGraphicsRectItem,
-    QGraphicsView,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QWidget,
-)
+from PyQt6.QtGui import (QBrush, QColor, QCursor, QDragEnterEvent,
+                         QDragMoveEvent, QIcon, QImage, QMouseEvent, QPainter,
+                         QPalette, QPen, QPixmap)
+from PyQt6.QtWidgets import (QFileDialog, QGraphicsPixmapItem,
+                             QGraphicsRectItem, QGraphicsView, QHBoxLayout,
+                             QLabel, QPushButton, QWidget)
 
 from core.project_naming import is_segmentation_channel
 from ui.canvas.items import CropRectItem, ResizableRect
@@ -146,6 +128,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         self.initial_crop_rect = None
         self.np_channels = None
         self.pixel_highlight = None
+        self.roi_cell_highlight_item = None
         self._last_tooltip_text = None
         self._last_tooltip_pos = None
         self._tooltip_label = None
@@ -204,6 +187,13 @@ class ImageGraphicsViewUI(QGraphicsView):
             self.get_scene().removeItem(pixmap)
         self.view_pixmaps = []
 
+        if self.roi_cell_highlight_item is not None:
+            try:
+                self.get_scene().removeItem(self.roi_cell_highlight_item)
+            except Exception:
+                pass
+            self.roi_cell_highlight_item = None
+
         # Remove and clear rubber bands from scene and tracking lists
         for rb in list(self.rubber_bands):
             scene = rb.scene()
@@ -228,13 +218,26 @@ class ImageGraphicsViewUI(QGraphicsView):
 
         self.select = False
         self.origin = None
+
+    def set_roi_cell_highlight(self, mask_img=None):
+        """Set or clear the ROI cell highlight layer."""
+        if self.roi_cell_highlight_item is not None:
+            try:
+                self.get_scene().removeItem(self.roi_cell_highlight_item)
+            except Exception:
+                pass
+            self.roi_cell_highlight_item = None
+        
+        if mask_img is not None:
+            self.roi_cell_highlight_item = pg.ImageItem(mask_img, levels=None)
+            self.roi_cell_highlight_item.setZValue(3)  # Draw above normal image layers (ZValue 2)
+            self.get_scene().addItem(self.roi_cell_highlight_item)
         self._roi_origin_scene = None
 
         if self.enc.stacked_widget and self.enc.stacked_widget.currentIndex() == 0:
             self.show_images_tab_image()
         else:
             self.show_view_tab_image()
-        self._center_image()
 
     def flip_horizontal(self):
         """Flip the image horizontally"""
@@ -451,7 +454,7 @@ class ImageGraphicsViewUI(QGraphicsView):
         if self.pixmap_item:
             prev_pixmap_shape = self.pixmap_item.boundingRect()
             self.pixmap_item.setPixmap(pixmap)
-            if self.zoom == 1 or self.pixmap_item.boundingRect() != prev_pixmap_shape:
+            if self.pixmap_item.boundingRect() != prev_pixmap_shape:
                 self._center_image()
 
     def update_layer_levels(self, layer_idx, value):
@@ -994,7 +997,30 @@ class ImageGraphicsViewUI(QGraphicsView):
                 global_pos = self.mapToGlobal(event.pos())
 
                 # Get layer values if available
-                if self.enc and self.enc.tool_bar.tabButtonGroup.checkedId() != 0:
+                in_layers_mode = (self.enc and self.enc.tool_bar.tabButtonGroup.checkedId() != 0)
+                if in_layers_mode and self == self.enc.canvas:
+                    # In View/Analyze Tab (layers mode) on the main canvas:
+                    # check if a cell is actually beneath the cursor using reduced_cell_img.
+                    # If not, do not show any tooltip.
+                    has_cell = False
+                    view_tab = self.enc.view_tab
+                    if (
+                        hasattr(view_tab, "reduced_cell_img")
+                        and view_tab.reduced_cell_img is not None
+                        and view_tab.reduced_cell_img.size > 0
+                    ):
+                        h_seg, w_seg = view_tab.reduced_cell_img.shape[:2]
+                        if 0 <= x < w_seg and 0 <= y < h_seg:
+                            if view_tab.reduced_cell_img[y, x] > 0:
+                                has_cell = True
+                    
+                    if not has_cell:
+                        self._hide_tooltip()
+                        self.enc.update_mouse_position_label(f"X: {x}, Y: {y}")
+                        self.highlight_pixel(x, y)
+                        return
+
+                if in_layers_mode:
                     layers = self.enc.view_tab.get_layer_values_at(x, y)
                 else:
                     layers = None

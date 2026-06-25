@@ -307,23 +307,36 @@ class LayerDialog(QDialog):
         self.setGeometry(100, 100, 400, 300)
 
         self.layers = layers
-        my_layout = QHBoxLayout()
-        assert my_layout is not None
+        main_layout = QVBoxLayout()
+
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search proteins...")
+        self.search_bar.textChanged.connect(self.filter_layers)
+        main_layout.addWidget(self.search_bar)
+
+        content_layout = QHBoxLayout()
 
         self.layer_list = QListWidget()
         for i, layer in enumerate(layers):
             item = QListWidgetItem(layer["name"])
             self.layer_list.addItem(item)
-        my_layout.addWidget(self.layer_list)
+        content_layout.addWidget(self.layer_list)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-        my_layout.addWidget(self.buttons)
+        content_layout.addWidget(self.buttons)
 
-        self.setLayout(my_layout)
+        main_layout.addLayout(content_layout)
+        self.setLayout(main_layout)
+
+    def filter_layers(self, text):
+        query = text.lower().strip()
+        for i in range(self.layer_list.count()):
+            item = self.layer_list.item(i)
+            item.setHidden(query not in item.text().lower())
 
     def get_selected_layer_index(self):
         logger.debug(
@@ -358,6 +371,11 @@ class ColorDialog(QDialog):
         self.colors = colors
         my_layout = QVBoxLayout()
 
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search colors...")
+        self.search_bar.textChanged.connect(self.filter_colors)
+        my_layout.addWidget(self.search_bar)
+
         self.color_list = QListWidget()
         for color_name in colors.keys():
             item = QListWidgetItem(color_name)
@@ -372,6 +390,12 @@ class ColorDialog(QDialog):
         my_layout.addWidget(self.buttons)
 
         self.setLayout(my_layout)
+
+    def filter_colors(self, text):
+        query = text.lower().strip()
+        for i in range(self.color_list.count()):
+            item = self.color_list.item(i)
+            item.setHidden(query not in item.text().lower())
 
     def get_selected_color_name(self):
         selected_items = self.color_list.selectedItems()
@@ -652,6 +676,7 @@ class ImageOverlay(QWidget):
             return None
 
         layer_values = []
+        seen_names = set()
         for c in self.controls:
             if not c.current_visibility:
                 continue
@@ -660,10 +685,14 @@ class ImageOverlay(QWidget):
             if c.cell_image.size == 0:
                 continue
 
+            if c.name in seen_names:
+                continue
+
             value = c.cell_image[y, x]
             if hasattr(c, "label_mapping") and c.label_mapping is not None:
                 value = c.label_mapping.get(value, value)
             layer_values.append((c.name, value))
+            seen_names.add(c.name)
 
         return layer_values
 

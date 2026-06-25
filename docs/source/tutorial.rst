@@ -53,7 +53,7 @@ Once you have drawn regions of interest, switch to the Analysis tab to explore t
 
 1. **Select Proteins**: Use the multi-select dropdown to choose which proteins to include. Click **Apply**.
 
-2. **Explore Visualizations**: Step through the available plot types — box plots, z-score heatmaps, spatial heatmaps, pie charts, histograms, and UMAP.
+2. **Explore Visualizations**: Step through the available plot types — box plots, spatial autocorrelation heatmaps, spatial heatmaps, pie charts, histograms, and UMAP.
 
 3. **Compare Regions**: Use the **Back** and **Next** buttons to navigate between your drawn ROIs and compare expression patterns.
 

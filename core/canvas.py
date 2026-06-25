@@ -6,7 +6,6 @@ import logging
 import threading
 import typing
 from collections import deque
-
 # Standard library imports
 from queue import Queue
 from typing import Dict, Optional, OrderedDict, Union
@@ -15,39 +14,22 @@ from uuid import UUID as UUID_Type
 import cv2
 import numpy as np
 import tifffile as tiff
-
 # Third-party imports
 from PIL import Image
-
 # PyQt6 imports
 from PyQt6.QtCore import QObject, QSize, Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QCursor, QDragEnterEvent, QDragMoveEvent, QDropEvent, QPixmap
-from PyQt6.QtWidgets import (
-    QDialog,
-    QGraphicsPixmapItem,
-    QGraphicsScene,
-    QGraphicsView,
-    QHBoxLayout,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtGui import (QCursor, QDragEnterEvent, QDragMoveEvent, QDropEvent,
+                         QPixmap)
+from PyQt6.QtWidgets import (QDialog, QGraphicsPixmapItem, QGraphicsScene,
+                             QGraphicsView, QHBoxLayout, QPushButton,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QWidget)
 from pystackreg.util import to_uint16
 from skimage.color import label2rgb as sk_label2rgb
 
-from core.image_utils import (
-    adjustContrast,
-    auto_contrast_helper,
-    create_lut,
-    generate_lut,
-    label2rgb,
-    numpy_to_qimage,
-    scale_adjust,
-    to_pixmap,
-)
-
+from core.image_utils import (adjustContrast, auto_contrast_helper, create_lut,
+                              generate_lut, label2rgb, numpy_to_qimage,
+                              scale_adjust, to_pixmap)
 # Local/project imports
 from core.metadata_utils import parse_metadata
 from core.project_naming import SEGMENTATION_BASE_NAME, is_segmentation_channel
@@ -652,13 +634,13 @@ class BaseGraphicsView(QWidget):
                     channel_name, channel_data, replace_image_wrapper=False
                 )
         self._store_channel_data(target_channel, target_image_wrapper)
-        # display_channel_data = self._prepare_display_image(
-        #     target_image_wrapper.data, subsample_for_emit, max_display_size
-        # )
+        display_channel_data = self._prepare_display_image(
+            target_image_wrapper.data, subsample_for_emit, max_display_size
+        )
 
         # Emit target channel immediately for display
-        # emit_data = {target_channel: target_image_wrapper.data}
-        # self._update_number_of_channels(emit_data, subsample_for_emit)
+        emit_data = {target_channel: display_channel_data}
+        self._update_number_of_channels(emit_data, subsample_for_emit)
 
         # Process remaining channels in background if there are any
         remaining_channels = {
@@ -1114,6 +1096,7 @@ class ImageGraphicsView(BaseGraphicsView):
         self.overlay_build_started.emit()
         self.update_progress.emit(0, "Building segmentation overlay")
         labels = self.segmentation_labels
+        print(np.info(labels))
         self._overlay_worker = Worker(self._build_stardist_overlay, labels)
         self._overlay_worker.signal.connect(self._on_overlay_built)
         self._overlay_worker.error.connect(self._on_overlay_error)
@@ -1230,10 +1213,7 @@ class ImageGraphicsView(BaseGraphicsView):
             not self.stardist_overlay_enabled
             or self.segmentation_labels is None
             or image_to_display.size == 0
-            or self.image_wrapper.data.ndim != 2
-            or self.segmentation_labels.shape != self.image_wrapper.data.shape
-            or self.stardist_source_channel is None
-            or current_channel_key != self.stardist_source_channel
+            or self.segmentation_labels.shape[:2] != self.image_wrapper.data.shape[:2]
             or current_channel_key == self.stardist_virtual_channel
         ):
             return image_to_display

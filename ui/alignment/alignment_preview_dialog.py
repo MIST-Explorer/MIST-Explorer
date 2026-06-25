@@ -419,6 +419,7 @@ class AlignmentPreviewDialog(AlignmentViewDialog):
                 factor = target_zoom / self.image_view._current_zoom
                 self.image_view.scale(factor, factor)
                 self.image_view._current_zoom = target_zoom
+            self.image_view._is_fitted = False
 
     # ------------------------------------------------------------------
     # Landmark controls

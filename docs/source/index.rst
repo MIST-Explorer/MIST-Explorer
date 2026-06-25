@@ -12,7 +12,7 @@ Key Features
 ------------
 - **Extract Tab**: Crop, rotate, flip, register and align images. Segment cells with StarDist or CellProfiler, then quantify per-cell protein intensities.
 - **View Tab**: Visualize multi-channel protein expression data as layered overlays with independent opacity, contrast, and color tinting per channel. Export to PNG or multi-channel TIFF.
-- **Analysis Tab**: Draw regions of interest (rectangle, circle, polygon) and generate box plots, z-score heatmaps, spatial heatmaps, pie charts, histograms, and UMAP projections.
+- **Analysis Tab**: Draw regions of interest (rectangle, circle, polygon) and generate box plots, spatial autocorrelation heatmaps, spatial heatmaps, pie charts, histograms, and UMAP projections.
 
 Requirements
 ------------

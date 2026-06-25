@@ -114,6 +114,8 @@ class ZoomableImageView(QGraphicsView):
         self._max_zoom = 150.0
         self._min_zoom = 0.1
         self._current_zoom = 1.0
+        self._is_fitted = True
+        self._is_fitting = False
 
     def set_images(self, target_pixmap: QPixmap, moving_pixmap: QPixmap):
         self.target_item.setPixmap(target_pixmap)
@@ -121,17 +123,34 @@ class ZoomableImageView(QGraphicsView):
         QTimer.singleShot(0, self.reset_zoom)
 
     def reset_zoom(self):
-        self.get_scene().setSceneRect(self.get_scene().itemsBoundingRect())
-        self.fitInView(self.target_item, Qt.AspectRatioMode.KeepAspectRatio)
-        self.centerOn(self.target_item)
-        self._current_zoom = 1.0
+        self._is_fitting = True
+        try:
+            self.get_scene().setSceneRect(self.get_scene().itemsBoundingRect())
+            self.fitInView(self.target_item, Qt.AspectRatioMode.KeepAspectRatio)
+            self.centerOn(self.target_item)
+            self._current_zoom = 1.0
+            self._is_fitted = True
+        finally:
+            self._is_fitting = False
 
     def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if self.target_item and not self.target_item.pixmap().isNull():
-            self.fitInView(self.target_item, Qt.AspectRatioMode.KeepAspectRatio)
-            if self._current_zoom != 1.0:
-                self.scale(self._current_zoom, self._current_zoom)
+        if getattr(self, "_is_fitted", True):
+            self._is_fitting = True
+            try:
+                super().resizeEvent(event)
+                if self.target_item and not self.target_item.pixmap().isNull():
+                    self.fitInView(self.target_item, Qt.AspectRatioMode.KeepAspectRatio)
+                    self._current_zoom = 1.0
+            finally:
+                self._is_fitting = False
+        else:
+            super().resizeEvent(event)
+
+    def scrollContentsBy(self, dx: int, dy: int):
+        super().scrollContentsBy(dx, dy)
+        if not getattr(self, "_is_fitting", False):
+            if dx != 0 or dy != 0:
+                self._is_fitted = False
 
     def get_scene(self):
         s = self.scene()
@@ -155,6 +174,7 @@ class ZoomableImageView(QGraphicsView):
             new_zoom = 0.1
         self._current_zoom = new_zoom
         self.scale(zoom_factor, zoom_factor)
+        self._is_fitted = False
 
     def mousePressEvent(self, event):
         if (

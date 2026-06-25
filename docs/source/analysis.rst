@@ -66,10 +66,11 @@ Shows the distribution of expression levels for each selected protein within the
 * Whiskers: 1.5× IQR
 * Points: outliers beyond the whiskers
 
-Z-Score Heatmap
-^^^^^^^^^^^^^^^
+Spatial Autocorrelation
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Displays standardized expression values across proteins and cells. Each value is the number of standard deviations from the protein's mean across all cells in the ROI. Useful for identifying proteins with unusually high or low relative expression.
+Displays a clustered heatmap of protein-protein spatial correlation using the bivariate Moran's I method. This is a spatial statistical measure used to evaluate spatial autocorrelation. Unlike standard clustering methods that group data based only on attribute similarity (e.g., K-Means), Moran's I determines whether similar values are geographically clustered, dispersed, or randomly distributed by accounting for both a feature's value and its location.
+
 
 Spatial Heatmap
 ^^^^^^^^^^^^^^^

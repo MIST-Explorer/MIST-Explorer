@@ -126,3 +126,16 @@ def test_accept_alignment(dialog, qtbot):
 def test_key_press_event(dialog, qtbot):
     qtbot.keyClick(dialog, Qt.Key.Key_Left)
     assert dialog.offset_x == -1
+
+
+def test_fitted_state_tracking(dialog):
+    view = dialog.image_view
+    assert view._is_fitted is True
+
+    # Scrolling/panning shifts it to False
+    view.scrollContentsBy(5, 5)
+    assert view._is_fitted is False
+
+    # Resetting zoom restores it to True
+    view.reset_zoom()
+    assert view._is_fitted is True
